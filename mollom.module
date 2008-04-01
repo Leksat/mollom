@@ -159,19 +159,18 @@ function mollom_set_data($session, $quality, $did) {
 function _mollom_feedback_options() {
 
   return array(
-    '#type' => 'radios', 
-    '#title' => t('Optionally report this to Mollom'), 
-    '#required' => TRUE,
+    '#type' => 'radios',
+    '#title' => t('Optionally report this to Mollom'),
     '#options' => array(
-       'none' => t("Don't send feedback to Mollom"),
-       'spam' => t('Report as spam or unsolicited advertising'),
-       'profanity' => t('Report as obscene, violent or profane content'),
-       'low-quality' => t('Report as low-quality content or writing'),
-       'unwanted' => t('Report as unwanted, taunting or off-topic content'),
-      ),
+      'none' => t("Don't send feedback to Mollom"),
+      'spam' => t('Report as spam or unsolicited advertising'),
+      'profanity' => t('Report as obscene, violent or profane content'),
+      'low-quality' => t('Report as low-quality content or writing'),
+      'unwanted' => t('Report as unwanted, taunting or off-topic content'),
+  ),
     '#default_value' => 'none',
-    '#description' => t("Mollom is a webservice that helps you moderate your site's content: see <a href=\"http://mollom.com\">http://mollom.com</a> for more information.  By sending feedback to Mollom, you teach Mollom what content you like and what content you dislike.  From that data, Mollom can do a better job."),
-    );
+    '#description' => t("Mollom is a webservice that helps you moderate your site's content: see <a href=\"http://mollom.com\">http://mollom.com</a> for more information.  By sending feedback to Mollom, you teach Mollom what content you like and what content you dislike.  Like that, Mollom can do a better job helping you to moderate your site's content."),
+  );
 
 }
 
