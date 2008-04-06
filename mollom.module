@@ -319,7 +319,7 @@ function mollom_form_alter($form_id, &$form) {
   // with Mollom.  Site administrators don't have their content
   // checked with Mollom.
   if (!user_access('post with no checking')) {
-    $form['#pre_render'] = array('mollom_captcha_prerender');
+    $form['#pre_render'][] = 'mollom_captcha_prerender';
     $form['#validate']['mollom_validate'] = array();
   }
 
