@@ -261,7 +261,7 @@ function mollom_report_node_submit($form_id, $form_values) {
  */ 
 function mollom_mail_alter($key, $to, $subject, &$body, $from, $headers) {
   $response = $GLOBALS['mollom_response'];
-  if ($key == 'contact-page-mail' && isset($response) && isset($response['session_id'])) {
+  if (isset($response) && isset($response['session_id'])) {
     $body .= "\n\n". t('Report as inappropriate: @link', array('@link' => url('mollom/contact/'. $response['session_id'], NULL, NULL, TRUE)));
   }
 }
