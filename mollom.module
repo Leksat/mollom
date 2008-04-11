@@ -766,9 +766,13 @@ function mollom_protect_form_captcha(&$form, $data) {
 
         if (!$result) {  
           form_set_error('captcha', t('The entered CAPTCHA solution is not correct. We generated a new CAPTCHA so please try again.'));
-          
+          watchdog('mollom', 'Incorrect CAPTCHA');
+ 
           // Generate a new CAPTCHA:
           $GLOBALS['mollom_captcha'] = mollom('mollom.getImageCaptcha', array('author_ip' => _mollom_ip_address()));
+        }
+        else {
+          watchdog('mollom', 'Correct CAPTCHA');
         }
       }
       else {
