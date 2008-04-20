@@ -419,6 +419,8 @@ function mollom_node_admin_overview_submit($form_id, $form_values) {
  * XML-RPC data from the comment submission form's $form_values ...
  */
 function mollom_data_contact_mail_page($form_values) {
+  global $user;
+
   $data = array(
       'post_title'  => $form_values['subject'],
       'post_body'   => $form_values['message'],
@@ -435,7 +437,7 @@ function mollom_data_contact_mail_page($form_values) {
  * XML-RPC data from the comment submission form's $form_values ...
  */
 function mollom_data_contact_mail_user($form_values) {
-  global $base_url, $user;
+  global $user;
 
   $data = array(
       'post_title'  => $form_values['subject'],
@@ -731,6 +733,7 @@ function mollom_protect_form_analysis(&$form, $data) {
           if (is_bool($result)) {
             if ($result) { 
               $GLOBALS['mollom_response']['spam'] = MOLLOM_ANALYSIS_HAM;
+              $GLOBALS['mollom_response']['session_id'] = $_POST['session-id'];
               watchdog('mollom', t('Correct CAPTCHA: %message', array('%message' => $data['post_body'])));
             }
             else {
