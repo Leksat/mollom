@@ -857,17 +857,17 @@ function mollom_captcha_prerender($form_id, &$form) {
 function _mollom_verify_key() {
   $status = mollom('mollom.verifyKey');
 
-  $message = 'We contacted the Mollom servers to verify your keys';
+  $message = t('We contacted the Mollom servers to verify your keys');
 
   if (xmlrpc_errno()) {
-    drupal_set_message(t("$message: %error (ERROR)", array('%error' => xmlrpc_error_msg())), 'error');
+    drupal_set_message(t('@message: %error (ERROR)', array('@message' => $message, '%error' => xmlrpc_error_msg())), 'error');
   }
   else {
     if ($status) {
-      drupal_set_message(t("$message: the Mollom services are operating correctly. We are now blocking spam."));
+      drupal_set_message(t('@message: the Mollom services are operating correctly. We are now blocking spam.', array('@message' => $message)));
     }
     else {
-      drupal_set_message(t("$message: your keys do not exist or are no longer valid. Please visit the user settings page on the Mollom website again: <a href=\"http://mollom.com/user\">http://mollom.com/user</a>."), 'error');
+      drupal_set_message(t('@message: your keys do not exist or are no longer valid. Please visit the user settings page on the Mollom website again: <a href="@mollom-user">@mollom-user</a>.', array('@message' => $message, '@mollom-user' => 'http://mollom.com/user')), 'error');
     }
   }
 }
