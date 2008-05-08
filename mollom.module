@@ -426,6 +426,7 @@ function mollom_data_contact_mail_page($form_values) {
       'post_body'   => $form_values['message'],
       'author_name' => $form_values['name'] ? $form_values['name'] : $user->name,
       'author_mail' => $form_values['mail'] ? $form_values['mail'] : $user->mail,
+      'author_id'   => $user->uid > 0 ? $user->uid : NULL,
       'author_ip'   => _mollom_ip_address(),
       );
   
@@ -444,6 +445,7 @@ function mollom_data_contact_mail_user($form_values) {
       'post_body'   => $form_values['message'],
       'author_name' => $form_values['name'] ? $form_values['name'] : $user->name,
       'author_mail' => $form_values['mail'] ? $form_values['mail'] : $user->mail,
+      'author_id'   => $user->uid > 0 ? $user->uid : NULL,
       'author_ip'   => _mollom_ip_address(),
       );
   
@@ -463,6 +465,7 @@ function mollom_data_comment_form($form_values) {
       'author_name' => $form_values['name'] ? $form_values['name'] : $user->name,
       'author_mail' => $form_values['mail'] ? $form_values['mail'] : $user->mail,
       'author_url'  => $form_values['homepage'],
+      'author_id'   => $user->uid > 0 ? $user->uid : NULL,
       'author_ip'   => $form_values['cid'] ? '' : _mollom_ip_address(),
       );
 
@@ -487,6 +490,7 @@ function mollom_data_node_form($form_values) {
       'author_name' => $form_values['name'] ? $form_values['name'] : $user->name,
       'author_mail' => $form_values['mail'] ? $form_values['mail'] : $user->mail,
       'author_url'  => $form_values['homepage'],
+      'author_id'   => $user->uid > 0 ? $user->uid : NULL,
       'author_ip'   => $form_values['nid'] ? '' : _mollom_ip_address(),
       );
 
