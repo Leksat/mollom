@@ -326,16 +326,16 @@ function mollom_form_alter($form_id, &$form) {
   // Hook into the mass comment administration page and add some
   // operations to communicate ham/spam to the XML-RPC server.
   if ($form_id == 'comment_admin_overview') {
-    $form['options']['operation']['#options']['mollom-unpublish'] = t('Report the selected comments as spam and unpublish them');
-    $form['options']['operation']['#options']['mollom-delete'] = t('Report the selected comments as spam and delete them');
+    $form['options']['operation']['#options']['mollom-unpublish'] = t('Report to Mollom as spam and unpublish');
+    $form['options']['operation']['#options']['mollom-delete'] = t('Report to Mollom as spam and delete');
     $form['#validate']['mollom_comment_admin_overview_submit'] = array();
   }
 
   // Hook into the mass comment administration page and add some
   // operations to communicate ham/spam to the XML-RPC server.
   if ($form_id == 'node_admin_nodes') {
-    $form['options']['operation']['#options']['mollom-unpublish'] = t('Report as spam and unpublish');
-    $form['options']['operation']['#options']['mollom-delete'] = t('Report as spam and delete');
+    $form['options']['operation']['#options']['mollom-unpublish'] = t('Report to Mollom as spam and unpublish');
+    $form['options']['operation']['#options']['mollom-delete'] = t('Report to Mollom as spam and delete');
     $form['#validate']['mollom_node_admin_overview_submit'] = array();
   }
 }
