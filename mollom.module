@@ -711,7 +711,7 @@ function _mollom_fallback() {
 }
 
 function mollom_protect_form_analysis(&$form, $data) {
-  if ($form['op']) {
+  if (isset($_POST['op'])) {
     $mollom = $_POST['session-id'] ? array('session_id' => $_POST['session-id']) : array();
 
     $result = mollom('mollom.checkContent', $data + $mollom);
