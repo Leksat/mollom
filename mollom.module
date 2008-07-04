@@ -874,15 +874,8 @@ function _mollom_verify_key() {
   }
 }
 
-// FIXME: this function can be removed in Drupal 6.
 function _mollom_ip_address() {
-  $ip_address = $_SERVER['REMOTE_ADDR'];
-  if (array_key_exists('HTTP_X_FORWARDED_FOR', $_SERVER)) {
-    // If there are several arguments, we need to check the most
-    // recently added one, ie the last one.
-    $ip_address = array_pop(explode(',', $_SERVER['HTTP_X_FORWARDED_FOR']));
-  }
-  return $ip_address;
+  return $_SERVER['REMOTE_ADDR'];
 }
  
 /**
