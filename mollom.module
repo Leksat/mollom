@@ -711,51 +711,49 @@ function _mollom_fallback() {
 }
 
 function mollom_protect_form_analysis(&$form, $data) {
-  if (isset($_POST)) {
-    $mollom = $_POST['session-id'] ? array('session_id' => $_POST['session-id']) : array();
+  $mollom = $_POST['session-id'] ? array('session_id' => $_POST['session-id']) : array();
 
-    $result = mollom('mollom.checkContent', $data + $mollom);
+  $result = mollom('mollom.checkContent', $data + $mollom);
 
-    if (isset($result['spam'])) {
-      // We make the response available to other form API handlers:
-      $GLOBALS['mollom_response'] = $result;
+  if (isset($result['spam'])) {
+    // We make the response available to other form API handlers:
+    $GLOBALS['mollom_response'] = $result;
 
-      if ($result['spam'] == MOLLOM_ANALYSIS_HAM) {
-        watchdog('mollom', t('Ham: %message', array('%message' => $data['post_body'])));
-      }
-      else if ($result['spam'] == MOLLOM_ANALYSIS_SPAM) {
-        form_set_error('analysis', t('Your submission has triggered the installed spam filter and will not be accepted.'));
-        watchdog('mollom', t('Spam: %message', array('%message' => $data['post_body'])));
-      }
-      else {
-        if ($_POST['captcha-solution']) {
-          // Check the CAPTCHA result:
-          $result = mollom('mollom.checkCaptcha', $data + array('session_id' => $_POST['session-id'], 'solution' => $_POST['captcha-solution'], 'author_ip' => _mollom_ip_address()));
+    if ($result['spam'] == MOLLOM_ANALYSIS_HAM) {
+      watchdog('mollom', t('Ham: %message', array('%message' => $data['post_body'])));
+    }
+    else if ($result['spam'] == MOLLOM_ANALYSIS_SPAM) {
+      form_set_error('analysis', t('Your submission has triggered the installed spam filter and will not be accepted.'));
+      watchdog('mollom', t('Spam: %message', array('%message' => $data['post_body'])));
+    }
+    else {
+      if ($_POST['captcha-solution']) {
+        // Check the CAPTCHA result:
+        $result = mollom('mollom.checkCaptcha', $data + array('session_id' => $_POST['session-id'], 'solution' => $_POST['captcha-solution'], 'author_ip' => _mollom_ip_address()));
 
-          if (is_bool($result)) {
-            if ($result) { 
-              $GLOBALS['mollom_response']['spam'] = MOLLOM_ANALYSIS_HAM;
-              $GLOBALS['mollom_response']['session_id'] = $_POST['session-id'];
-              watchdog('mollom', t('Correct CAPTCHA: %message', array('%message' => $data['post_body'])));
-            }
-            else {
-              form_set_error('captcha', t('The entered CAPTCHA solution is not correct. We generated a new CAPTCHA so please try again.'));
-              watchdog('mollom', t('Incorrect CAPTCHA: %message', array('%message' => $data['post_body'])));
-            }
+        if (is_bool($result)) {
+          if ($result) { 
+            $GLOBALS['mollom_response']['spam'] = MOLLOM_ANALYSIS_HAM;
+            $GLOBALS['mollom_response']['session_id'] = $_POST['session-id'];
+            watchdog('mollom', t('Correct CAPTCHA: %message', array('%message' => $data['post_body'])));
           }
           else {
-            _mollom_fallback();
+            form_set_error('captcha', t('The entered CAPTCHA solution is not correct. We generated a new CAPTCHA so please try again.'));
+            watchdog('mollom', t('Incorrect CAPTCHA: %message', array('%message' => $data['post_body'])));
           }
         }
         else {
-          form_set_error('analysis', t('We are sorry, but the spam filter on this site decided that your submission could be spam. Please fill in the CAPTCHA below to get your submission accepted.'));
-          watchdog('mollom', t('Unsure: %message', array('%message' => $data['post_body'])));
-        }         
+          _mollom_fallback();
+        }
       }
+      else {
+        form_set_error('analysis', t('We are sorry, but the spam filter on this site decided that your submission could be spam. Please fill in the CAPTCHA below to get your submission accepted.'));
+        watchdog('mollom', t('Unsure: %message', array('%message' => $data['post_body'])));
+      }         
     }
-    else {
-      _mollom_fallback();
-    }
+  }
+  else {
+    _mollom_fallback();
   }
 }
 
