@@ -506,6 +506,14 @@ function mollom_data_node_form($form_values) {
 function mollom_validate($form_id, $form_values) {
   $data = array();
 
+  // Retrieve the mode of protection that is required for this form:
+  $mode = _mollom_get_mode($form_id);
+
+  // Don't process the form at all if we don't need to.
+  if ($mode == MOLLOM_MODE_DISABLED) {
+    return;
+  }
+
   $pos = strpos($form_id, '_node_form');
   if ($pos !== FALSE) {
     // The node forms use dynamic form IDs so we had to create a special
@@ -519,8 +527,7 @@ function mollom_validate($form_id, $form_values) {
     }
   }
 
-  // Retreive the mode of protection that is required for this form:
-  $mode = _mollom_get_mode($form_id);
+  // Protect the form according to the mode.
   if ($mode == MOLLOM_MODE_ANALYSIS) {
     mollom_protect_form_analysis($form_values, $data);
   }
