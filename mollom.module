@@ -797,6 +797,8 @@ function mollom_protect_form_captcha(&$form, $data) {
     }
   }
   else {
+    form_set_error('captcha', t('The form data has been altered, the session-id field is required.'));
+
     // Generate a new CAPTCHA:
     $GLOBALS['mollom_captcha'] = mollom('mollom.getImageCaptcha', array('author_ip' => _mollom_ip_address()));
   }
