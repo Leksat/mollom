@@ -113,10 +113,7 @@ function mollom_ajax_callback($type, $session_id) {
     $response = mollom('mollom.getAudioCaptcha', array('author_ip' => _mollom_ip_address(), 'session_id' => $session_id));
 
     if ($response) {
-      $output  = '<object type="audio/mpeg" data="'. check_plain($response['url']) .'" width="120" height="30">';
-      $output .= ' <param name="autoplay" value="false" />';
-      $output .= ' <param name="controller" value="true" />';
-      $output .= '</object>';
+      $output  = '<embed src="'. check_plain($response['url']) .'" autostart="true" width="120" height="30" />';
       $output .= ' (<a href="#" id="image-captcha">'. t('use image CAPTCHA') .'</a>)';
     }
   }
