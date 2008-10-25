@@ -842,12 +842,12 @@ function mollom_captcha_prerender($form_id, &$form) {
           '#name' => 'captcha-solution',
           '#id' => 'edit-captcha-solution',
           '#parents' => array(),
-          '#title' => t('CAPTCHA'),
-          '#prefix' => '<div id="captcha"><a href="http://mollom.com"><img src="'. url($response['url']) .'" alt="Mollom CAPTCHA" /></a> (<a href="#" id="audio-captcha">play audio CAPTCHA</a>)</div>',
+          '#title' => t('Word verification'),
+          '#field_prefix' => '<div id="captcha"><a href="http://mollom.com"><img src="'. url($response['url']) .'" alt="Mollom CAPTCHA" /></a> (<a href="#" id="audio-captcha">play audio CAPTCHA</a>)</div>',
           '#required' => TRUE,
           '#size' => 10,
           '#value' => $form['#post']['captcha'],
-          '#description' => t("Type in the characters shown in the above; if you can't read them, submit the form and a new image will be generated."),
+          '#description' => t("Type the characters shown in the picture above; if you can't read them, submit the form and a new image will be generated."),
           '#weight' => min($form['submit']['#weight'], $form['preview']['#weight']) + 1);
 
       // Move the preview and/or submit button below the captcha:
@@ -896,7 +896,10 @@ function _mollom_retrieve_server_list() {
       return $result;
     }
     else {
-      watchdog('mollom', 'Error @errno: %server - %message - mollom.getServerList', array('@errno' => xmlrpc_errno(), '%server' => $server, '%message' => xmlrpc_error_msg()), WATCHDOG_ERROR);
+      watchdog('mollom', t('Error @errno: %server - %message - mollom.getServerList', array('@errno' => xmlrpc_errno(), '%server' => $server, '%message' => xmlrpc_error_msg()), WATCHDOG_ERROR));
+      
+      // Reset the XMLRPC error:
+      xmlrpc_error(0);  // FIXME: this is crazy.
     }
   }
 
@@ -909,6 +912,8 @@ function _mollom_retrieve_server_list() {
  * Mollom.
  */
 function mollom($method, $data = array()) {
+  // Initialize refresh variable:
+  $refresh = FALSE;
   
   // Retrieve the list of Mollom servers from the database:
   $servers = variable_get('mollom_servers', NULL);
@@ -922,40 +927,53 @@ function mollom($method, $data = array()) {
   }
 
   if (is_array($servers)) { 
-    // Send the request to the first server, if that fails, try the other servers in the list:
-    foreach ($servers as $server) {
+    reset($servers);
+    while ($server = current($servers)) {
       $result = xmlrpc($server .'/'. MOLLOM_API_VERSION, $method, $data + _mollom_authentication());
 
       if ($errno = xmlrpc_errno()) {
         if ($errno == MOLLOM_REFRESH) {
-          // Retrieve a list of valid Mollom servers from mollom.com:
-          $servers = _mollom_retrieve_server_list();
+          if (!$refresh) { // Safety pal to avoid endless loops
+            // Retrieve a list of valid Mollom servers from mollom.com:
+            $servers = _mollom_retrieve_server_list();
 
-          // Store the updated list of servers in the database:
-          variable_set('mollom_servers', $servers);
+            // Reset the list of servers so we start from the first server in the list:
+            reset($servers);
 
-          // Log this for debuging purposes:
-          watchdog('mollom', t('The list of available Mollom servers was set to @servers.', array('@servers' => print_r($servers, TRUE))));
+            // Store the updated list of servers in the database:
+            variable_set('mollom_servers', $servers);
+
+            // Log this for debuging purposes:
+            watchdog('mollom', t('The list of available Mollom servers was refreshed: @servers.', array('@servers' => print_r($servers, TRUE))));
+
+            // Mark that we have refreshed the list:
+            $refresh = TRUE;
+          }
         }
         elseif ($errno == MOLLOM_REDIRECT) {
+          // If this is a network error, we go to the next server in the list.
+          $next = next($servers);
+
           // Do nothing, we automatically select the next server.
-          watchdog('mollom', t('Mollom asked to use the next server in the server list.'));
+          watchdog('mollom', t('The Mollom server %server asked to use the next Mollom server in the list: %next.', array('%server' => $server, '%next' => $next)));
         }
         else {
-          watchdog('mollom', t('Error @errno: %server - %message - %method - <pre>@data</pre>', array('@errno' => xmlrpc_errno(), '%server' => $server, '%message' => xmlrpc_error_msg(), '%method' => $method, '@data' => print_r($data, TRUE))), WATCHDOG_ERROR);
+          watchdog('mollom', t('Error @errno from %server: %message - %method - <pre>@data</pre>', array('@errno' => xmlrpc_errno(), '%server' => $server, '%message' => xmlrpc_error_msg(), '%method' => $method, '@data' => print_r($data, TRUE)), WATCHDOG_ERROR));
 
-          // If it is a 'clean' Mollom error we return instantly.  If this is a network error,
-          // we do nothing so we automatically move on to the next server in the list.
+          // If it is a 'clean' Mollom error we return instantly.
           if ($errno == MOLLOM_ERROR) {
             return $result;
           }
+
+          // If this is a network error, we go to the next server in the list.
+          next($servers);
         }
 
         // Reset the XMLRPC error:
         xmlrpc_error(0);  // FIXME: this is crazy.
       }
       else {
-        return $result; 
+        return $result;
       }
     }
   }
