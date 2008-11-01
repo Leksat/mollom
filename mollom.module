@@ -843,7 +843,7 @@ function mollom_captcha_prerender($form_id, &$form) {
           '#id' => 'edit-captcha-solution',
           '#parents' => array(),
           '#title' => t('Word verification'),
-          '#field_prefix' => '<div id="captcha"><a href="http://mollom.com"><img src="'. url($response['url']) .'" alt="Mollom CAPTCHA" /></a> (<a href="#" id="audio-captcha">play audio CAPTCHA</a>)</div>',
+          '#field_prefix' => '<div id="captcha"><a href="http://mollom.com"><img src="'. url($response['url']) .'" alt="Mollom CAPTCHA" /></a> (<a href="#" id="audio-captcha">'. t('play audio CAPTCHA') .'</a>)</div>',
           '#required' => TRUE,
           '#size' => 10,
           '#value' => $form['#post']['captcha'],
