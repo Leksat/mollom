@@ -76,7 +76,7 @@ function mollom_menu($may_cache) {
         'type' => MENU_CALLBACK);
     $items[] = array(
         'path' => 'admin/settings/mollom',
-        'description' => t('Mollom is a webservice that helps you manage your community.'),
+        'description' => t('Mollom is a web service that helps you manage your community.'),
         'title' => t('Mollom'),
         'callback' => 'drupal_get_form',
         'callback arguments' => array('mollom_admin_settings'),
@@ -166,7 +166,7 @@ function _mollom_feedback_options() {
       'unwanted' => t('Report as unwanted, taunting or off-topic content'),
   ),
     '#default_value' => 'none',
-    '#description' => t("Mollom is a webservice that helps you moderate your site's content: see <a href=\"http://mollom.com\">http://mollom.com</a> for more information.  By sending feedback to Mollom, you teach Mollom what content you like and what content you dislike.  Like that, Mollom can do a better job helping you to moderate your site's content."),
+    '#description' => t("Mollom is a web service that helps you moderate your site's content: see <a href=\"http://mollom.com\">http://mollom.com</a> for more information.  By sending feedback to Mollom, you teach Mollom what content you like and what content you dislike.  Like that, Mollom can do a better job helping you to moderate your site's content. If you want to report multiple posts at once, you can use Mollom's bulk operations on the content and comment administration pages."),
   );
 
 }
