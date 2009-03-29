@@ -80,7 +80,7 @@ function mollom_menu($may_cache) {
         'title' => t('Mollom'),
         'callback' => 'drupal_get_form',
         'callback arguments' => array('mollom_admin_settings'),
-        'access' => user_access('administer site configuration'),
+        'access' => user_access('administer mollom'),
         'type' => MENU_NORMAL_ITEM
         );
     
@@ -100,7 +100,10 @@ function mollom_menu($may_cache) {
  * Implementation of hook_perm().
  */
 function mollom_perm() {
-  return array('post with no checking');
+  return array(
+    'administer mollom',
+    'post with no checking',
+  );
 }
 
 /**
