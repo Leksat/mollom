@@ -153,14 +153,14 @@ function mollom_ajax_callback($type, $session_id) {
  * Helper function used to load a Mollom session ID.
  */
 function mollom_get_data($did) {
-  return db_fetch_object(db_query("SELECT * FROM {mollom} WHERE did = '%s'", $did));
+  return db_fetch_object(db_query_range("SELECT * FROM {mollom} WHERE did = '%s'", $did, 0, 1));
 }
 
 /**
  * Helper function used to store a Mollom session ID.
  */
 function mollom_set_data($session, $quality, $did) {
-  if (db_result(db_query("SELECT session FROM {mollom} WHERE did = '%s'", $did))) {
+  if (db_result(db_query_range("SELECT 1 FROM {mollom} WHERE did = '%s'", $did, 0, 1))) {
     db_query("UPDATE {mollom} SET session = '%s', quality = '%s' WHERE did = '%s'", $session, $quality, $did);
   }
   else {
@@ -410,7 +410,7 @@ function mollom_node_admin_overview_submit($form_id, $form_values) {
 
         if ($node = node_load($nid)) {
           if ($operation == 'unpublish') {
-            db_query('UPDATE {node} SET status = 0 WHERE nid = %d', $nid);
+            db_query("UPDATE {node} SET status = 0 WHERE nid = %d", $nid);
           }
           elseif ($operation == 'delete') {
             node_delete($nid);
