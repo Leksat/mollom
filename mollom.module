@@ -268,12 +268,17 @@ function mollom_report_node_submit($form_id, $form_values) {
 }
 
 /**
+ * Implementation of hook_mail_alter().
+ *
  * This function adds a 'report as inappropriate' link to the e-mails that are sent
  * by the contact module.
  */
-function mollom_mail_alter($key, $to, $subject, &$body, $from, $headers) {
+function mollom_mail_alter($mailkey, $to, $subject, &$body, $from, $headers) {
+  // Only attach the Mollom report link to mails sent by actual users and not
+  // any mails sent by Drupal since they should never be reported as spam.
+  $valid_keys = array('contact-page-mail', 'contact-page-copy', 'contact-user-mail', 'contact-user-copy');
   $response = $GLOBALS['mollom_response'];
-  if (isset($response) && isset($response['session_id'])) {
+  if (isset($response['session_id']) && in_array($mailkey, $valid_keys)) {
     $body .= "\n\n". t('Report as inappropriate: @link', array('@link' => url('mollom/contact/'. $response['session_id'], NULL, NULL, TRUE)));
   }
 }
