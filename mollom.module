@@ -41,18 +41,20 @@ function mollom_help($section) {
 function mollom_link($type, $object = NULL, $teaser = NULL) {
   $links = array();
 
-  // We extend the comment links so people can send feedback:
-  if ($type == 'comment' && user_access('administer comments') && _mollom_get_mode('comment_form')) {
-    $links['comment_delete'] = array(
-      'title' => t('delete'),
-      'href' => "mollom/comment/$object->cid",
-    );
-  }
-  elseif ($type == 'node' && user_access('administer nodes') && _mollom_get_mode($object->type .'_node_form')) {
-    $links['node_spam'] = array(
-      'title' => t('delete'),
-      'href' => "mollom/node/$object->nid",
-    );
+  // Only show the links if the module is configured.
+  if (variable_get('mollom_public_key', '') && variable_get('mollom_private_key', '')) {
+    if ($type == 'comment' && user_access('administer comments') && _mollom_get_mode('comment_form')) {
+      $links['mollom_comment_report'] = array(
+        'title' => t('Report to Mollom'),
+        'href' => 'mollom/comment/'. $object->cid,
+      );
+    }
+    elseif ($type == 'node' && user_access('administer nodes') && _mollom_get_mode($object->type .'_node_form')) {
+      $links['mollom_node_report'] = array(
+        'title' => t('Report to Mollom'),
+        'href' => 'mollom/node/'. $object->nid,
+      );
+    }
   }
 
   return $links;
@@ -83,7 +85,7 @@ function mollom_menu($may_cache) {
     );
     $items[] = array(
       'path' => 'mollom/contact',
-      'title' => t('Report and delete'),
+      'title' => t('Report'),
       'callback' => 'drupal_get_form',
       'callback arguments' => array('mollom_report_contact'),
       'access' => TRUE, // Everyone can report contact form feedback
@@ -125,20 +127,16 @@ function mollom_perm() {
  * An AJAX callback to retrieve a CAPTCHA.
  */
 function mollom_ajax_callback($type, $session_id) {
-  // TODO: add error handling
-
   if ($type == 'audio') {
     $response = mollom('mollom.getAudioCaptcha', array('author_ip' => _mollom_ip_address(), 'session_id' => $session_id));
-
     if ($response) {
-      $output  = '<embed src="'. check_plain($response['url']) .'" autostart="true" width="120" height="30" />';
+      $output = '<embed src="'. check_plain($response['url']) .'" autostart="true" width="120" height="30" />';
       $output .= ' (<a href="#" id="image-captcha">'. t('use image CAPTCHA') .'</a>)';
     }
   }
 
   if ($type == 'image') {
     $response = mollom('mollom.getImageCaptcha', array('author_ip' => _mollom_ip_address(), 'session_id' => $session_id));
-
     if ($response) {
       $output = '<a href="http://mollom.com"><img src="'. check_plain(url($response['url'])) .'" alt="Mollom CAPTCHA" /></a>';
       $output .= ' (<a href="#" id="audio-captcha">'. t('play audio CAPTCHA') .'</a>)';
