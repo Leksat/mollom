@@ -997,7 +997,7 @@ function mollom($method, $data = array()) {
   _mollom_fallback();
 
   // If everything failed, we reset the server list to force Mollom to request a new list:
-  variable_set('mollom_servers', array());
+  variable_del('mollom_servers');
 
   // Report this error:
   watchdog('mollom', t('No Mollom servers could be reached or all servers returned an error -- the server list was emptied.'), WATCHDOG_ERROR);
