@@ -722,11 +722,12 @@ function mollom_protect_form_analysis(&$form, $data) {
     $GLOBALS['mollom_response'] = $result;
 
     if ($result['spam'] == MOLLOM_ANALYSIS_HAM) {
-      watchdog('mollom', t('Ham: %message', array('%message' => $data['post_body'])));
+      watchdog('mollom', t('Ham: %message<br />Data: <pre>@data</pre>Result: <pre>@result</pre>', array('%message' => $data['post_body'], '@data' => print_r($data, TRUE), '@result' => print_r($result, TRUE))));
+      print_r($data);
     }
     else if ($result['spam'] == MOLLOM_ANALYSIS_SPAM) {
       form_set_error('analysis', t('Your submission has triggered the installed spam filter and will not be accepted.'));
-      watchdog('mollom', t('Spam: %message', array('%message' => $data['post_body'])));
+      watchdog('mollom', t('Spam: %message<br />Data: <pre>@data</pre>Result: <pre>@result</pre>', array('%message' => $data['post_body'], '@data' => print_r($data, TRUE), '@result' => print_r($result, TRUE))));
     }
     else {
       if ($_POST['captcha-solution']) {
@@ -737,11 +738,11 @@ function mollom_protect_form_analysis(&$form, $data) {
           if ($result) {
             $GLOBALS['mollom_response']['spam'] = MOLLOM_ANALYSIS_HAM;
             $GLOBALS['mollom_response']['session_id'] = $_POST['session-id'];
-            watchdog('mollom', t('Correct CAPTCHA: %message', array('%message' => $data['post_body'])));
+            watchdog('mollom', t('Correct CAPTCHA: %message<br />Data: <pre>@data</pre>Result: <pre>@result</pre>', array('%message' => $data['post_body'], '@data' => print_r($data, TRUE), '@result' => print_r($result, TRUE))));
           }
           else {
             form_set_error('captcha', t('The entered CAPTCHA solution is not correct. We generated a new CAPTCHA so please try again.'));
-            watchdog('mollom', t('Incorrect CAPTCHA: %message', array('%message' => $data['post_body'])));
+            watchdog('mollom', t('Incorrect CAPTCHA: %message<br />Data: <pre>@data</pre>Result: <pre>@result</pre>', array('%message' => $data['post_body'], '@data' => print_r($data, TRUE), '@result' => print_r($result, TRUE))));
           }
         }
         else {
@@ -750,7 +751,7 @@ function mollom_protect_form_analysis(&$form, $data) {
       }
       else {
         form_set_error('analysis', t('We are sorry, but the spam filter on this site decided that your submission could be spam. Please fill in the CAPTCHA below to get your submission accepted.'));
-        watchdog('mollom', t('Unsure: %message', array('%message' => $data['post_body'])));
+        watchdog('mollom', t('Unsure: %message<br />Data: <pre>@data</pre>Result: <pre>@result</pre>', array('%message' => $data['post_body'], '@data' => print_r($data, TRUE), '@result' => print_r($result, TRUE))));
       }
     }
   }
