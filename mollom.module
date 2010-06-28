@@ -723,7 +723,6 @@ function mollom_protect_form_analysis(&$form, $data) {
 
     if ($result['spam'] == MOLLOM_ANALYSIS_HAM) {
       watchdog('mollom', t('Ham: %message<br />Data: <pre>@data</pre>Result: <pre>@result</pre>', array('%message' => $data['post_body'], '@data' => print_r($data, TRUE), '@result' => print_r($result, TRUE))));
-      print_r($data);
     }
     else if ($result['spam'] == MOLLOM_ANALYSIS_SPAM) {
       form_set_error('analysis', t('Your submission has triggered the installed spam filter and will not be accepted.'));
