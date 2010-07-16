@@ -763,7 +763,12 @@ function mollom_protect_form_captcha(&$form, $data) {
   if ($_POST['session-id']) {
     if ($_POST['captcha-solution']) {
       // Check the CAPTCHA result:
-      $result = mollom('mollom.checkCaptcha', $data + array('session_id' => $_POST['session-id'], 'captcha_result' => $_POST['captcha-solution'], 'author_ip' => _mollom_ip_address()));
+      $data += array(
+        'session_id' => $_POST['session-id'],
+        'captcha_result' => $_POST['captcha-solution'],
+        'author_ip' => _mollom_ip_address(),
+      );
+      $result = mollom('mollom.checkCaptcha', $data);
 
       if (is_bool($result)) {
         // We make the response available to other form API handlers:
@@ -771,13 +776,13 @@ function mollom_protect_form_captcha(&$form, $data) {
 
         if (!$result) {
           form_set_error('captcha', t('The entered CAPTCHA solution is not correct. We generated a new CAPTCHA so please try again.'));
-          watchdog('mollom', 'Incorrect CAPTCHA');
+          watchdog('mollom', t('Incorrect CAPTCHA<br />Data: <pre>@data</pre>', array('@data' => print_r($data, TRUE))));
 
           // Generate a new CAPTCHA:
           $GLOBALS['mollom_captcha'] = mollom('mollom.getImageCaptcha', array('author_ip' => _mollom_ip_address()));
         }
         else {
-          watchdog('mollom', 'Correct CAPTCHA');
+          watchdog('mollom', t('Correct CAPTCHA<br />Data: <pre>@data</pre>', array('@data' => print_r($data, TRUE))));
         }
       }
       else {
