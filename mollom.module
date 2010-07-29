@@ -779,7 +779,7 @@ function mollom_protect_form_captcha(&$form, $data) {
           watchdog('mollom', t('Incorrect CAPTCHA<br />Data: <pre>@data</pre>', array('@data' => print_r($data, TRUE))));
 
           // Generate a new CAPTCHA:
-          $GLOBALS['mollom_captcha'] = mollom('mollom.getImageCaptcha', array('author_ip' => _mollom_ip_address()));
+          $GLOBALS['mollom_response'] = mollom('mollom.getImageCaptcha', array('author_ip' => _mollom_ip_address(), 'session_id' => $_POST['session-id']));
         }
         else {
           watchdog('mollom', t('Correct CAPTCHA<br />Data: <pre>@data</pre>', array('@data' => print_r($data, TRUE))));
@@ -793,14 +793,14 @@ function mollom_protect_form_captcha(&$form, $data) {
       form_set_error('captcha', t('The CAPTCHA field is required.'));
 
       // Generate a new CAPTCHA:
-      $GLOBALS['mollom_captcha'] = mollom('mollom.getImageCaptcha', array('author_ip' => _mollom_ip_address()));
+      $GLOBALS['mollom_response'] = mollom('mollom.getImageCaptcha', array('author_ip' => _mollom_ip_address()));
     }
   }
   else {
     form_set_error('captcha', t('The form data has been altered, the session-id field is required.'));
 
     // Generate a new CAPTCHA:
-    $GLOBALS['mollom_captcha'] = mollom('mollom.getImageCaptcha', array('author_ip' => _mollom_ip_address()));
+    $GLOBALS['mollom_response'] = mollom('mollom.getImageCaptcha', array('author_ip' => _mollom_ip_address()));
   }
 }
 
@@ -814,7 +814,7 @@ function mollom_captcha_prerender($form_id, &$form) {
     $captcha = TRUE;
   }
   else if ($mode == MOLLOM_MODE_CAPTCHA) {
-    $response = mollom('mollom.getImageCaptcha', array('author_ip' => _mollom_ip_address()));
+    $response = mollom('mollom.getImageCaptcha', array('author_ip' => _mollom_ip_address(), 'session_id' => $response['session_id']));
     $captcha = TRUE;
   }
 
