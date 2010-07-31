@@ -496,7 +496,15 @@ function mollom_data_node_form($form_values) {
 
   // Render the node so that all visible fields are prepared and
   // concatenated:
-  $data = node_build_content((object)$form_values, FALSE, FALSE);
+  $node = (object) $form_values;
+  // Link module (and potentially other CCK fields) need to prepare submitted
+  // form values prior to storage and rendering. This is a stop-gap fix for
+  // http://drupal.org/node/271339, as this entire node validation approach
+  // can be considered bogus, but this module won't be rewritten for Drupal 5.
+  if (function_exists('_content_widget_invoke')) {
+    _content_widget_invoke('prepare form values', $node);
+  }
+  $data = node_build_content($node, FALSE, FALSE);
   $content = drupal_render($data->content);
 
   $data = array(
