@@ -859,12 +859,12 @@ function mollom_captcha_prerender($form_id, &$form) {
         '#size' => 10,
         '#value' => $form['#post']['captcha'],
         '#description' => t("Type the characters shown in the picture above; if you can't read them, submit the form and a new image will be generated."),
-        '#weight' => min($form['submit']['#weight'], $form['preview']['#weight']) + 1,
+        '#weight' => min($form['submit']['#weight'], $form['preview']['#weight']) + 100,
       );
 
       // Move the preview and/or submit button below the captcha:
-      $form['preview']['#weight'] += 2;
-      $form['submit']['#weight'] += 2;
+      $form['preview']['#weight'] += 101;
+      $form['submit']['#weight'] += 101;
 
       // The weights changed so we re-sort the array:
       uasort($form, "_element_sort");
