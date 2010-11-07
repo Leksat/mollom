@@ -204,15 +204,17 @@ function mollom_admin_configure_form(&$form_state, $mollom_form = NULL) {
 
       $all_permissions = array();
       foreach (module_implements('perm') as $module) {
-        // Transpose permissions into D7 format.
-        $module_permissions = array_flip(module_invoke($module, 'perm'));
-        foreach ($module_permissions as $permission => $key) {
-          $module_permissions[$permission] = array(
-            'title' => $permission,
-            'module' => $module,
-          );
+        if ($module_permissions = module_invoke($module, 'perm')) {
+          // Transpose permissions into D7 format.
+          $module_permissions = array_flip($module_permissions);
+          foreach ($module_permissions as $permission => $key) {
+            $module_permissions[$permission] = array(
+              'title' => $permission,
+              'module' => $module,
+            );
+          }
+          $all_permissions += $module_permissions;
         }
-        $all_permissions += $module_permissions;
       }
       // Prepend Mollom's global permission to the list.
       array_unshift($mollom_form['bypass access'], 'bypass mollom protection');
