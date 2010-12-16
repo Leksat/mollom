@@ -78,16 +78,10 @@ class MollomWebTestCase extends DrupalWebTestCase {
   /**
    * Set up an administrative user account and testing keys.
    */
-  function setUp() {
+  function setUp($modules = array()) {
     // Re-initialize stored session_id and watchdog messages.
     $this->resetSessionID();
     $this->messages = array();
-
-    // @see DrupalWebTestCase::setUp()
-    $modules = func_get_args();
-    if (isset($modules[0]) && is_array($modules[0])) {
-      $modules = $modules[0];
-    }
 
     // If not explicitly disabled by a test, setup with Mollom and default admin
     // user.
@@ -95,7 +89,7 @@ class MollomWebTestCase extends DrupalWebTestCase {
       // Call parent::setUp() allowing Mollom test cases to pass further modules.
       $modules[] = 'mollom';
       $modules[] = 'dblog';
-      call_user_func_array(array($this, 'parent::setUp'), $modules);
+      parent::setUp($modules);
 
       $this->admin_user = $this->drupalCreateUser(array(
         'administer mollom',
@@ -108,7 +102,7 @@ class MollomWebTestCase extends DrupalWebTestCase {
     }
     else {
       $modules[] = 'dblog';
-      call_user_func_array(array($this, 'parent::setUp'), $modules);
+      parent::setUp($modules);
     }
 
     // If not explicitly disabled by a test, setup and validate testing keys.
@@ -638,8 +632,8 @@ class MollomWebTestCase extends DrupalWebTestCase {
    * @see MollomWebTestCase->assertSessionID()
    * @see DrupalWebTestCase->drupalPost()
    */
-  protected function drupalPost($path, $edit, $submit, array $options = array(), array $headers = array()) {
-    $output = parent::drupalPost($path, $edit, $submit, $options, $headers);
+  protected function drupalPost($path, $edit, $submit, array $options = array(), array $headers = array(), $form_html_id = NULL, $extra_post = NULL) {
+    $output = parent::drupalPost($path, $edit, $submit, $options, $headers, $form_html_id, $extra_post);
     $options += array('watchdog' => WATCHDOG_NOTICE);
     $this->assertMollomWatchdogMessages($options['watchdog']);
     return $output;
@@ -722,7 +716,7 @@ class MollomInstallationTestCase extends MollomWebTestCase {
     $this->messages = array();
 
     $this->disableDefaultSetup = TRUE;
-    parent::setUp('comment');
+    parent::setUp(array('comment'));
 
     $this->admin_user = $this->drupalCreateUser(array(
       'access administration pages',
@@ -1140,7 +1134,7 @@ class MollomFallbackTestCase extends MollomWebTestCase {
 
   function setUp() {
     // Enable testing server implementation.
-    parent::setUp('mollom_test');
+    parent::setUp(array('mollom_test'));
   }
 
   /**
@@ -1312,8 +1306,6 @@ class MollomLanguageDetectionTestCase extends MollomWebTestCase {
  * the same blacklist. You can configure a custom key to avoid this.
  */
 class MollomBlacklistTestCase extends MollomWebTestCase {
-  protected $profile = 'testing';
-
   public static function getInfo() {
     return array(
       'name' => 'Blacklist',
@@ -1324,7 +1316,7 @@ class MollomBlacklistTestCase extends MollomWebTestCase {
 
   function setUp() {
     $this->disableDefaultSetup = TRUE;
-    parent::setUp('mollom');
+    parent::setUp(array('mollom'));
     $this->setKeys();
   }
 
@@ -1529,7 +1521,7 @@ class MollomFormConfigurationTestCase extends MollomWebTestCase {
   }
 
   function setUp() {
-    parent::setUp('mollom_test');
+    parent::setUp(array('mollom_test'));
     // Re-route Mollom communication to this testing site.
     variable_set('mollom_servers', array($GLOBALS['base_url'] . '/xmlrpc.php?version='));
 
@@ -1939,7 +1931,7 @@ class MollomCommentFormTestCase extends MollomWebTestCase {
   }
 
   function setUp() {
-    parent::setUp('comment');
+    parent::setUp(array('comment'));
 
     $this->web_user = $this->drupalCreateUser(array('access comments', 'post comments', 'post comments without approval', 'create story content'));
     $this->node = $this->drupalCreateNode(array('type' => 'story', 'uid' => $this->web_user->uid));
@@ -2108,7 +2100,7 @@ class MollomContactFormTestCase extends MollomWebTestCase {
   }
 
   function setUp() {
-    parent::setUp('contact');
+    parent::setUp(array('contact'));
 
     $this->web_user = $this->drupalCreateUser(array('access site-wide contact form', 'access user profiles'));
   }
@@ -2305,7 +2297,7 @@ class MollomDataTestCase extends MollomWebTestCase {
 
   function setUp() {
     // Enable testing server implementation.
-    parent::setUp('mollom_test');
+    parent::setUp(array('mollom_test'));
     // Re-route Mollom communication to this testing site.
     variable_set('mollom_servers', array($GLOBALS['base_url'] . '/xmlrpc.php?version='));
   }
@@ -2757,7 +2749,7 @@ class MollomReportTestCase extends MollomWebTestCase {
   }
 
   function setUp() {
-    parent::setUp('comment');
+    parent::setUp(array('comment'));
 
     $this->web_user = $this->drupalCreateUser(array('access comments', 'post comments', 'post comments without approval', 'create story content'));
   }
