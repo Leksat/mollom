@@ -101,6 +101,10 @@ function _mollom_retrieve_server_list() {
       break;
     }
   }
+
+  // Allow other modules to alter the server list. Internal use only.
+  drupal_alter('mollom_server_list', $result);
+
   if (is_array($result)) {
     _mollom_watchdog_multiple($messages, WATCHDOG_DEBUG);
     return $result;
