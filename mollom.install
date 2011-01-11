@@ -254,6 +254,7 @@ function mollom_update_2() {
  * Upgrade form protection storage.
  */
 function mollom_update_3() {
+  $ret = array();
   // Load hook_mollom_form_info() implementations for mollom_form_list().
   foreach (module_list(FALSE, FALSE) as $module) {
     drupal_load('module', $module);
@@ -268,6 +269,7 @@ function mollom_update_3() {
       variable_set($name, 2);
     }
   }
+  return $ret;
 }
 
 /**
