@@ -2516,6 +2516,75 @@ function mollom_comment($comment, $op) {
   if ($op == 'delete') {
     mollom_data_delete('comment', $comment->cid);
   }
+  if ($op == 'view') {
+    $comment->mollom = mollom_data_load('comment', $comment->cid);
+  }
+}
+
+function mollom_preprocess_comment(&$variables) {
+  if (user_access('bypass mollom protection') && !empty($variables['comment']->mollom)) {
+    $data = $variables['comment']->mollom;
+    $labels_spam = array(
+      MOLLOM_ANALYSIS_HAM => t('Ham'),
+      MOLLOM_ANALYSIS_SPAM => t('Spam'),
+      MOLLOM_ANALYSIS_UNSURE => t('Unsure'),
+    );
+
+    $form['mollom_info'] = array(
+      '#type' => 'fieldset',
+      '#title' => t('Text analysis'),
+      '#collapsible' => FALSE,
+      '#attributes' => array('class' => 'mollom-info'),
+    );
+    $form['mollom_info']['session_id'] = array(
+      '#type' => 'item',
+      '#title' => t('Session id'),
+      '#value' => check_plain($data->session_id),
+      '#weight' => 0,
+    );
+    if (isset($data->spam)) {
+      $form['mollom_info']['spam'] = array(
+        '#type' => 'item',
+        '#title' => t('Spam'),
+        '#value' => $labels_spam[$data->spam],
+        '#weight' => 1,
+      );
+    }
+    if (isset($data->quality)) {
+      $form['mollom_info']['quality'] = array(
+        '#type' => 'item',
+        '#title' => t('Quality'),
+        '#value' => check_plain($data->quality),
+        '#weight' => 2,
+      );
+    }
+    if (isset($data->profanity)) {
+      $form['mollom_info']['profanity'] = array(
+        '#type' => 'item',
+        '#title' => t('Profanity'),
+        '#value' => check_plain($data->profanity),
+        '#weight' => 3,
+      );
+    }
+    if (isset($data->sentiment)) {
+      $form['mollom_info']['sentiment'] = array(
+        '#type' => 'item',
+        '#title' => t('Sentiment'),
+        '#value' => check_plain($data->sentiment),
+        '#weight' => 4,
+      );
+    }
+    if (isset($data->languages)) {
+      $form['mollom_info']['languages'] = array(
+        '#type' => 'item',
+        '#title' => t('Languages'),
+        '#value' => check_plain($data->languages),
+        '#weight' => 5,
+      );
+    }
+    $output = drupal_render($form);
+    $variables['content'] = '<div class="mollom-info-wrapper">' . $variables['content'] . $output . '</div>';
+  }
 }
 
 /**
