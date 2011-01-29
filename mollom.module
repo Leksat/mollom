@@ -466,6 +466,13 @@ function mollom_data_save($data) {
   $update = db_result(db_query_range("SELECT 'id' FROM {mollom} WHERE entity = '%s' AND id = '%s'", $data->entity, $data->id, 0, 1));
   drupal_write_record('mollom', $data, $update ? $update : array());
 
+  if (!$update) {
+    module_invoke_all('mollom_data_insert', $data);
+  }
+  else {
+    module_invoke_all('mollom_data_update', $data);
+  }
+
   return $data;
 }
 
@@ -490,6 +497,10 @@ function mollom_data_delete($entity, $id) {
  *   An array of entity ids to delete data for.
  */
 function mollom_data_delete_multiple($entity, $ids) {
+  foreach ($ids as $id) {
+    $data = mollom_data_load($entity, $id);
+    module_invoke_all('mollom_data_delete', $data);
+  }
   $placeholders = db_placeholders($ids, 'varchar');
   return db_query("DELETE FROM {mollom} WHERE entity = '%s' AND id IN ($placeholders)", array_merge(array($entity), $ids));
 }
@@ -1815,7 +1826,7 @@ function mollom_form_submit($form, &$form_state) {
       $data->entity = $form_state['mollom']['entity'];
       $data->id = $values['post_id'];
       $data->form_id = $form_state['mollom']['form_id'];
-      mollom_data_save($data);
+      $form_state['mollom']['data'] = mollom_data_save($data);
     }
   }
   // Flush Mollom session information from database cache.
