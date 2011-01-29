@@ -512,7 +512,7 @@ function mollom_data_delete_form_alter(&$form, &$form_state) {
     '#type' => 'radios',
     '#title' => t('Report as inappropriate'),
     '#options' => array(
-      0 => t('Do no report'),
+      0 => t('Do not report'),
       'spam' => t('Spam, unsolicited advertising'),
       'profanity' => t('Obscene, violent, profane'),
       'low-quality' => t('Low-quality'),
