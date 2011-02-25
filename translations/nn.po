@@ -1,4 +1,3 @@
-# $Id$
 #
 # Norwegian Nynorsk translation of Drupal (general)
 # Copyright (c) 2009 rolf@cerpus.com
