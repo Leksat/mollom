@@ -1537,6 +1537,21 @@ function mollom_validate_analysis(&$form, &$form_state) {
   // Prepare watchdog message teaser text.
   $teaser = truncate_utf8(strip_tags(isset($data['post_title']) ? $data['post_title'] : isset($data['post_body']) ? $data['post_body'] : '--'), 40);
 
+  // Handle the profanity check result.
+  if (isset($result['profanity']) && $result['profanity'] >= 0.5) {
+    if ($form_state['mollom']['discard']) {
+      form_set_error('mollom', t('Your submission has triggered the profanity filter and will not be accepted until the inappropriate language is removed.'));
+    }
+    else {
+      $form_state['mollom']['require_moderation'] = TRUE;
+    }
+    _mollom_watchdog(array(
+      'Profanity: %teaser' => array('%teaser' => $teaser),
+      'Data:<pre>@data</pre>' => array('@data' => $data),
+      'Result:<pre>@result</pre>' => array('@result' => $result),
+    ));
+  }
+
   // Handle the spam check result.
   // The Mollom backend is remembering results of previous mollom.checkContent
   // invocations for a single user/post session. When content is re-checked

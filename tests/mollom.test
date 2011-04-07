@@ -60,6 +60,12 @@ class MollomWebTestCase extends DrupalWebTestCase {
   protected $unsure_message = "To complete this form, please complete the word verification below.";
 
   /**
+   * The text the user should see if the textual analysis determined that there
+   * was profane content.
+   */
+  protected $profanity_message = "Your submission has triggered the profanity filter and will not be accepted until the inappropriate language is removed.";
+
+  /**
    * The public key used during testing.
    */
   protected $public_key = '';
@@ -315,6 +321,11 @@ class MollomWebTestCase extends DrupalWebTestCase {
     // Process the enabled fields.
     $form_list = mollom_form_list();
     $form_info = mollom_form_info($form_id, $form_list[$form_id]['module']);
+    if (!empty($form_info['elements'])) {
+      $edit += array(
+        'mollom[checks][spam]' => TRUE,
+      );
+    }
     foreach (array_keys($form_info['elements']) as $field) {
       if (!isset($fields) || in_array($field, $fields)) {
         // If the user specified all fields by default or to include this
@@ -1508,6 +1519,134 @@ class MollomBlacklistTestCase extends MollomWebTestCase {
 }
 
 /**
+ * Tests Mollom form profanity filtering functionality.
+ */
+class MollomProfanityTestCase extends MollomWebTestCase {
+  public static function getInfo() {
+    return array(
+      'name' => 'Profanity checking',
+      'description' => 'Tests form protection with text analysis checking for profanity.',
+      'group' => 'Mollom',
+    );
+  }
+
+  function setUp() {
+    parent::setUp(array('mollom_test'));
+  }
+
+  /**
+   * Tests text analysis profanity checking.
+   */
+  function testProfanity() {
+    // Protect Mollom test form but do not enable profanity checking.
+    $this->drupalLogin($this->admin_user);
+    $edit_config = array(
+      'mollom[checks][spam]' => TRUE,
+      'mollom[checks][profanity]' => FALSE,
+    );
+    $this->setProtection('mollom_test_form', MOLLOM_MODE_ANALYSIS, NULL, $edit_config);
+    $this->drupalLogout();
+
+    // Assert that the profanity filter is disabled.
+    $edit = array(
+      'title' => 'Joomla lover unite!',
+      'body' => 'This is a post just for unsure Joomla lovers. If you love Joomla, this is the profanity for you!',
+    );
+    $this->drupalPost('mollom-test/form', $edit, 'Submit');
+    $this->postCorrectCaptcha(NULL, array(), 'Submit', 'Successful form submission.');
+    $this->assertNoText($this->profanity_message);
+
+    // Enable profanity checking, disable spam checking.
+    $this->drupalLogin($this->admin_user);
+    $edit_config = array(
+      'mollom[checks][spam]' => FALSE,
+      'mollom[checks][profanity]' => TRUE,
+    );
+    $this->setProtection('mollom_test_form', MOLLOM_MODE_ANALYSIS, NULL, $edit_config);
+    $this->drupalLogout();
+
+    // Verify that the profanity filter now blocks this content.
+    $this->drupalPost('mollom-test/form', $edit, 'Submit');
+    $this->assertNoText('Successful form submission.');
+    $this->assertText($this->profanity_message);
+
+    // Verify that we are able to post after removing profanity, as the error
+    // message suggests.
+    $edit['body'] = 'This is a post just for unsure Joomla lovers.';
+    $this->drupalPost('mollom-test/form', $edit, 'Submit');
+    $this->assertText('Successful form submission.');
+    $this->assertNoText($this->profanity_message);
+  }
+
+  /**
+   * Tests text analysis with both profanity and spam checking.
+   */
+  function testProfanitySpam() {
+    variable_set('comment_preview_story', COMMENT_PREVIEW_OPTIONAL);
+    variable_set('comment_form_location_story', COMMENT_FORM_BELOW);
+    $node = $this->drupalCreateNode(array('type' => 'story'));
+
+    // Enable spam and profanity checking for the article node comment form.
+    $this->drupalLogin($this->admin_user);
+    $edit = array(
+      DRUPAL_ANONYMOUS_RID . '[access comments]' => TRUE,
+      DRUPAL_ANONYMOUS_RID . '[post comments]' => TRUE,
+      DRUPAL_ANONYMOUS_RID . '[post comments without approval]' => TRUE,
+    );
+    $this->drupalPost('admin/user/permissions', $edit, t('Save permissions'));
+    $edit_config = array(
+      'mollom[checks][profanity]' => TRUE,
+      'mollom[checks][spam]' => TRUE,
+    );
+    $this->setProtection('comment_form', MOLLOM_MODE_ANALYSIS, NULL, $edit_config);
+    $this->drupalLogout();
+
+    // Sequence: Post profanity (ham), remove profanity (still ham), and expect
+    // that to be accepted.
+    $edit = array(
+      'subject' => $this->randomName(),
+    );
+    $this->drupalGet("node/{$node->nid}");
+    $this->assertNoCaptchaField();
+    $this->assertPrivacyLink();
+
+    $edit["comment"] = 'profanity ham';
+    $this->drupalPost(NULL, $edit, t('Save'));
+    $this->assertText($this->profanity_message);
+    $session_id = $this->assertSessionIDInForm();
+
+    $edit["comment"] = 'not profane ham';
+    $this->drupalPost(NULL, $edit, t('Save'));
+    $this->assertNoText($this->profanity_message);
+    $this->assertRaw('<p>' . $edit["comment"] . '</p>', t('Comment previously containing profanity was found.'));
+    $cid = db_result(db_query("SELECT cid FROM {comments} WHERE subject = '%s'", $edit['subject']));
+    $this->assertMollomData('comment', $cid, $session_id);
+
+    // Sequence: Post unsure spam (not profanity), post profanity along with
+    // correct CAPTCHA, and expect that to be discarded.
+    $this->web_user = $this->drupalCreateUser();
+    $this->drupalLogin($this->web_user);
+    $edit = array(
+      'subject' => $this->randomName(),
+    );
+    $this->drupalGet("node/{$node->nid}");
+    $this->assertNoCaptchaField();
+    $this->assertPrivacyLink();
+
+    $edit["comment"] = 'unsure';
+    $this->drupalPost(NULL, $edit, t('Save'));
+    $this->assertCaptchaField();
+    $this->assertNoText($this->profanity_message);
+    $session_id = $this->assertSessionIDInForm();
+
+    $edit["comment"] = 'unsure profanity';
+    $this->postCorrectCaptcha(NULL, $edit, t('Save'));
+    $this->assertNoCaptchaField();
+    $this->assertText($this->profanity_message);
+  }
+}
+
+/**
  * Tests Mollom form configuration functionality.
  */
 class MollomFormConfigurationTestCase extends MollomWebTestCase {
@@ -1540,6 +1679,7 @@ class MollomFormConfigurationTestCase extends MollomWebTestCase {
     $this->assertText('Mollom test form');
     $edit = array(
       'mollom[mode]' => MOLLOM_MODE_ANALYSIS,
+      'mollom[checks][spam]' => TRUE,
       'mollom[enabled_fields][title]' => TRUE,
       'mollom[enabled_fields][body]' => TRUE,
       'mollom[enabled_fields][exclude]' => FALSE,
@@ -1742,6 +1882,8 @@ class MollomFormConfigurationTestCase extends MollomWebTestCase {
         // preselected for textual analysis.
         $edit = array();
         if (!empty($info['elements'])) {
+          $edit['mollom[checks][spam]'] = TRUE;
+
           foreach ($info['elements'] as $field => $label) {
             $field = rawurlencode($field);
             $this->assertFieldByName("mollom[enabled_fields][$field]", TRUE);
@@ -2650,6 +2792,7 @@ class MollomAnalysisTestCase extends MollomWebTestCase {
     $this->assertNoFieldByName('mollom[discard]');
     // Configure mollom_test_form to accept bad posts.
     $this->setProtection('mollom_test_form', MOLLOM_MODE_ANALYSIS, NULL, array(
+      'mollom[checks][profanity]' => TRUE,
       'mollom[discard]' => 0,
     ));
     $this->drupalLogout();
@@ -2665,6 +2808,7 @@ class MollomAnalysisTestCase extends MollomWebTestCase {
     $record = mollom_test_load($mid);
     $this->assertEqual($record['status'], 0, t('Unpublished test post found.'));
     $this->assertSame('spam', $data->spam, MOLLOM_ANALYSIS_SPAM);
+    $this->assertSame('profanity', $data->profanity, 1);
 
     // Verify that editing the post does neither change the session data, nor
     // the publishing status.
@@ -2678,6 +2822,7 @@ class MollomAnalysisTestCase extends MollomWebTestCase {
     $record = mollom_test_load($mid);
     $this->assertEqual($record['status'], 0, t('Unpublished test post found.'));
     $this->assertSame('spam', $data->spam, MOLLOM_ANALYSIS_SPAM);
+    $this->assertSame('profanity', $data->profanity, 1);
 
     // Verify that publishing the post changes the session data accordingly.
     $this->drupalLogin($this->admin_user);
@@ -2690,6 +2835,7 @@ class MollomAnalysisTestCase extends MollomWebTestCase {
     $record = mollom_test_load($mid);
     $this->assertEqual($record['status'], 1, t('Published test post found.'));
     $this->assertSame('spam', $data->spam, MOLLOM_ANALYSIS_SPAM);
+    $this->assertSame('profanity', $data->profanity, 1);
 
     // Verify that neither ham or unsure spam posts, nor non-profane posts are
     // marked for moderation.
@@ -2713,6 +2859,7 @@ class MollomAnalysisTestCase extends MollomWebTestCase {
       $record = mollom_test_load($mid);
       $this->assertEqual($record['status'], 1, t('Published test post %body found.', array('%body' => $body)));
       $this->assertSame('spam', $data->spam, $expected['spam']);
+      $this->assertSame('profanity', $data->profanity, $expected['profanity']);
     }
   }
 

@@ -128,6 +128,12 @@ function mollom_schema() {
         'size' => 'tiny',
         'not null' => FALSE,
       ),
+      'profanity' => array(
+        'description' => 'Text analysis profanity check result.',
+        'type' => 'float',
+        'size' => 'tiny',
+        'not null' => FALSE,
+      ),
       'languages' => array(
         'description' => 'Text analysis language check result.',
         'type' => 'varchar',
@@ -524,7 +530,7 @@ function mollom_update_6114() {
     $ret[] = update_sql("UPDATE {mollom} SET spam = 1 WHERE quality > 0.5");
   }
 
-  // Addition of {mollom}.profanity deferred to D7.
+  // Addition of {mollom}.profanity deferred to mollom_update_6119().
 
   return $ret;
 }
@@ -627,6 +633,22 @@ function mollom_update_6118() {
   $ret = array();
   if (db_column_exists('mollom', 'moderate')) {
     db_drop_field($ret, 'mollom', 'moderate');
+  }
+  return $ret;
+}
+
+/**
+ * Add {mollom}.profanity.
+ */
+function mollom_update_6119() {
+  $ret = array();
+  if (!db_column_exists('mollom', 'profanity')) {
+    db_add_field($ret, 'mollom', 'profanity', array(
+      'description' => 'Text analysis profanity check result.',
+      'type' => 'float',
+      'size' => 'tiny',
+      'not null' => FALSE,
+    ));
   }
   return $ret;
 }

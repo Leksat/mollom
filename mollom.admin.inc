@@ -239,11 +239,9 @@ function mollom_admin_configure_form(&$form_state, $mollom_form = NULL) {
           '#title' => t('Analyze text for'),
           '#options' => array(
             'spam' => t('Spam'),
+            'profanity' => t('Profanity'),
           ),
           '#default_value' => $mollom_form['checks'],
-          // D7 only.
-          '#value' => array('spam' => 'spam'),
-          '#access' => FALSE,
         );
 
         // Form elements defined by hook_mollom_form_info() use the
