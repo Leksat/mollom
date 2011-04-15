@@ -3,36 +3,6 @@
   display: block;
 }
 
-.mollom-info-wrapper {
-  position: relative;
-}
-.mollom-info-wrapper:hover {
-  background-color: rgba(0, 0, 0, 0.05);
-}
-.mollom-info-wrapper .mollom-info {
-  display: none;
-}
-.mollom-info-wrapper:hover .mollom-info {
-  display: block;
-}
-.mollom-info {
-  line-height: 140%;
-  margin: 0;
-  padding-top: 0.5em;
-  padding-bottom: 0.5em;
-  position: absolute;
-  right: 0;
-}
-.mollom-info .form-item {
-  margin-top: 0;
-  margin-bottom: 0;
-  overflow: hidden;
-}
-.mollom-info .form-item label {
-  float: left;
-  width: 7em;
-}
-
 /* Help themes to properly display Mollom's log messages. */
 .dblog-event pre,
 #simpletest-result-form table td {
