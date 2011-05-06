@@ -2526,9 +2526,9 @@ class MollomDataTestCase extends MollomWebTestCase {
     $node = $this->drupalCreateNode(array('type' => 'story', 'promote' => 1));
     $this->drupalGet('');
     $this->assertText($node->title);
+    $this->drupalLogout();
 
     // Log in regular user and post a comment.
-    $this->drupalLogout();
     $this->web_user = $this->drupalCreateUser();
     $this->drupalLogin($this->web_user);
     $this->drupalGet('');
@@ -2548,6 +2548,7 @@ class MollomDataTestCase extends MollomWebTestCase {
     $this->assertSame('author_name', $data['author_name'], $this->web_user->name);
     $this->assertSame('author_mail', $data['author_mail'], $this->web_user->mail);
     $this->assertSame('author_id', $data['author_id'], $this->web_user->uid);
+    $this->assertSame('strictness', $data['strictness'], 'normal');
 
     $this->PostCorrectCaptcha(NULL, array(), t('Save'));
     $comment = db_fetch_object(db_query("SELECT * FROM {comments} WHERE subject = '%s'", $edit['subject']));

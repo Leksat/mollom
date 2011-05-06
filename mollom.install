@@ -190,6 +190,13 @@ function mollom_schema() {
         'not null' => FALSE,
         'serialize' => TRUE,
       ),
+      'strictness' => array(
+        'description' => 'Strictness of text analysis checks.',
+        'type' => 'varchar',
+        'length' => 8,
+        'not null' => TRUE,
+        'default' => 'medium',
+      ),
       'module' => array(
         'description' => 'Module name owning the form.',
         'type' => 'varchar',
@@ -648,6 +655,23 @@ function mollom_update_6119() {
       'type' => 'float',
       'size' => 'tiny',
       'not null' => FALSE,
+    ));
+  }
+  return $ret;
+}
+
+/**
+ * Add {mollom_form}.strictness column.
+ */
+function mollom_update_6120() {
+  $ret = array();
+  if (!db_column_exists('mollom_form', 'strictness')) {
+    db_add_field($ret, 'mollom_form', 'strictness', array(
+      'description' => 'Strictness of text analysis checks.',
+      'type' => 'varchar',
+      'length' => 8,
+      'not null' => TRUE,
+      'default' => 'normal',
     ));
   }
   return $ret;

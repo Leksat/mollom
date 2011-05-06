@@ -868,6 +868,7 @@ function mollom_form_new($form_id = NULL) {
     'checks' => array(),
     'elements' => array(),
     'enabled_fields' => array(),
+    'strictness' => 'normal',
   );
   // Enable all fields for textual analysis by default.
   if (!empty($mollom_form['elements'])) {
@@ -1521,7 +1522,9 @@ function mollom_validate_analysis(&$form, &$form_state) {
   }
   $data['session_id'] = $form_state['mollom']['response']['session_id'];
   $data['checks'] = implode(',', $form_state['mollom']['checks']);
+  $data['strictness'] = $form_state['mollom']['strictness'];
   $result = mollom('mollom.checkContent', $data);
+
   // Use all available data properties for log messages below.
   $data += $all_data;
 
