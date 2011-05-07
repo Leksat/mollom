@@ -217,8 +217,8 @@ function mollom_menu() {
   );
 
   $items['admin/settings/mollom'] = array(
-    'title' => 'Mollom',
-    'description' => 'Mollom is a web service that helps you manage your community.',
+    'title' => 'Mollom content moderation',
+    'description' => 'Configure how the Mollom service moderates user-submitted content such as spam and profanity.',
     'page callback' => 'mollom_admin_form_list',
     'access arguments' => array('administer mollom'),
     'file' => 'mollom.admin.inc',
