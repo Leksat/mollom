@@ -2060,6 +2060,55 @@ class MollomProfileFormsTestCase extends MollomWebTestCase {
   }
 }
 
+/**
+ * Tests Node module integration.
+ */
+class MollomNodeFormTestCase extends MollomWebTestCase {
+  private $node;
+
+  public static function getInfo() {
+    return array(
+      'name' => 'Node integration',
+      'description' => 'Tests node form protection.',
+      'group' => 'Mollom',
+    );
+  }
+
+  function setUp() {
+    parent::setUp();
+
+    $this->web_user = $this->drupalCreateUser(array('create story content'));
+  }
+
+  /**
+   * Tests saving of Mollom data for protected node forms.
+   *
+   * node_form() uses a button-level form submit handler, which invokes
+   * form-level submit handlers before a new node entity has been stored.
+   * Therefore, the submitted form values do not contain a 'nid' yet, so Mollom
+   * session data cannot be stored for the new node.
+   */
+  function testData() {
+    // Enable Mollom CAPTCHA protection for Article nodes.
+    $this->drupalLogin($this->admin_user);
+    $this->setProtection('story_node_form', MOLLOM_MODE_CAPTCHA);
+    $this->drupalLogout();
+
+    // Login and submit a node.
+    $this->drupalLogin($this->web_user);
+    $this->drupalGet('node/add/story');
+    $session_id = $this->assertSessionIDInForm();
+    $edit = array(
+      'title' => 'spam',
+      'mollom[captcha]' => 'correct',
+    );
+    $this->drupalPost(NULL, $edit, t('Save'));
+    $this->node = $this->drupalGetNodeByTitle($edit['title']);
+    $this->assertUrl('node/' . $this->node->nid);
+    $this->assertMollomData('node', $this->node->nid, $session_id);
+  }
+}
+
 class MollomCommentFormTestCase extends MollomWebTestCase {
   private $node;
 
