@@ -83,15 +83,17 @@ class MollomWebTestCase extends DrupalWebTestCase {
   /**
    * Set up an administrative user account and testing keys.
    */
-  function setUp($modules = array()) {
+  function setUp() {
     // Re-initialize stored session_id and watchdog messages.
     $this->resetSessionID();
     $this->messages = array();
 
+    $modules = func_get_args();
+    $modules = (isset($modules[0]) ? $modules[0] : array());
+
     // If not explicitly disabled by a test, setup with Mollom and default admin
     // user.
     if (empty($this->disableDefaultSetup)) {
-      // Call parent::setUp() allowing Mollom test cases to pass further modules.
       $modules[] = 'mollom';
       $modules[] = 'dblog';
       parent::setUp($modules);
