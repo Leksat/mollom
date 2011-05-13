@@ -463,7 +463,7 @@ function mollom_data_save($data) {
   }
 
   $update = db_result(db_query_range("SELECT 'id' FROM {mollom} WHERE entity = '%s' AND id = '%s'", $data->entity, $data->id, 0, 1));
-  drupal_write_record('mollom', $data, $update ? $update : array());
+  drupal_write_record('mollom', $data, $update ? array('entity', $update) : array());
 
   if (!$update) {
     module_invoke_all('mollom_data_insert', $data);
