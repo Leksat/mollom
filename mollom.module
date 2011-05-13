@@ -1233,6 +1233,10 @@ function _mollom_status($reset = FALSE) {
   if ($status['keys'] && $reset) {
     $status['keys valid'] = mollom('mollom.verifyKey', _mollom_get_version());
   }
+  // Otherwise, if there are no keys, they cannot be valid.
+  elseif (!$status['keys']) {
+    $status['keys valid'] = FALSE;
+  }
 
   // In case of an error, indicate whether we have a non-empty server list.
   if ($status['keys valid'] !== TRUE) {
