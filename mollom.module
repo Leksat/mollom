@@ -709,10 +709,33 @@ function mollom_form_alter(&$form, &$form_state, $form_id) {
   }
   // Integrate with delete confirmation forms to send feedback to Mollom.
   if (isset($forms['delete'][$form_id])) {
-    mollom_data_delete_form_alter($form, $form_state);
-    // Report before deleting. This needs to be handled here, since
-    // mollom_data_delete_form_alter() is re-used for mass-operation forms.
-    array_unshift($form['#submit'], 'mollom_data_delete_form_submit');
+    // Check whether the user is allowed to report to Mollom. Limiting report
+    // access is optional for forms integrating via 'delete form' and allowed by
+    // default, since we assume that users being able to delete entities are
+    // sufficiently trusted to also report to Mollom.
+    $access = TRUE;
+    // Retrieve information about the protected form; the form cache maps delete
+    // confirmation forms to protected form_ids, and protected form_ids to their
+    // originating modules.
+    $mollom_form_id = $forms['delete'][$form_id];
+    $module = $forms['protected'][$mollom_form_id];
+    $form_info = mollom_form_info($mollom_form_id, $module);
+    // Check access, if there is a 'report access' permission list.
+    if (isset($form_info['report access'])) {
+      $access = FALSE;
+      foreach ($form_info['report access'] as $permission) {
+        if (user_access($permission)) {
+          $access = TRUE;
+          break;
+        }
+      }
+    }
+    if ($access) {
+      mollom_data_delete_form_alter($form, $form_state);
+      // Report before deleting. This needs to be handled here, since
+      // mollom_data_delete_form_alter() is re-used for mass-operation forms.
+      array_unshift($form['#submit'], 'mollom_data_delete_form_submit');
+    }
   }
 }
 
