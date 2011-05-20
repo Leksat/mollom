@@ -670,6 +670,7 @@ function mollom_form_alter(&$form, &$form_state, $form_id) {
 
       // Prepend a submit handler to clean up internal Mollom values from
       // $form_state['values'].
+      $form += array('#submit' => array());
       array_unshift($form['#submit'], 'mollom_form_pre_submit');
       // Append a submit handler to store Mollom session data. Requires that
       // the primary submit handler has run already, so a potential 'post_id'
