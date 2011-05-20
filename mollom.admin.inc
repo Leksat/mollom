@@ -862,19 +862,7 @@ function mollom_reports_page() {
     '#title' => t('Statistics'),
     '#value' => '<embed' . drupal_attributes($embed_attributes) . '></embed>',
   );
-  if (module_exists('dblog')) {
-    $logs = array();
-    $query = db_query_range("SELECT message, variables FROM {watchdog} WHERE type = 'mollom' AND severity <= %d ORDER BY wid DESC", WATCHDOG_WARNING, 0, 10);
-    while ($log = db_fetch_object($query)) {
-      $t_args = unserialize($log->variables);
-      $logs[] = t($log->message, ($t_args ? $t_args : array()));
-    }
-    $form['watchdog'] = array(
-      '#type' => 'item',
-      '#title' => t('Recent Mollom messages'),
-      '#value' => $logs ? theme('item_list', $logs) : t('None'),
-    );
-  }
+
   return $form;
 }
 
