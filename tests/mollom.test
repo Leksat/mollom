@@ -1045,6 +1045,26 @@ class MollomResponseTestCase extends MollomWebTestCase {
   }
 }
 
+/**
+ * Tests low-level communication with local fake Mollom server.
+ */
+class MollomResponseLocalTestCase extends MollomResponseTestCase {
+  public static function getInfo() {
+    return array(
+      'name' => 'Server responses (local)',
+      'description' => 'Tests that local fake Mollom server responses match expectations.',
+      'group' => 'Mollom',
+    );
+  }
+
+  function setUp() {
+    // Enable testing server implementation.
+    parent::setUp(array('mollom_test'));
+    // Re-route Mollom communication to this testing site.
+    variable_set('mollom_servers', array($GLOBALS['base_url'] . '/xmlrpc.php?version='));
+  }
+}
+
 class MollomAccessTestCase extends MollomWebTestCase {
   public static function getInfo() {
     return array(
