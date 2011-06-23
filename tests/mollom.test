@@ -2154,6 +2154,31 @@ class MollomNodeFormTestCase extends MollomWebTestCase {
     $this->assertUrl('node/' . $this->node->nid);
     $this->assertMollomData('node', $this->node->nid, $session_id);
   }
+
+  /**
+   * Tests retaining of node form submissions containing profanity.
+   */
+  function testRetain() {
+    $this->drupalLogin($this->admin_user);
+    $this->setProtection('story_node_form', MOLLOM_MODE_ANALYSIS, NULL, array(
+      'mollom[checks][profanity]' => TRUE,
+      'mollom[discard]' => 0,
+    ));
+    $this->drupalLogout();
+
+    // Login and submit a node.
+    $this->drupalLogin($this->web_user);
+    $this->drupalGet('node/add/story');
+    $edit = array(
+      'title' => 'profanity',
+      'body' => 'ham profanity',
+    );
+    $this->drupalPost(NULL, $edit, t('Save'));
+    $this->node = $this->drupalGetNodeByTitle($edit['title']);
+    $this->assertEqual($this->node->status, 0, t('Node containing profanity was retained as unpublished.'));
+    $this->assertUrl('node/' . $this->node->nid);
+    $this->assertMollomData('node', $this->node->nid);
+  }
 }
 
 class MollomCommentFormTestCase extends MollomWebTestCase {
