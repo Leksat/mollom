@@ -793,8 +793,8 @@ class MollomInstallationTestCase extends MollomWebTestCase {
 
     // Configure invalid keys.
     $edit = array(
-      'mollom_public_key' => 'foo',
-      'mollom_private_key' => 'bar',
+      'mollom_public_key' => 'the-invalid-mollom-api-key-value',
+      'mollom_private_key' => 'the-invalid-mollom-api-key-value',
     );
     $this->drupalGet('admin/settings/mollom/settings');
     $this->drupalPost(NULL, $edit, t('Save configuration'), array('watchdog' => WATCHDOG_EMERG));
@@ -1083,10 +1083,25 @@ class MollomAccessTestCase extends MollomWebTestCase {
     $this->drupalLogin($this->admin_user);
     $this->drupalGet('admin/settings/mollom/settings');
 
+    // Try to setup completely invalid keys.
+    $edit = array(
+      'mollom_public_key' => 'foo',
+      'mollom_private_key' => 'bar',
+    );
+    $this->drupalPost(NULL, $edit, t('Save configuration'));
+    $this->assertText(t('!title must be 32 characters. Ensure you copied the key correctly.', array(
+      '!title' => t('Public key'),
+    )));
+    $this->assertText(t('!title must be 32 characters. Ensure you copied the key correctly.', array(
+      '!title' => t('Private key'),
+    )));
+    $this->assertNoText(t('The configuration options have been saved.'));
+    $this->assertNoText('The configured Mollom API keys are invalid.');
+
     // Set up invalid test keys and check that an error message is shown.
     $edit = array(
-      'mollom_public_key' => 'invalid-public-key',
-      'mollom_private_key' => 'invalid-private-key',
+      'mollom_public_key' => 'the-invalid-mollom-api-key-value',
+      'mollom_private_key' => 'the-invalid-mollom-api-key-value',
     );
     $this->drupalPost(NULL, $edit, t('Save configuration'), array('watchdog' => WATCHDOG_EMERG));
     $this->assertText(t('The configuration options have been saved.'));

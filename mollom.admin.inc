@@ -718,12 +718,14 @@ function mollom_admin_settings(&$form_state) {
     '#type' => 'textfield',
     '#title' => t('Public key'),
     '#default_value' => variable_get('mollom_public_key', ''),
+    '#element_validate' => array('mollom_admin_settings_validate_key'),
     '#description' => t('Used to uniquely identify you.'),
   );
   $form['access-keys']['mollom_private_key'] = array(
     '#type' => 'textfield',
     '#title' => t('Private key'),
     '#default_value' => variable_get('mollom_private_key', ''),
+    '#element_validate' => array('mollom_admin_settings_validate_key'),
     '#description' => t('Used to prevent someone else from hijacking your requests. Similar to a password, it should never be shared with anyone.'),
   );
 
@@ -762,6 +764,23 @@ function mollom_admin_settings(&$form_state) {
   );
 
   return system_settings_form($form);
+}
+
+/**
+ * Element validation handler for API key text fields.
+ */
+function mollom_admin_settings_validate_key($element, &$form_state) {
+  if ($element['#value'] !== '') {
+    // Remove any leading/trailing white-space and override submitted value.
+    $element['#value'] = trim($element['#value']);
+    form_set_value($element, $element['#value'], $form_state);
+    // Verify the key has a length of 32 characters.
+    if (drupal_strlen($element['#value']) != 32) {
+      form_error($element, t('!title must be 32 characters. Ensure you copied the key correctly.', array(
+        '!title' => $element['#title'],
+      )));
+    }
+  }
 }
 
 /**
