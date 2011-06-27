@@ -1430,17 +1430,16 @@ function theme_mollom($element) {
  */
 function mollom_process_mollom($element, $input, &$form_state, $complete_form) {
   // Setup initial Mollom session and form information.
-  if (empty($form_state['mollom'])) {
-    $form_state['mollom'] = array(
-      'require_analysis' => $element['#mollom_form']['mode'] == MOLLOM_MODE_ANALYSIS,
-      'require_captcha' => $element['#mollom_form']['mode'] == MOLLOM_MODE_CAPTCHA,
-      'passed_captcha' => FALSE,
-      'require_moderation' => FALSE,
-      'response' => array(
-        'session_id' => '',
-      ),
-    );
-  }
+  $form_state += array('mollom' => array());
+  $form_state['mollom'] += array(
+    'require_analysis' => $element['#mollom_form']['mode'] == MOLLOM_MODE_ANALYSIS,
+    'require_captcha' => $element['#mollom_form']['mode'] == MOLLOM_MODE_CAPTCHA,
+    'passed_captcha' => FALSE,
+    'require_moderation' => FALSE,
+    'response' => array(
+      'session_id' => '',
+    ),
+  );
   $form_state['mollom'] += $element['#mollom_form'];
 
   // By default, bad form submissions are discarded, unless the form was
