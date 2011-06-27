@@ -2568,14 +2568,14 @@ class MollomDataTestCase extends MollomWebTestCase {
    * Test mollom_form_get_values().
    */
   function testFormGetValues() {
-    global $user;
-
     // Form registry information.
     $form_info = array(
       'elements' => array(
         'subject' => 'Subject',
         'message' => 'Message',
         'parent][child' => 'Some nested element',
+        'field_checked' => 'Field to check',
+        'field_unchecked' => 'Field to ignore',
       ),
       'mapping' => array(
         'post_title' => 'subject',
@@ -2588,6 +2588,7 @@ class MollomDataTestCase extends MollomWebTestCase {
       'subject',
       'message',
       'parent][child',
+      'field_checked',
     );
 
     // Verify submitted form values for an anonymous/arbitrary user.
@@ -2597,13 +2598,27 @@ class MollomDataTestCase extends MollomWebTestCase {
       'parent' => array(
         'child' => 'Beer',
       ),
+      'field_checked' => array(
+        0 => array('value' => 'Check first'),
+        1 => array('value' => 'Check second'),
+      ),
+      'field_unchecked' => array(
+        0 => array('value' => 'Ignore first'),
+        1 => array('value' => 'Ignore second'),
+      ),
       'name' => 'Drupaler',
       'mail' => 'drupaler@example.com',
     );
     $data = mollom_form_get_values($values, $fields, $form_info['mapping']);
 
     $this->assertSame('post_title', $data['post_title'], $values['subject']);
-    $this->assertSame('post_body', $data['post_body'], $values['message'] . "\n" . $values['parent']['child']);
+    $body = array(
+      $values['message'],
+      $values['parent']['child'],
+      $values['field_checked'][0]['value'],
+      $values['field_checked'][1]['value'],
+    );
+    $this->assertSame('post_body', $data['post_body'], implode(" \n", $body));
     $this->assertSame('author_name', $data['author_name'], $values['name']);
     $this->assertSame('author_mail', $data['author_mail'], $values['mail']);
     $this->assertFalse(isset($data['author_url']), t('author_url: Undefined.'));
@@ -2612,6 +2627,7 @@ class MollomDataTestCase extends MollomWebTestCase {
     $this->assertSame('author_ip', $data['author_ip'], ip_address());
 
     // Verify submitted form values for an registered user.
+    $this->drupalLogin($this->admin_user);
     $values = array(
       'subject' => 'Foo',
       'message' => 'Bar',

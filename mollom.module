@@ -1054,21 +1054,23 @@ function mollom_form_get_values($form_values, $fields, $mapping) {
     }
     // Only add form element values that are not empty.
     if (isset($value)) {
-      if (is_string($value) && drupal_strlen($value)) {
+      // UTF-8 validation happens later.
+      if (is_string($value) && strlen($value)) {
         $post_body[$field] = $value;
       }
       // Recurse into nested values (e.g. multiple value fields).
-      elseif (!empty($value)) {
-        // Ensure we have a flat array to implode(); form values of
+      elseif (is_array($value) && !empty($value)) {
+        // Ensure we have a flat, indexed array to implode(); form values of
         // field_attach_form() use several subkeys.
-        _mollom_flatten_form_values($value);
-        if (($value = implode("\n", $value))) {
-          $post_body[$field] = $value;
-        }
+        $value = _mollom_flatten_form_values($value);
+        $post_body = array_merge($post_body, $value);
       }
     }
   }
-  $post_body = implode("\n", $post_body);
+  // XML-RPC parser of Mollom backend removes linefeeds, so use a combination of
+  // space and linefeed to ensure proper separation of concatenated fields on
+  // the backend but also have linefeeds in our logs.
+  $post_body = implode(" \n", $post_body);
 
   // Try to assign any further form values by processing the remaining mappings,
   // which have been turned into $exclude_fields above. All fields that were
@@ -1192,16 +1194,21 @@ function mollom_form_get_values($form_values, $fields, $mapping) {
 /**
  * Recursive helper function to flatten nested form values.
  *
- * Takes a potentially nested array and moves all nested keys to the top-level.
+ * Takes a potentially nested array and returns all non-empty string values in
+ * nested keys as new indexed array.
  */
-function _mollom_flatten_form_values(&$values) {
-  foreach ($values as $key => $value) {
-    if (is_array($value)) {
-      $values += _mollom_flatten_form_values($value);
-      unset($values[$key]);
+function _mollom_flatten_form_values($values) {
+  $flat_values = array();
+  foreach ($values as $value) {
+    if (is_array($value) && !empty($value)) {
+      $flat_values = array_merge($flat_values, _mollom_flatten_form_values($value));
+    }
+    // UTF-8 validation happens elsewhere later.
+    elseif (is_string($value) && strlen($value)) {
+      $flat_values[] = $value;
     }
   }
-  return $values;
+  return $flat_values;
 }
 
 /**
