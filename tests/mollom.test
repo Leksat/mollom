@@ -2624,7 +2624,8 @@ class MollomDataTestCase extends MollomWebTestCase {
       'name' => 'Drupaler',
       'mail' => 'drupaler@example.com',
     );
-    $data = mollom_form_get_values($values, $fields, $form_info['mapping']);
+    $form_state = array('values' => $values, 'buttons' => array());
+    $data = mollom_form_get_values($form_state, $fields, $form_info['mapping']);
 
     $this->assertSame('post_title', $data['post_title'], $values['subject']);
     $body = array(
@@ -2648,7 +2649,8 @@ class MollomDataTestCase extends MollomWebTestCase {
       'message' => 'Bar',
       'name' => $this->admin_user->name,
     );
-    $data = mollom_form_get_values($values, $fields, $form_info['mapping']);
+    $form_state = array('values' => $values, 'buttons' => array());
+    $data = mollom_form_get_values($form_state, $fields, $form_info['mapping']);
 
     $this->assertSame('post_title', $data['post_title'], $values['subject']);
     $this->assertSame('post_body', $data['post_body'], $values['message']);
@@ -2659,6 +2661,25 @@ class MollomDataTestCase extends MollomWebTestCase {
     $this->assertFalse(isset($data['author_openid']), t('author_openid: Undefined.'));
     $this->assertSame('author_id', $data['author_id'], $this->admin_user->uid);
     $this->assertSame('author_ip', $data['author_ip'], ip_address());
+  }
+
+  /**
+   * Test that form button values are not contained in post_body sent to Mollom.
+   */
+  function testFormButtonValues() {
+    $this->drupalLogin($this->admin_user);
+    $this->setProtection('mollom_test_form');
+    $this->drupalLogout();
+
+    // Verify that neither the "Submit" nor the "Add" button value is contained
+    // in the post body.
+    $edit = array(
+      'title' => 'ham',
+      'body' => 'ham',
+    );
+    $this->drupalPost('mollom-test/form', $edit, 'Submit');
+    $data = $this->getServerRecord();
+    $this->assertFalse(preg_match('@Submit|Add@', $data['post_body']), 'Button values not found in post body.');
   }
 
   /**

@@ -541,7 +541,7 @@ function mollom_data_delete_form_alter(&$form, &$form_state) {
 function mollom_data_delete_form_submit($form, &$form_state) {
   $forms = mollom_form_cache();
   $mollom_form = mollom_form_load($forms['delete'][$form_state['values']['form_id']]);
-  $data = mollom_form_get_values($form_state['values'], $mollom_form['enabled_fields'], $mollom_form['mapping']);
+  $data = mollom_form_get_values($form_state, $mollom_form['enabled_fields'], $mollom_form['mapping']);
 
   $entity = $mollom_form['entity'];
   $id = $data['post_id'];
@@ -667,6 +667,10 @@ function mollom_form_alter(&$form, &$form_state, $form_id) {
       $form['#validate'][] = 'mollom_validate_analysis';
       $form['#validate'][] = 'mollom_validate_captcha';
       $form['#validate'][] = 'mollom_validate_post';
+      // Add an #after_build callback on the $form to collect all buttons.
+      // @see mollom_form_get_values()
+      // @see _mollom_form_state_values_clean()
+      $form['#after_build'][] = 'mollom_form_buttons_after_build';
 
       // Prepend a submit handler to clean up internal Mollom values from
       // $form_state['values'].
@@ -1004,8 +1008,11 @@ function mollom_form_delete($form_id) {
  *   specified data property. This is usually the case for form elements that
  *   hold system user information.
  *
- * @param $values
- *   An array containing submitted form values, usually $form_state['values'].
+ * @param $form_state
+ *   An associative array containing
+ *   - values: The submitted form values.
+ *   - buttons: A list of button form elements. See form_state_values_clean().
+ *   Not passed by reference.
  * @param $fields
  *   A list of strings representing form elements to extract. Nested fields are
  *   in the form of 'parent][child'.
@@ -1015,8 +1022,12 @@ function mollom_form_delete($form_id) {
  *
  * @see hook_mollom_form_info()
  */
-function mollom_form_get_values($form_values, $fields, $mapping) {
+function mollom_form_get_values($form_state, $fields, $mapping) {
   global $user;
+
+  // Remove all button values from $form_state['values'].
+  _mollom_form_state_values_clean($form_state);
+  $form_values = $form_state['values'];
 
   // All elements specified in $mapping must be excluded from $fields, as they
   // are used for dedicated $data properties instead. To reduce the parsing code
@@ -1189,6 +1200,97 @@ function mollom_form_get_values($form_values, $fields, $mapping) {
   }
 
   return $data;
+}
+
+/**
+ * #after_build callback to collect all buttons in the form.
+ *
+ * D7 provides this natively in $form_state['buttons'] and retains the info for
+ * other modules, but D6 deletes $form_state['buttons'] right after any button
+ * in the form has been built.
+ *
+ * @see form_builder()
+ * @see _mollom_form_state_values_clean()
+ */
+function mollom_form_buttons_after_build(&$element, &$form_state) {
+  // Only collect buttons upon a form submission.
+  if (!empty($form_state['submitted'])) {
+    foreach (element_children($element) as $key) {
+      // If the element is a button, add it to the stack.
+      if (isset($element[$key]['#type']) && ($element[$key]['#type'] == 'submit' || $element[$key]['#type'] == 'button')) {
+        // Collect buttons in a separate key, since $form_state['mollom'] is
+        // cached. Otherwise, repetitive form submissions would duplicate the
+        // existing buttons stack.
+        $form_state['mollom_buttons'][] = $element[$key];
+      }
+      // Otherwise, if the element has children, recurse into them.
+      elseif (element_children($element[$key])) {
+        mollom_form_buttons_after_build($element[$key], $form_state);
+      }
+    }
+  }
+  // #after_build callbacks are supposed to return the processed element. This
+  // callback does not change the $form element. By taking it by reference, we
+  // return the identical element that was passed in.
+  return $element;
+}
+
+/**
+ * Removes internal Form API elements and buttons from submitted form values.
+ *
+ * Backported from Drupal 7.
+ *
+ * This function can be used when a module wants to store all submitted form
+ * values, for example, by serializing them into a single database column. In
+ * such cases, all internal Form API values and all form button elements should
+ * not be contained, and this function allows to remove them before the module
+ * proceeds to storage. Next to button elements, the following internal values
+ * are removed:
+ * - form_id
+ * - form_token
+ * - form_build_id
+ * - op
+ *
+ * @param $form_state
+ *   A keyed array containing the current state of the form, including
+ *   submitted form values; altered by reference.
+ */
+function _mollom_form_state_values_clean(&$form_state) {
+  // Remove internal Form API values.
+  unset($form_state['values']['form_id'], $form_state['values']['form_token'], $form_state['values']['form_build_id'], $form_state['values']['op']);
+
+  // Remove button values.
+  // form_builder() collects all button elements in a form. We remove the button
+  // value separately for each button element.
+  $buttons = !empty($form_state['mollom_buttons']) ? $form_state['mollom_buttons'] : array();
+  foreach ($buttons as $button) {
+    // Remove this button's value from the submitted form values by finding
+    // the value corresponding to this button.
+    // We iterate over the #parents of this button and move a reference to
+    // each parent in $form_state['values']. For example, if #parents is:
+    //   array('foo', 'bar', 'baz')
+    // then the corresponding $form_state['values'] part will look like this:
+    // array(
+    //   'foo' => array(
+    //     'bar' => array(
+    //       'baz' => 'button_value',
+    //     ),
+    //   ),
+    // )
+    // We start by (re)moving 'baz' to $last_parent, so we are able unset it
+    // at the end of the iteration. Initially, $values will contain a
+    // reference to $form_state['values'], but in the iteration we move the
+    // reference to $form_state['values']['foo'], and finally to
+    // $form_state['values']['foo']['bar'], which is the level where we can
+    // unset 'baz' (that is stored in $last_parent).
+    $parents = $button['#parents'];
+    $values = &$form_state['values'];
+    $last_parent = array_pop($parents);
+    foreach ($parents as $parent) {
+      $values = &$values[$parent];
+    }
+    unset($values[$last_parent]);
+  }
 }
 
 /**
@@ -1560,7 +1662,7 @@ function mollom_validate_analysis(&$form, &$form_state) {
   }
 
   // Perform textual analysis.
-  $all_data = mollom_form_get_values($form_state['values'], $form_state['mollom']['enabled_fields'], $form_state['mollom']['mapping']);
+  $all_data = mollom_form_get_values($form_state, $form_state['mollom']['enabled_fields'], $form_state['mollom']['mapping']);
   // Cancel processing upon invalid UTF-8 data.
   if ($all_data === FALSE) {
     return;
@@ -1592,7 +1694,13 @@ function mollom_validate_analysis(&$form, &$form_state) {
   $form_state['mollom']['response'] = $result;
 
   // Prepare watchdog message teaser text.
-  $teaser = truncate_utf8(strip_tags(isset($data['post_title']) ? $data['post_title'] : isset($data['post_body']) ? $data['post_body'] : '--'), 40);
+  $teaser = '--';
+  if (isset($data['post_title'])) {
+    $teaser = truncate_utf8(strip_tags($data['post_title']), 40);
+  }
+  elseif (isset($data['post_body'])) {
+    $teaser = truncate_utf8(strip_tags($data['post_body']), 40);
+  }
 
   // Handle the profanity check result.
   if (isset($result['profanity']) && $result['profanity'] >= 0.5) {
@@ -1707,7 +1815,7 @@ function mollom_validate_captcha(&$form, &$form_state) {
   // Next to the Mollom session id and captcha result, the Mollom back-end also
   // takes into account the author's IP and local user id (if registered). Any
   // other values are ignored.
-  $all_data = mollom_form_get_values($form_state['values'], $form_state['mollom']['enabled_fields'], $form_state['mollom']['mapping']);
+  $all_data = mollom_form_get_values($form_state, $form_state['mollom']['enabled_fields'], $form_state['mollom']['mapping']);
   // Cancel processing upon invalid UTF-8 data.
   if ($all_data === FALSE) {
     return;
@@ -1896,7 +2004,7 @@ function mollom_form_submit($form, &$form_state) {
     // new entities into the $form. Therefore, this code does not run for them,
     // but instead requires dedicated hook_nodeapi() and hook_comment()
     // implementations.
-    $values = mollom_form_get_values($form_state['values'], array(), $form_state['mollom']['mapping']);
+    $values = mollom_form_get_values($form_state, array(), $form_state['mollom']['mapping']);
     // We only consider non-empty and non-zero values as valid entity ids.
     if (!empty($values['post_id'])) {
       // Save the Mollom session data.
