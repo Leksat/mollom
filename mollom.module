@@ -636,6 +636,15 @@ function mollom_form_alter(&$form, &$form_state, $form_id) {
         }
         $weight = $form['actions']['#weight'] - 1;
       }
+      // Some forms use 'buttons' as key.
+      elseif (isset($form['buttons']) && !isset($form['buttons']['#type'])) {
+        // D6 code should set a #weight. If none is set, we ensure a default of
+        // 100, like #type 'actions' in D7.
+        if (!isset($form['buttons']['#weight'])) {
+          $form['buttons']['#weight'] = 100;
+        }
+        $weight = $form['buttons']['#weight'] - 1;
+      }
       else {
         $weight = 99999;
         foreach (element_children($form) as $key) {
