@@ -1184,16 +1184,29 @@ function mollom_form_get_values($form_state, $fields, $mapping) {
   // Ensure that all $data values contain valid UTF-8. Invalid UTF-8 would be
   // sanitized into an empty string, so the Mollom backend would not receive
   // any value.
-  $valid_utf8 = TRUE;
+  $invalid_utf8 = FALSE;
+  $invalid_xml = FALSE;
   foreach ($data as $key => $value) {
+    // Check for invalid UTF-8 byte sequences first.
     if (!drupal_validate_utf8($value)) {
-      $valid_utf8 = FALSE;
+      $invalid_utf8 = TRUE;
+      // Replace the bogus string, since $data will be logged as
+      // check_plain(var_export($data)), and check_plain() would empty the
+      // entire exported variable string otherwise.
+      $data[$key] = '- Invalid UTF-8 -';
+    }
+    // Since values are transmitted over XML-RPC and not merely output as
+    // (X)HTML, they have to be valid XML characters.
+    // @see http://www.w3.org/TR/2000/REC-xml-20001006#charsets
+    // @see http://drupal.org/node/882298
+    elseif (preg_match('@[^\x9\xA\xD\x20-\x{D7FF}\x{E000}-\x{FFFD}\x{10000}-\x{10FFFF}]@u', $value)) {
+      $invalid_xml = TRUE;
     }
   }
-  if (!$valid_utf8) {
-    form_set_error('mollom', t('Invalid form values. Your submission will not be accepted.'));
+  if ($invalid_utf8 || $invalid_xml) {
+    form_set_error('', t('Your submission contains invalid characters and will not be accepted.'));
     _mollom_watchdog(array(
-      'Invalid UTF-8 in form values' => array(),
+      'Invalid !type in form values' => array('!type' => $invalid_utf8 ? 'UTF-8' : 'XML characters'),
       'Data:<pre>@data</pre>' => array('@data' => $data),
     ));
     $data = FALSE;
@@ -2195,10 +2208,17 @@ function _mollom_watchdog($parts, $severity = WATCHDOG_NOTICE) {
 
   // Prettify replacement token values, if possible.
   foreach ($arguments as $token => $array) {
+    // Only prettify NULL, Booleans, arrays, and objects. All other values can
+    // be replaced as is.
+    if (is_scalar($array) && !is_bool($array)) {
+      continue;
+    }
     $flat_value = FALSE;
-    if (is_array($array)) {
+    // Convert arrays and objects.
+    if (isset($array) && !is_scalar($array)) {
       $flat_value = '';
       foreach ($array as $key => $value) {
+        // Only convert one-dimensional arrays, or we would lose debugging data.
         if (is_array($value)) {
           $flat_value = FALSE;
           break;
@@ -2208,10 +2228,12 @@ function _mollom_watchdog($parts, $severity = WATCHDOG_NOTICE) {
         $flat_value .= "  {$key} = {$value}\n";
       }
     }
-    // Only convert one-dimensional arrays, or we would lose debugging data.
+    // Use string representation of one-dimensional arrays and objects.
     if ($flat_value !== FALSE) {
       $arguments[$token] = $flat_value;
     }
+    // Use var_export() representation for NULL, Booleans, and multi-dimensional
+    // arrays and objects.
     else {
       $arguments[$token] = var_export($array, TRUE);
     }

@@ -2661,6 +2661,22 @@ class MollomDataTestCase extends MollomWebTestCase {
     $this->assertFalse(isset($data['author_openid']), t('author_openid: Undefined.'));
     $this->assertSame('author_id', $data['author_id'], $this->admin_user->uid);
     $this->assertSame('author_ip', $data['author_ip'], ip_address());
+
+    // Verify that invalid UTF-8 is detected.
+    $values = array(
+      'subject' => "Foo \xC0 bar",
+    );
+    $form_state = array('values' => $values, 'buttons' => array());
+    $data = mollom_form_get_values($form_state, $fields, $form_info['mapping']);
+    $this->assertFalse($data, 'Invalid UTF-8 detected.');
+
+    // Verify that invalid XML characters are detected.
+    $values = array(
+      'subject' => "Foo \x11 bar",
+    );
+    $form_state = array('values' => $values, 'buttons' => array());
+    $data = mollom_form_get_values($form_state, $fields, $form_info['mapping']);
+    $this->assertFalse($data, 'Invalid XML characters detected.');
   }
 
   /**
