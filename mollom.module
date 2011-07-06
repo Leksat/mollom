@@ -1615,7 +1615,11 @@ function mollom_process_mollom($element, $input, &$form_state, $complete_form) {
     // Although this input is hidden and not visible to screen readers,
     // accessibility validators (such as WAVE) would still complain about a form
     // field without any kind of legend/label. t() is needless here.
-    '#attributes' => array('title' => 'Homepage'),
+    '#attributes' => array(
+      'title' => 'Homepage',
+      // Disable browser autocompletion.
+      'autocomplete' => 'off',
+    ),
   );
 
   // Make Mollom form and session information available to #pre_render callback.
