@@ -1595,6 +1595,11 @@ function mollom_process_mollom($element, $input, &$form_state, $complete_form) {
     '#default_value' => '',
     '#description' => t("Type the characters you see in the picture above; if you can't read them, submit the form and a new image will be generated. Not case sensitive."),
   );
+  // Disable browser autocompletion, unless testing mode is enabled, in which
+  // case autocompletion for 'correct' and 'incorrect' is handy.
+  if (!variable_get('mollom_testing_mode', 0)) {
+    $element['captcha']['#attributes']['autocomplete'] = 'off';
+  }
 
   // Add a spambot trap. Purposively use 'homepage' as field name.
   // @todo Use a random field name (from the usual names of 'name', 'email',
