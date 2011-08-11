@@ -1,3 +1,4 @@
 name = Mollom
 description = Automatically moderates user-submitted content and protects your site from spam and profanity.
 core = 6.x
+php = 5.2.4

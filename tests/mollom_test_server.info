@@ -1,0 +1,8 @@
+name = Mollom Test Server
+description = Testing Server module for Mollom functionality. Do not enable.
+core = 6.x
+package = Testing
+hidden = TRUE
+; The testing module requires PHP 5 in order to simplify maintenance and
+; synchronization with HEAD.
+php = 5

@@ -56,16 +56,21 @@ function mollom_requirements($phase = 'runtime', $check = TRUE) {
       ));
     }
     // Invalid API keys.
-    elseif ($status['keys valid'] === MOLLOM_ERROR) {
+    elseif ($status['keys valid'] === Mollom::AUTH_ERROR) {
       $requirements['mollom']['value'] = t('Invalid');
       $requirements['mollom']['description'] = t('The configured Mollom API keys are invalid. !admin-message', array(
         '!admin-message' => $admin_message,
       ));
     }
     // Communication error.
-    elseif ($status['keys valid'] === NETWORK_ERROR) {
+    elseif ($status['keys valid'] === Mollom::NETWORK_ERROR) {
       $requirements['mollom']['value'] = t('Network error');
       $requirements['mollom']['description'] = t('The Mollom servers could not be contacted. Please make sure that your web server can make outgoing HTTP requests.');
+    }
+    // 404, Mollom::RESPONSE_ERROR, etc.
+    else {
+      $requirements['mollom']['value'] = t('Unknown error');
+      $requirements['mollom']['description'] = t('The Mollom servers could be contacted, but Mollom API keys could not be verified.');
     }
   }
   return $requirements;
@@ -92,10 +97,17 @@ function mollom_schema() {
         'not null' => TRUE,
         'default' => '',
       ),
-      'session_id' => array(
-        'description' => 'Session hash returned by Mollom.',
+      'contentId' => array(
+        'description' => 'Content ID returned by Mollom.',
         'type' => 'varchar',
-        'length' => 255,
+        'length' => 128,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'captchaId' => array(
+        'description' => 'CAPTCHA ID returned by Mollom.',
+        'type' => 'varchar',
+        'length' => 128,
         'not null' => TRUE,
         'default' => '',
       ),
@@ -116,23 +128,42 @@ function mollom_schema() {
       // would have an unintended meaning. Also, values are stored in individual
       // columns, so as to be able to join and filter/sort on these values for
       // improved content moderation.
-      'spam' => array(
+      'spamScore' => array(
         'description' => 'Text analysis spam check result.',
+        'type' => 'float',
+        'size' => 'tiny',
+        'not null' => FALSE,
+      ),
+      'spamClassification' => array(
+        'description' => 'Text analysis final spam classification result.',
+        'type' => 'varchar',
+        'length' => 16,
+        'not null' => FALSE,
+      ),
+      'solved' => array(
+        'description' => 'Whether a CAPTCHA has been solved (1) or not (0).',
         'type' => 'int',
         'size' => 'tiny',
         'not null' => FALSE,
       ),
-      'quality' => array(
+      'qualityScore' => array(
         'description' => 'Text analysis quality check result.',
         'type' => 'float',
         'size' => 'tiny',
         'not null' => FALSE,
       ),
-      'profanity' => array(
+      'profanityScore' => array(
         'description' => 'Text analysis profanity check result.',
         'type' => 'float',
         'size' => 'tiny',
         'not null' => FALSE,
+      ),
+      'reason' => array(
+        'description' => 'A special reason for why a post was blocked.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
       ),
       'languages' => array(
         'description' => 'Text analysis language check result.',
@@ -142,7 +173,10 @@ function mollom_schema() {
         'default' => '',
       ),
     ),
-    'indexes' => array('session_id' => array('session_id')),
+    'indexes' => array(
+      'contentId' => array('contentId'),
+      'captchaId' => array('captchaId'),
+    ),
     'primary key' => array('entity', 'id'),
     'foreign keys' => array(
       'mollom_form_id' => array(
@@ -534,11 +568,11 @@ function mollom_update_6114() {
     // Fill {mollom}.spam with approximate values based on {mollom}.quality.
     // Note that this is just to have some values. 'quality' and 'spam' are
     // completely unrelated otherwise.
-    // MOLLOM_ANALYSIS_SPAM
+    // MOLLOM_ANALYSIS_SPAM (2)
     $ret[] = update_sql("UPDATE {mollom} SET spam = 2 WHERE quality < 0.5");
-    // MOLLOM_ANALYSIS_UNSURE
+    // MOLLOM_ANALYSIS_UNSURE (3)
     $ret[] = update_sql("UPDATE {mollom} SET spam = 3 WHERE quality = 0.5");
-    // MOLLOM_ANALYSIS_HAM
+    // MOLLOM_ANALYSIS_HAM (1)
     $ret[] = update_sql("UPDATE {mollom} SET spam = 1 WHERE quality > 0.5");
   }
 
@@ -697,3 +731,93 @@ function mollom_update_6121() {
   $ret[] = update_sql("UPDATE {mollom_form} SET strictness = 'normal' WHERE strictness = 'medium'");
   return $ret;
 }
+
+/**
+ * Change {mollom}: Add 'spamResult', change 'spam', replace 'session_id' with 'contentId' and 'captchaId'.
+ */
+function mollom_update_6200() {
+  $ret = array();
+
+  variable_del('mollom_servers');
+
+  if (db_column_exists('mollom', 'session_id')) {
+    // Truncate table. Old session IDs cannot be migrated.
+    $ret[] = update_sql("TRUNCATE TABLE {mollom}");
+    // Remove 'session_id'.
+    db_drop_index($ret, 'mollom', 'session_id');
+    db_drop_field($ret, 'mollom', 'session_id');
+
+    // Add 'contentId' and 'captchaId'.
+    db_add_field($ret, 'mollom', 'contentId', array(
+      'description' => 'Content ID returned by Mollom.',
+      'type' => 'varchar',
+      'length' => 128,
+      'not null' => TRUE,
+      'default' => '',
+    ));
+    db_add_field($ret, 'mollom', 'captchaId', array(
+      'description' => 'CAPTCHA ID returned by Mollom.',
+      'type' => 'varchar',
+      'length' => 128,
+      'not null' => TRUE,
+      'default' => '',
+    ));
+    db_add_index($ret, 'mollom', 'contentId', array('contentId'));
+    db_add_index($ret, 'mollom', 'captchaId', array('captchaId'));
+  }
+  if (!db_column_exists('mollom', 'spamClassification')) {
+    // Add 'spamClassification'.
+    db_add_field($ret, 'mollom', 'spamClassification', array(
+      'description' => 'Text analysis final spam classification result.',
+      'type' => 'varchar',
+      'length' => 16,
+      'not null' => FALSE,
+    ));
+    // Change 'spam' into 'spamScore' double.
+    db_change_field($ret, 'mollom', 'spam', 'spamScore', array(
+      'description' => 'Text analysis spam check result.',
+      'type' => 'float',
+      'size' => 'tiny',
+      'not null' => FALSE,
+    ));
+  }
+  if (!db_column_exists('mollom', 'profanityScore')) {
+    // Change 'profanity' into 'profanityScore' double.
+    db_change_field($ret, 'mollom', 'profanity', 'profanityScore', array(
+      'description' => 'Text analysis profanity check result.',
+      'type' => 'float',
+      'size' => 'tiny',
+      'not null' => FALSE,
+    ));
+  }
+  if (!db_column_exists('mollom', 'qualityScore')) {
+    // Change 'quality' into 'qualityScore' double.
+    db_change_field($ret, 'mollom', 'quality', 'qualityScore', array(
+      'description' => 'Text analysis quality check result.',
+      'type' => 'float',
+      'size' => 'tiny',
+      'not null' => FALSE,
+    ));
+  }
+  if (!db_column_exists('mollom', 'solved')) {
+    // Add 'solved'.
+    db_add_field($ret, 'mollom', 'solved', array(
+      'description' => 'Whether a CAPTCHA has been solved (1) or not (0).',
+      'type' => 'int',
+      'size' => 'tiny',
+      'not null' => FALSE,
+    ));
+  }
+  if (!db_column_exists('mollom', 'reason')) {
+    // Add 'reason'.
+    db_add_field($ret, 'mollom', 'reason', array(
+      'description' => 'A special reason for why a post was blocked.',
+      'type' => 'varchar',
+      'length' => 255,
+      'not null' => TRUE,
+      'default' => '',
+    ));
+  }
+  return $ret;
+}
+
