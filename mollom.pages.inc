@@ -10,7 +10,7 @@
  *
  * @param $type
  *   The new CAPTCHA type to retrieve, e.g. 'image' or 'audio'.
- * @param $form_build_id
+ * @param $mollom_build_id
  *   The internal form build id of the form to update the CAPTCHA for.
  * @param $contentId
  *   (optional) The associated content ID in the form.
@@ -22,25 +22,24 @@
  *
  * @todo Add error handling.
  */
-function mollom_captcha_js($type, $form_build_id, $contentId = NULL) {
+function mollom_captcha_js($type, $mollom_build_id, $contentId = NULL) {
   // Load $form_state from cache or create a dummy state.
-  $cid = 'form_state_' . $form_build_id;
-  if ($cache = cache_get($cid, 'cache_mollom')) {
+  if ($cache = cache_get($mollom_build_id, 'cache_mollom')) {
     $form_state['mollom'] = $cache->data;
   }
   else {
     $form_state['mollom'] = array();
-    $form_state['mollom']['captcha_type'] = $type;
     if (isset($contentId)) {
       $form_state['mollom']['response']['content']['id'] = $contentId;
     }
   }
+  $form_state['mollom']['captcha_type'] = $type;
   $captcha = mollom_get_captcha($form_state);
 
   if (!empty($form_state['mollom']['response']['captcha']['id'])) {
     // Update cached session id in the cached $form_state.
     if ($cache) {
-      cache_set($cid, $form_state['mollom'], 'cache_mollom', time() + 21600);
+      cache_set($mollom_build_id, $form_state['mollom'], 'cache_mollom', time() + 21600);
     }
     // Return new content and CAPTCHA ID via JSON.
     $data = array(
