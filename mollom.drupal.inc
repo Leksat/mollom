@@ -206,44 +206,6 @@ class MollomDrupalTest extends MollomDrupal {
    * Overrides Mollom::$serversInit.
    */
   public $serversInit = array('http://dev.mollom.com/v1');
-
-  /**
-   * Overrides Mollom::refreshServers().
-   *
-   * @todo FIXME: Site data is not consistent across servers. Testing site
-   *   record is initially created on first hard-coded server.
-   *   MollomServerListRecoveryTestCase replaces server list with invalid URLs
-   *   to verify proper recovery. Since there is no server list,
-   *   refreshServers() is invoked, which calls GET /site/$publicKey, which
-   *   contains a new server list. The first server in that list is used for
-   *   subsequent/following requests. But the first server in the returned list
-   *   can be different to the first server in our hard-coded list
-   *   (Mollom::serversInit), and in that case, authentication fails, and in
-   *   turn, all tests fail.
-   */
-  protected function refreshServers() {
-    // Retrieve new server list.
-    $servers = parent::refreshServers();
-    // Nothing to do on empty list.
-    if (empty($servers)) {
-      return $servers;
-    }
-    // FIXME: rest.mollom.com not contained in returned server list.
-    return $this->serversInit;
-
-    // Append API version to serversInit.
-    $known = array();
-    foreach ($this->serversInit as $server) {
-      $known[] = $server . '/' . self::API_VERSION;
-    }
-    // Check whether any of the hard-coded servers is contained, and if so, sort
-    // them first (and in their hard-coded order).
-    $new = array_intersect($known, $servers);
-    // Append the remaining.
-    $new = array_merge($new, array_diff($servers, $new));
-
-    return $new;
-  }
 }
 
 /**

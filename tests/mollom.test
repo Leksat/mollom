@@ -307,7 +307,7 @@ class MollomWebTestCase extends DrupalWebTestCase {
   protected function createKeys($public = MOLLOM_TEST_PUBLIC_KEY, $private = MOLLOM_TEST_PRIVATE_KEY) {
     $mollom = mollom();
     // Hardcoded servers required, or any request will fail.
-    // FIXME:
+    // FIXME: Production API endpoint does not contain /v1 suffix.
     $mollom->servers = $mollom->serversInit;
 //    foreach ($mollom->serversInit as $server) {
 //      $mollom->servers[] = $server . '/' . Mollom::API_VERSION;
