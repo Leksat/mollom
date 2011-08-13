@@ -821,7 +821,6 @@ class MollomInstallationTestCase extends MollomWebTestCase {
     $this->admin_user = $this->drupalCreateUser(array(
       'access administration pages',
       'administer site configuration',
-      'administer modules',
       'administer permissions',
     ));
     $this->web_user = $this->drupalCreateUser();
@@ -1551,6 +1550,8 @@ class MollomServerListRecoveryTestCase extends MollomWebTestCase {
       // Verify that Mollom::query() fails with an invalid server list and
       // appropriate messages are logged.
       $mollom = mollom();
+      // D6 can't reset statics, so manually override servers directly.
+      $mollom->servers = $servers;
       $key_is_valid = $mollom->verifyKeys();
       $this->assertMollomWatchdogMessages(WATCHDOG_EMERG);
       $this->assertIdentical($key_is_valid, Mollom::NETWORK_ERROR, t('The Mollom servers could not be contacted.'));
