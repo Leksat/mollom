@@ -1585,6 +1585,8 @@ function mollom_process_mollom($element, $input, &$form_state, $complete_form) {
   }
 
   // Request and inject an initial CAPTCHA.
+  // If there is a CAPTCHA ID already, then it needs to be validated in
+  // mollom_validate_captcha() first.
   if ($form_state['mollom']['require_captcha'] && !$form_state['mollom']['passed_captcha'] && empty($form_state['mollom']['response']['captcha']['id'])) {
     mollom_form_add_captcha($element, $form_state);
   }
@@ -1949,7 +1951,19 @@ function mollom_pre_render_mollom($element) {
   $form_state['mollom'] = &$element['#mollom'];
   // Request and inject a CAPTCHA after unsuccessful form validation.
   if ($form_state['mollom']['require_captcha'] && !$form_state['mollom']['passed_captcha']) {
-    mollom_form_add_captcha($element, $form_state);
+    // Shortcut to responses, to make the following condition more readable.
+    $r = $form_state['mollom']['response'];
+    // However, do not request a new CAPTCHA a second time. In D7, the form
+    // validation handlers can adjust the form directly when needed. In D6, we
+    // need to check for the exact conditions in which the form validation
+    // handlers would have injected a new CAPTCHA normally. Thus, only if:
+    // 1) text analysis was unsure and there is no CAPTCHA yet.
+    $was_unsure = (empty($r['captcha']['id']) && isset($r['content']['spamClassification']) && $r['content']['spamClassification'] == 'unsure');
+    // 2) there was a CAPTCHA, but it wasn't solved correctly.
+    $was_incorrect = (isset($r['captcha']['solved']) && empty($r['captcha']['solved']));
+    if ($was_unsure || $was_incorrect) {
+      mollom_form_add_captcha($element, $form_state);
+    }
   }
   // If no CAPTCHA is required or the response was correct, hide the CAPTCHA.
   elseif (!$form_state['mollom']['require_captcha'] || $form_state['mollom']['passed_captcha']) {
