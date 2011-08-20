@@ -1350,7 +1350,15 @@ function _mollom_status($reset = FALSE) {
 
   // If we have keys and are asked to reset, check whether keys are valid.
   if ($status['keys'] && $reset) {
-    $status['keys valid'] = mollom()->verifyKeys();
+    $mollom = mollom();
+    // Whenever verifying keys, ensure that requests go to proper and current
+    // servers by emptying the local server list.
+    // @todo Primarily added due to frequent switching between XML-RPC and REST
+    //   implementations. Consider to remove this later.
+    $mollom->servers = array();
+    $mollom->deleteConfiguration('servers');
+
+    $status['keys valid'] = $mollom->verifyKeys();
   }
   // Otherwise, if there are no keys, they cannot be valid.
   elseif (!$status['keys']) {
