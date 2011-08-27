@@ -134,10 +134,7 @@ class MollomDrupal extends Mollom {
    */
   protected function refreshServers() {
     $servers = parent::refreshServers();
-    // FIXME: Server list contains XML-RPC servers.
-    if (empty($servers)) {
-      return $servers;
-    }
+    // FIXME: Server list contains XML-RPC servers or no servers at all.
     return $this->serversInit;
 
     // Allow other modules to alter the server list. Internal use only.
