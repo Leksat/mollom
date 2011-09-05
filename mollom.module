@@ -1873,13 +1873,6 @@ function mollom_validate_captcha(&$form, &$form_state) {
     return;
   }
 
-  // Nothing to validate if there is no value.
-  // @todo The field is #required, so Form API should already handle this. Add a
-  //   test to be sure and remove this code.
-  if (empty($form_state['values']['mollom']['captcha'])) {
-    return;
-  }
-
   // Check the CAPTCHA result.
   // Next to the Mollom session id and captcha result, the Mollom back-end also
   // takes into account the author's IP and local user id (if registered). Any

@@ -492,7 +492,16 @@ class MollomWebTestCase extends DrupalWebTestCase {
    * Assert that the CAPTCHA field is found on the current page.
    */
   protected function assertCaptchaField() {
-    $this->assertFieldByXPath('//input[@type="text"][@name="mollom[captcha]"]', '', 'CAPTCHA field found.');
+    $inputs = $this->xpath(strtr('//input[@type=":type" and @name=":name"]', array(
+      ':type' => 'text',
+      ':name' => 'mollom[captcha]',
+    )));
+    $labels = $this->xpath(strtr('//label[@for=":for"]/span[@class=":class"]', array(
+      ':for' => 'edit-mollom-captcha',
+      ':class' => 'form-required',
+    )));
+    $this->assert(!empty($inputs[0]) && !empty($labels[0]), 'Required CAPTCHA field found.');
+
     $image = $this->xpath('//img[@alt="' . t('Type the characters you see in this picture.') . '"]');
     $this->assert(!empty($image), 'CAPTCHA image found.');
   }
@@ -3356,6 +3365,135 @@ class MollomAnalysisTestCase extends MollomWebTestCase {
       $this->assertSame('spamClassification', $data->spamClassification, $expected['spamClassification']);
       $this->assertSame('profanityScore', $data->profanityScore, $expected['profanityScore']);
     }
+  }
+
+  /**
+   * Asserts a successful mollom_test_form submission.
+   *
+   * @param $old_mid
+   *   (optional) The existing test record id to assert.
+   */
+  protected function assertTestSubmitData($old_mid = NULL) {
+    $this->assertText('Successful form submission.');
+    $mid = $this->getFieldValueByName('mid');
+    if (isset($old_mid)) {
+      $this->assertSame('Test record id', $mid, $old_mid);
+    }
+    else {
+      $this->assertTrue($mid > 0, t('Test record id @id found.', array('@id' => $mid)));
+    }
+    return $mid;
+  }
+}
+
+/**
+ * Tests CAPTCHA functionality.
+ */
+class MollomCaptchaTestCase extends MollomWebTestCase {
+  // Re-route Mollom communication to this testing site.
+  protected $mollomClass = 'MollomDrupalTestLocal';
+
+  public static function getInfo() {
+    return array(
+      'name' => 'CAPTCHA',
+      'description' => 'Tests CAPTCHA functionality.',
+      'group' => 'Mollom',
+    );
+  }
+
+  function setUp() {
+    // @todo This is the new default setUp() procedure for all new tests, which
+    //   should be moved into MollomWebTestCase::setUp() after cleaning up the
+    //   tests.
+    $this->disableDefaultSetup = TRUE;
+    parent::setUp(array('mollom', 'mollom_test'));
+    $this->setKeys();
+    $this->assertValidKeys();
+
+    $this->admin_user = $this->drupalCreateUser(array(
+      'access administration pages',
+      'administer mollom',
+    ));
+    $this->web_user = $this->drupalCreateUser(array('access content'));
+  }
+
+  /**
+   * Tests #required validation of CAPTCHA form element.
+   */
+  function testRequiredValidation() {
+    $this->drupalLogin($this->admin_user);
+    $this->setProtection('mollom_test_form', MOLLOM_MODE_CAPTCHA);
+    $this->drupalLogout();
+
+    $this->drupalGet('mollom-test/form');
+
+    // Verify that CAPTCHA cannot be left empty.
+    $this->assertCaptchaField();
+    $this->drupalPost(NULL, array(), 'Submit');
+    $this->assertText($this->incorrect_message);
+    $this->assertNoText('Successful form submission.');
+
+    // Verify it again on subsequent POST.
+    $this->assertCaptchaField();
+    $this->drupalPost(NULL, array(), 'Submit');
+    $this->assertText($this->incorrect_message);
+    $this->assertNoText('Successful form submission.');
+
+    // Verify that incorrect solution still leaves the field required.
+    $edit = array(
+      'title' => $this->randomString(),
+    );
+    $this->postIncorrectCaptcha(NULL, $edit, 'Submit', 'Successful form submission.');
+
+    // Lastly, verify correct solution.
+    $edit = array(
+      'mollom[captcha]' => 'correct',
+    );
+    $this->drupalPost(NULL, $edit, 'Submit');
+    $this->assertTestSubmitData();
+  }
+
+  /**
+   * Tests incorrect solution of CAPTCHA form element.
+   */
+  function testIncorrect() {
+    $this->drupalLogin($this->admin_user);
+    $this->setProtection('mollom_test_form', MOLLOM_MODE_CAPTCHA);
+    $this->drupalLogout();
+
+    $this->drupalGet('mollom-test/form');
+
+    // Verify that incorrect solution still leaves the field required.
+    $edit = array(
+      'title' => $this->randomString(),
+    );
+    $this->postIncorrectCaptcha(NULL, $edit, 'Submit', 'Successful form submission.');
+
+    // Lastly, verify correct solution.
+    $edit = array(
+      'mollom[captcha]' => 'correct',
+    );
+    $this->drupalPost(NULL, $edit, 'Submit');
+    $this->assertTestSubmitData();
+  }
+
+  /**
+   * Tests correct solution of CAPTCHA form element.
+   */
+  function testCorrect() {
+    $this->drupalLogin($this->admin_user);
+    $this->setProtection('mollom_test_form', MOLLOM_MODE_CAPTCHA);
+    $this->drupalLogout();
+
+    $this->drupalGet('mollom-test/form');
+
+    // Verify that CAPTCHA can be solved in one shot.
+    $edit = array(
+      'title' => $this->randomString(),
+      'mollom[captcha]' => 'correct',
+    );
+    $this->drupalPost(NULL, $edit, 'Submit');
+    $this->assertTestSubmitData();
   }
 
   /**
