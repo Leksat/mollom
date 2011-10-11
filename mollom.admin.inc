@@ -784,7 +784,7 @@ function mollom_comment_admin_overview_submit($form, &$form_state) {
       if ($value) {
         // First, report the comments as spam to Mollom.com.
         if ($data = mollom_data_load('comment', $cid)) {
-          _mollom_send_feedback($data->session_id);
+          _mollom_send_feedback($data);
         }
 
         // Second, perform the proper operation on the comments:
@@ -823,7 +823,7 @@ function mollom_node_admin_overview_submit($form, &$form_state) {
       if ($value) {
         // First, report the nodes as spam to Mollom.com.
         if ($data = mollom_data_load('node', $nid)) {
-           _mollom_send_feedback($data->session_id);
+           _mollom_send_feedback($data);
         }
 
         if ($node = node_load($nid)) {
