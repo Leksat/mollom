@@ -200,7 +200,7 @@ class MollomDrupalTest extends MollomDrupal {
   /**
    * Overrides Mollom::$serversInit.
    */
-  public $serversInit = array('http://dev.mollom.com/v1');
+  public $serversInit = array('http://dev.mollom.com');
 }
 
 /**
@@ -213,7 +213,7 @@ class MollomDrupalTestLocal extends MollomDrupal {
   function __construct() {
     parent::__construct();
     // Replace initial server list with local fake server.
-    $this->serversInit = array($GLOBALS['base_url'] . '/mollom-test/rest/' . self::API_VERSION);
+    $this->serversInit = array($GLOBALS['base_url'] . '/mollom-test/rest');
   }
 
   /**

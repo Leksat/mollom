@@ -219,7 +219,7 @@ function mollom_test_server_rest_site($publicKey = NULL, $delete = FALSE) {
   // Prepare server list.
   $servers = mollom_test_server_get_server_list($data);
   foreach ($servers as $key => &$url) {
-    $url .= '/mollom-test/rest/' . Mollom::API_VERSION;
+    $url .= '/mollom-test/rest';
   }
 
   $bin = 'mollom_test_server_site';

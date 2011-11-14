@@ -1509,7 +1509,7 @@ class MollomFallbackTestCase extends MollomWebTestCase {
     variable_set('mollom_servers', array(
       'http://fake-host-1',
       'http://fake-host-2',
-      $GLOBALS['base_url'] . '/mollom-test/rest/' . Mollom::API_VERSION, // A real server.
+      $GLOBALS['base_url'] . '/mollom-test/rest', // A real server.
       'http://fake-host-3',
     ));
 
