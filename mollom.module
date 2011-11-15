@@ -1865,6 +1865,19 @@ function mollom_validate_captcha(&$form, &$form_state) {
     return;
   }
 
+  // If the form is protected via text analysis and the result was "unsure",
+  // then this validation handler also runs when the CAPTCHA is initially
+  // requested by mollom_validate_analysis(), is about to be rendered, and
+  // before the user had a chance to solve it. In that case, there is no value
+  // that could be validated yet; i.e., the CAPTCHA value is empty. However, in
+  // all other cases, an empty value must be validated and sent to Mollom. The
+  // initial case has a special condition: mollom_validate_analysis() has set
+  // a form error on the CAPTCHA element asking the user to solve it in order to
+  // submit the form.
+  if ($form_state['values']['mollom']['captcha'] === '' && form_get_error($form['mollom']['captcha'])) {
+    return;
+  }
+
   // Check the CAPTCHA result.
   // Next to the Mollom session id and captcha result, the Mollom back-end also
   // takes into account the author's IP and local user id (if registered). Any
