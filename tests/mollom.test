@@ -1937,6 +1937,11 @@ class MollomFormConfigurationTestCase extends MollomWebTestCase {
     parent::setUp(array('mollom_test'));
 
     $this->drupalLogin($this->admin_user);
+
+    // D6: Disable "Mollom test form" menu link of mollom_test.module, as it
+    // appears in the Navigation block on all pages and this test checks whether
+    // the string appears in the admin list after removing the form protection.
+    db_query("UPDATE {menu_links} SET hidden = 1 WHERE router_path = 'mollom-test/form'");
   }
 
   /**
