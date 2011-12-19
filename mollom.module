@@ -1252,6 +1252,7 @@ function _mollom_status($reset = FALSE) {
     'keys' => FALSE,
     'keys valid' => FALSE,
   ));
+  $current_status = $status;
 
   // Both API keys are required.
   $public_key = variable_get('mollom_public_key', '');
@@ -1273,8 +1274,12 @@ function _mollom_status($reset = FALSE) {
     $status['servers'] = !empty($servers);
   }
 
-  // Update stored status upon reset.
-  if ($reset) {
+  // Update stored status upon reset, but only if the status changed, as a
+  // variable_set() invalidates the variable cache.
+  // Requires array_diff_assoc() instead of ($current_status != $status), since
+  // 'keys valid' may be an error code integer, which is equal to TRUE, so a
+  // type-agnostic strict comparison is required.
+  if ($reset && array_diff_assoc($current_status, $status)) {
     variable_set('mollom_status', $status);
   }
 
