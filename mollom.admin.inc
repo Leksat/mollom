@@ -296,6 +296,26 @@ function mollom_admin_configure_form(&$form_state, $mollom_form = NULL) {
           // Only possible for forms supporting moderation of unpublished posts.
           '#access' => !empty($mollom_form['moderation callback']),
         );
+
+        $form['mollom']['moderation'] = array(
+          '#type' => 'checkbox',
+          '#title' => t('Allow content to be moderated from <a href="@moderation-url">@moderation-name</a>.', array(
+            '@moderation-url' => 'http://my.mollom.com',
+            '@moderation-name' => 'Mollom Moderation service',
+          )),
+          '#default_value' => $mollom_form['moderation'],
+          // Only possible for forms which result in a locally stored entity.
+          '#access' => !empty($mollom_form['entity']),
+          // Only possible for forms protected via text analysis.
+          '#states' => array(
+            'visible' => array(
+              ':input[name="mollom[mode]"]' => array('value' => (string) MOLLOM_MODE_ANALYSIS),
+            ),
+          ),
+          '#description' => t("Requires participation in Mollom's <a href=\"@beta-url\">beta program</a>.", array(
+            '@beta-url' => 'http://mollom.com/beta',
+          )),
+        );
       }
 
       $form['actions']['submit'] = array(
@@ -705,19 +725,28 @@ function mollom_admin_settings(&$form_state) {
   );
   // Keys are not #required to allow to install this module and configure it
   // later.
+  $mollom = mollom();
   $form['access-keys']['mollom_public_key'] = array(
     '#type' => 'textfield',
     '#title' => t('Public key'),
-    '#default_value' => variable_get('mollom_public_key', ''),
+    '#default_value' => $mollom->loadConfiguration('publicKey'),
     '#element_validate' => array('mollom_admin_settings_validate_key'),
     '#description' => t('Used to uniquely identify you.'),
+    // Expose this input element as 'mollom_public_key', but ensure
+    // system_settings_form_submit() saves it into the class-specific variable.
+    '#name' => 'mollom_public_key',
+    '#parents' => array($mollom->configuration_map['publicKey']),
   );
   $form['access-keys']['mollom_private_key'] = array(
     '#type' => 'textfield',
     '#title' => t('Private key'),
-    '#default_value' => variable_get('mollom_private_key', ''),
+    '#default_value' => $mollom->loadConfiguration('privateKey'),
     '#element_validate' => array('mollom_admin_settings_validate_key'),
     '#description' => t('Used to prevent someone else from hijacking your requests. Similar to a password, it should never be shared with anyone.'),
+    // Expose this input element as 'mollom_private_key', but ensure
+    // system_settings_form_submit() saves it into the class-specific variable.
+    '#name' => 'mollom_private_key',
+    '#parents' => array($mollom->configuration_map['privateKey']),
   );
 
   $form['mollom_fallback'] = array(

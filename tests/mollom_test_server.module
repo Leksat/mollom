@@ -124,8 +124,8 @@ function mollom_test_server_rest_deliver($callback) {
         break;
 
       case Mollom::AUTH_ERROR:
-        $code = 1000;
-        $message = 'Authentication failure';
+        $code = 401;
+        $message = 'Unauthorized';
         break;
 
       default:
@@ -216,12 +216,6 @@ function mollom_test_server_rest_validate_auth() {
 function mollom_test_server_rest_site($publicKey = NULL, $delete = FALSE) {
   $data = mollom_test_server_rest_get_parameters();
 
-  // Prepare server list.
-  $servers = mollom_test_server_get_server_list($data);
-  foreach ($servers as $key => &$url) {
-    $url .= '/mollom-test/rest';
-  }
-
   $bin = 'mollom_test_server_site';
   $sites = variable_get($bin, array());
 
@@ -271,13 +265,6 @@ function mollom_test_server_rest_site($publicKey = NULL, $delete = FALSE) {
         'languages' => array(),
         'subscriptionType' => 0, // Mollom Free.
         // Client version info is not defined by default.
-        /*
-        'platformName' => '',
-        'platformVersion' => '',
-        'clientName' => '',
-        'clientVersion' => '',
-        */
-        'servers' => $servers,
       );
       $sites[$publicKey] = $data;
       variable_set($bin, $sites);
@@ -319,6 +306,9 @@ function mollom_test_server_rest_content($contentId = NULL) {
     if (isset($data['id']) && $data['id'] != $contentId) {
       return FALSE;
     }
+    if (isset($contentId)) {
+      $data['id'] = $contentId;
+    }
   }
 
   // Default POST: Create or update content and check it.
@@ -340,7 +330,8 @@ function mollom_test_server_rest_captcha($captchaId = NULL) {
       return FALSE;
     }
     // Verify CAPTCHA.
-    if (isset($data['id'])) {
+    if (isset($captchaId)) {
+      $data['id'] = $captchaId;
       $response = mollom_test_server_check_captcha($data);
       if (!is_array($response)) {
         return $response;
@@ -463,17 +454,6 @@ function mollom_test_server_rest_send_feedback() {
 }
 
 /**
- * API callback for mollom.getServerList to retrieve new server list.
- */
-function mollom_test_server_get_server_list($data) {
-  $storage = variable_get(__FUNCTION__, array());
-  $storage[] = $data;
-  variable_set(__FUNCTION__, $storage);
-
-  return array($GLOBALS['base_url'], $GLOBALS['base_url']);
-}
-
-/**
  * API callback for mollom.checkContent to perform textual analysis.
  *
  * @todo Add support for 'redirect' and 'refresh' values.
@@ -494,8 +474,10 @@ function mollom_test_server_check_content($data) {
 
   $post = implode('\n', array_intersect_key($data, array('postTitle' => 1, 'postBody' => 1)));
 
+  $update = isset($data['stored']);
+
   // Spam filter: Check post_title and post_body for ham, spam, or unsure.
-  if (!isset($data['checks']) || in_array('spam', $data['checks'])) {
+  if (!$update && (!isset($data['checks']) || in_array('spam', $data['checks']))) {
     $spam = FALSE;
     $ham = FALSE;
     // 'spam' always has precedence.
@@ -603,7 +585,15 @@ function mollom_test_server_check_content($data) {
 
   $storage = variable_get('mollom_test_server_content', array());
   $contentId = (!empty($data['id']) ? $data['id'] : md5(mt_rand()));
-  $storage[$contentId] = $data;
+  if (isset($storage[$contentId])) {
+    $storage[$contentId] = array_merge($storage[$contentId], $data);
+  }
+  else {
+    $storage[$contentId] = $data;
+  }
+  if ($update) {
+    $response = array_merge($storage[$contentId], $response);
+  }
   $response['id'] = $contentId;
   variable_set('mollom_test_server_content', $storage);
 

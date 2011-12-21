@@ -188,14 +188,16 @@ function mollom_test_form_submit($form, &$form_state) {
   unset($form_state['values']['field']['new']);
 
   // Store submission.
-  $update = !empty($form_state['values']['mid']) ? 'mid' : array();
-  drupal_write_record('mollom_test', $form_state['values'], $update);
+  _mollom_form_state_values_clean($form_state);
+  $record = (object) $form_state['values'];
+  mollom_test_save($record);
+  $form_state['values']['mid'] = $record->mid;
 
   // Redirect to stored entry.
-  $form_state['redirect'] = 'mollom-test/form/' . $form_state['values']['mid'];
+  $form_state['redirect'] = 'mollom-test/form/' . $record->mid;
 
   drupal_set_message('Successful form submission.');
-  drupal_set_message('<pre>' . var_export($form_state['values'], TRUE) . '</pre>');
+  drupal_set_message('<pre>' . var_export($record, TRUE) . '</pre>');
 }
 
 /**
@@ -216,10 +218,44 @@ function mollom_test_mollom_form_moderation(&$form, &$form_state) {
 }
 
 /**
+ * Implements hook_mollom_test_presave() on behalf of mollom.module.
+ */
+function mollom_mollom_test_presave($record) {
+  // If an existing record is published and we have session data stored for it,
+  // mark the data as moderated.
+  if (!empty($record->mid) && $record->status) {
+    mollom_data_moderate('mollom_test', $record->mid);
+  }
+}
+
+/**
  * Loads a {mollom_test} data record by id.
  */
 function mollom_test_load($mid) {
   return db_fetch_array(db_query('SELECT * FROM {mollom_test} WHERE mid = %d', array($mid)));
+}
+
+/**
+ * Saves a {mollom_test} data record.
+ */
+function mollom_test_save($record) {
+  // Allow modules to alter the record before saving. This is done for code
+  // consistency only.
+  // @see mollom_mollom_test_presave()
+  module_invoke_all('mollom_test_presave', $record);
+
+  $update = !empty($record->mid) ? array('mid') : array();
+  $status = drupal_write_record('mollom_test', $record, $update);
+  if ($status === SAVED_NEW) {
+    module_invoke_all('mollom_test_insert', $record);
+    module_invoke_all('entity_insert', $record, 'mollom_test');
+  }
+  else {
+    $status = SAVED_UPDATED;
+    module_invoke_all('mollom_test_update', $record);
+    module_invoke_all('entity_update', $record, 'mollom_test');
+  }
+  return $status;
 }
 
 /**
@@ -229,6 +265,21 @@ function mollom_test_load($mid) {
  *   The mids to delete.
  */
 function mollom_test_delete_multiple(array $mids) {
+  foreach ($mids as $mid) {
+    // @todo The core entity system expects objects.
+    $record = (object) mollom_test_load($mid);
+    if ($record) {
+      module_invoke_all('entity_delete', $record, 'mollom_test');
+    }
+  }
+
   $placeholders = db_placeholders($mids);
   db_query("DELETE FROM {mollom_test} WHERE mid IN ($placeholders)", $mids);
+}
+
+/**
+ * Implements non-existing hook_entity_delete() on behalf of Mollom module.
+ */
+function mollom_entity_delete($entity, $type) {
+  mollom_data_delete('mollom_test', $entity->mid);
 }
