@@ -120,9 +120,7 @@ function mollom_init() {
       }
     }
   }
-  $path = drupal_get_path('module', 'mollom');
-  drupal_add_js($path . '/mollom.js');
-  drupal_add_css($path . '/mollom.css');
+  drupal_add_css(drupal_get_path('module', 'mollom') . '/mollom.css');
 }
 
 /**
@@ -525,13 +523,13 @@ function mollom_data_delete_form_alter(&$form, &$form_state) {
     '#type' => 'radios',
     '#title' => t('Report as inappropriate'),
     '#options' => array(
-      0 => t('Do not report'),
+      '' => t('Do not report'),
       'spam' => t('Spam, unsolicited advertising'),
       'profanity' => t('Obscene, violent, profane'),
       'quality' => t('Low-quality'),
       'unwanted' => t('Unwanted, taunting, off-topic'),
     ),
-    '#default_value' => 0,
+    '#default_value' => '',
     '#description' => t('Sending feedback to <a href="@mollom-url">Mollom</a> improves the automated moderation of new submissions.', array('@mollom-url' => 'http://mollom.com')),
   );
 }
@@ -1132,61 +1130,58 @@ function mollom_form_get_values(&$form_state, $fields, $mapping) {
     $data['postBody'] = $post_body;
   }
 
-  // User name.
-  if (!empty($mapping['author_name'])) {
-    $data['authorName'] = $mapping['author_name'];
-    // Try to inherit user from author name.
-    $account = user_load(array('name' => $data['authorName']));
-  }
-  elseif (!empty($user->name)) {
-    $data['authorName'] = $user->name;
-  }
-
-  // User e-mail.
-  if (!empty($mapping['author_mail'])) {
-    $data['authorMail'] = $mapping['author_mail'];
-  }
-  elseif (!empty($data['author_name'])) {
-    if (!empty($account->mail)) {
-      $data['authorMail'] = $account->mail;
-    }
-  }
-  elseif (!empty($user->mail)) {
-    $data['authorMail'] = $user->mail;
-  }
-
-  // User homepage.
-  if (!empty($mapping['author_url'])) {
-    $data['authorUrl'] = $mapping['author_url'];
-  }
-
-  // User ID.
+  // Author ID.
+  // If a non-anonymous user ID was mapped via form values, use that.
   if (!empty($mapping['author_id'])) {
     $data['authorId'] = $mapping['author_id'];
   }
-  elseif (!empty($data['author_name'])) {
-    if (!empty($account->uid)) {
-      $data['authorId'] = $account->uid;
-    }
-  }
+  // Otherwise, the currently logged-in user is the author.
   elseif (!empty($user->uid)) {
     $data['authorId'] = $user->uid;
   }
 
-  // User OpenID.
+  // Load the user account of the author, if any, for the following author*
+  // property assignments.
+  $account = FALSE;
+  if (isset($data['authorId'])) {
+    $account = user_load($data['authorId']);
+  }
+
+  // Author name.
+  // A form value mapping always has precedence.
+  if (!empty($mapping['author_name'])) {
+    $data['authorName'] = $mapping['author_name'];
+  }
+  // In case a post of a registered user is edited and a form value mapping
+  // exists for author_id, but no form value mapping exists for author_name,
+  // use the name of the user account associated with author_id.
+  // $account may be the same as the currently logged-in $user at this point.
+  elseif (!empty($account->name)) {
+    $data['authorName'] = $account->name;
+  }
+
+  // Author e-mail.
+  if (!empty($mapping['author_mail'])) {
+    $data['authorMail'] = $mapping['author_mail'];
+  }
+  elseif (!empty($account->mail)) {
+    $data['authorMail'] = $account->mail;
+  }
+
+  // Author homepage.
+  if (!empty($mapping['author_url'])) {
+    $data['authorUrl'] = $mapping['author_url'];
+  }
+
+  // Author OpenID.
   if (!empty($mapping['author_openid'])) {
     $data['authorOpenid'] = $mapping['author_openid'];
   }
-  elseif (!empty($data['author_id'])) {
-    if (!empty($account->uid) && ($openid = _mollom_get_openid($account))) {
-      $data['authorOpenid'] = $openid;
-    }
-  }
-  elseif (!empty($user->uid) && ($openid = _mollom_get_openid($user))) {
+  elseif (!empty($account) && ($openid = _mollom_get_openid($account))) {
     $data['authorOpenid'] = $openid;
   }
 
-  // User IP.
+  // Author IP.
   $data['authorIp'] = ip_address();
 
   // Honeypot.
@@ -1604,6 +1599,9 @@ function mollom_process_mollom($element, $input, &$form_state, $complete_form) {
   // Clear out content properties from a previous submission.
   // @see mollom_form_get_values()
   unset($form_state['mollom']['content_properties']);
+
+  // Add the JavaScript.
+  drupal_add_js(drupal_get_path('module', 'mollom') . '/mollom.js');
 
   // D6:
   $element['mollom_build_id'] = array(

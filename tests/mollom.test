@@ -2980,6 +2980,7 @@ class MollomDataTestCase extends MollomWebTestCase {
     );
     $form_state = array('values' => $values, 'buttons' => array());
     $data = mollom_form_get_values($form_state, $fields, $form_info['mapping']);
+    $data += array_fill_keys(array('postTitle', 'postBody', 'authorId', 'authorName', 'authorMail', 'authorUrl', 'authorOpenid', 'authorIp'), NULL);
 
     $this->assertSame('postTitle', $data['postTitle'], $values['subject']);
     $body = array(
@@ -2989,11 +2990,48 @@ class MollomDataTestCase extends MollomWebTestCase {
       $values['field_checked'][1]['value'],
     );
     $this->assertSame('postBody', $data['postBody'], implode(" \n", $body));
+    $this->assertSame('authorId', $data['authorId'], NULL);
     $this->assertSame('authorName', $data['authorName'], $values['name']);
     $this->assertSame('authorMail', $data['authorMail'], $values['mail']);
-    $this->assertFalse(isset($data['authorUrl']), t('authorUrl: Undefined.'));
-    $this->assertFalse(isset($data['authorOpenid']), t('authorOpenid: Undefined.'));
-    $this->assertFalse(isset($data['authorId']), t('authorId: Undefined.'));
+    $this->assertSame('authorUrl', $data['authorUrl'], NULL);
+    $this->assertSame('authorOpenid', $data['authorOpenid'], NULL);
+    $this->assertSame('authorIp', $data['authorIp'], ip_address());
+
+    // Verify submitted form values for an anonymous user whose name happens to
+    // match a registered user.
+    $values = array(
+      'subject' => 'Foo',
+      'message' => 'Bar',
+      'parent' => array(
+        'child' => 'Beer',
+      ),
+      'field_checked' => array(
+        0 => array('value' => 'Check first'),
+        1 => array('value' => 'Check second'),
+      ),
+      'field_unchecked' => array(
+        0 => array('value' => 'Ignore first'),
+        1 => array('value' => 'Ignore second'),
+      ),
+      'name' => $this->admin_user->name,
+    );
+    $form_state = array('values' => $values, 'buttons' => array());
+    $data = mollom_form_get_values($form_state, $fields, $form_info['mapping']);
+    $data += array_fill_keys(array('postTitle', 'postBody', 'authorId', 'authorName', 'authorMail', 'authorUrl', 'authorOpenid', 'authorIp'), NULL);
+
+    $this->assertSame('postTitle', $data['postTitle'], $values['subject']);
+    $body = array(
+      $values['message'],
+      $values['parent']['child'],
+      $values['field_checked'][0]['value'],
+      $values['field_checked'][1]['value'],
+    );
+    $this->assertSame('postBody', $data['postBody'], implode(" \n", $body));
+    $this->assertSame('authorId', $data['authorId'], NULL);
+    $this->assertSame('authorName', $data['authorName'], $values['name']);
+    $this->assertSame('authorMail', $data['authorMail'], NULL);
+    $this->assertSame('authorUrl', $data['authorUrl'], NULL);
+    $this->assertSame('authorOpenid', $data['authorOpenid'], NULL);
     $this->assertSame('authorIp', $data['authorIp'], ip_address());
 
     // Verify submitted form values for an registered user.
@@ -3005,15 +3043,15 @@ class MollomDataTestCase extends MollomWebTestCase {
     );
     $form_state = array('values' => $values, 'buttons' => array());
     $data = mollom_form_get_values($form_state, $fields, $form_info['mapping']);
+    $data += array_fill_keys(array('postTitle', 'postBody', 'authorId', 'authorName', 'authorMail', 'authorUrl', 'authorOpenid', 'authorIp'), NULL);
 
     $this->assertSame('postTitle', $data['postTitle'], $values['subject']);
     $this->assertSame('postBody', $data['postBody'], $values['message']);
+    $this->assertSame('authorId', $data['authorId'], $this->admin_user->uid);
     $this->assertSame('authorName', $data['authorName'], $this->admin_user->name);
     $this->assertSame('authorMail', $data['authorMail'], $this->admin_user->mail);
-    $this->assertFalse(isset($data['authorUrl']), t('authorUrl: Undefined.'));
-    // @todo Test this.
-    $this->assertFalse(isset($data['authorOpenid']), t('authorOpenid: Undefined.'));
-    $this->assertSame('authorId', $data['authorId'], $this->admin_user->uid);
+    $this->assertSame('authorUrl', $data['authorUrl'], NULL);
+    $this->assertSame('authorOpenid', $data['authorOpenid'], NULL);
     $this->assertSame('authorIp', $data['authorIp'], ip_address());
 
     // Verify that invalid UTF-8 is detected.

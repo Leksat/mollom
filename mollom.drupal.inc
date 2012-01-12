@@ -63,7 +63,7 @@ class MollomDrupal extends Mollom {
     $mollom_info = unserialize($mollom_info);
     if (empty($mollom_info['version'])) {
       // Manually build a module version string for repository checkouts.
-      $mollom_info['version'] = DRUPAL_CORE_COMPATIBILITY . '-1.x-dev';
+      $mollom_info['version'] = DRUPAL_CORE_COMPATIBILITY . '-2.x-dev';
     }
 
     $data = array(
