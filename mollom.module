@@ -269,9 +269,9 @@ function mollom_menu() {
   );
 
   // AJAX callback to request new CAPTCHA.
-  $items['mollom/captcha/%/%/%'] = array(
+  $items['mollom/captcha/%/%'] = array(
     'page callback' => 'mollom_captcha_js',
-    'page arguments' => array(2, 3, 4),
+    'page arguments' => array(2, 3),
     'access callback' => '_mollom_access',
     'file' => 'mollom.pages.inc',
     'type' => MENU_CALLBACK,
