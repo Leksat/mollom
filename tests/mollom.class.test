@@ -146,6 +146,14 @@ class MollomClassUnitTestCase extends DrupalUnitTestCase {
     $input = array('checks' => array('foo' => 'spam', 'bar' => 'profanity'));
     $expected = 'checks[bar]=profanity&checks[foo]=spam';
     $this->assertSame(var_export($input, TRUE), Mollom::httpBuildQuery($input), $expected);
+
+    // Prior to PHP 5.3.0, rawurlencode() encoded tildes (~) as per RFC 1738.
+    $input = array(
+      'reserved' => ':/?#[]@!$&\'()*+,;=',
+      'unreserved' => '-._~',
+    );
+    $expected = 'reserved=%3A%2F%3F%23%5B%5D%40%21%24%26%27%28%29%2A%2B%2C%3B%3D&unreserved=-._~';
+    $this->assertSame(var_export($input, TRUE), Mollom::httpBuildQuery($input), $expected);
   }
 
   /**
