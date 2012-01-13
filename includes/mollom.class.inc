@@ -736,7 +736,17 @@ abstract class Mollom {
     // value. (3.4.1.3.2)
     sort($params, SORT_STRING);
 
-    return implode('&', $params);
+    $result = implode('&', $params);
+    // Prior to PHP 5.3.0, rawurlencode encoded tildes (~) as per RFC 1738.
+    // Percent-encoded octets corresponding to unreserved characters can be
+    // decoded at any time. For example, the octet corresponding to the tilde
+    // ("~") character is often encoded as "%7E" by older URI processing
+    // implementations; the "%7E" can be replaced by "~" without changing its
+    // interpretation.
+    // @see http://php.net/manual/en/function.rawurlencode.php
+    // @see http://tools.ietf.org/html/rfc3986#section-2.3
+    $result = str_replace('%7E', '~', $result);
+    return $result;
   }
 
   /**
