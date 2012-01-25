@@ -293,15 +293,6 @@ function mollom_test_server_rest_content($contentId = NULL) {
     return FALSE;
   }
   else {
-    // Update existing content (includes sending feedback).
-    // In case the 'moderated' parameter was passed, the call equals the old
-    // mollom.sendFeedback and we only check whether the parameter value is
-    // correct.
-    if (isset($data['moderated'])) {
-      $valid = is_string($data['moderated']);
-      $valid = $valid && in_array($data['moderated'], array('spam', 'profanity', 'quality', 'unwanted', 'approve', 'escalate', 'delete', 'ignore'));
-      return $valid;
-    }
     // Content ID in request parameters must match the one in path.
     if (isset($data['id']) && $data['id'] != $contentId) {
       return FALSE;
