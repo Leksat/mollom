@@ -299,9 +299,9 @@ function mollom_admin_configure_form(&$form_state, $mollom_form = NULL) {
 
         $form['mollom']['moderation'] = array(
           '#type' => 'checkbox',
-          '#title' => t('Allow content to be moderated from <a href="@moderation-url">@moderation-name</a>.', array(
-            '@moderation-url' => 'http://my.mollom.com',
-            '@moderation-name' => 'Mollom Moderation service',
+          '#title' => t('Allow content to be moderated from the hosted <a href="@moderation-url">@moderation-product</a>', array(
+            '@moderation-url' => 'http://mollom.com/moderation',
+            '@moderation-product' => 'Mollom moderation system',
           )),
           '#default_value' => $mollom_form['moderation'],
           // Only possible for forms which result in a locally stored entity.
@@ -312,9 +312,7 @@ function mollom_admin_configure_form(&$form_state, $mollom_form = NULL) {
               ':input[name="mollom[mode]"]' => array('value' => (string) MOLLOM_MODE_ANALYSIS),
             ),
           ),
-          '#description' => t("Requires participation in Mollom's <a href=\"@beta-url\">beta program</a>.", array(
-            '@beta-url' => 'http://mollom.com/beta',
-          )),
+          '#description' => t('Provides a unified moderation interface, supporting multiple sites, moderation teams, and detailed analytics.'),
         );
       }
 
