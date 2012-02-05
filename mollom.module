@@ -2635,6 +2635,9 @@ function mollom_moderate_validate_oauth() {
   $publicKey = variable_get('mollom_public_key', '');
   $privateKey = variable_get('mollom_private_key', '');
   if ($publicKey === '' || $privateKey === '') {
+    _mollom_watchdog(array(
+      'Missing module configuration' => array(),
+    ), WATCHDOG_WARNING);
     return FALSE;
   }
 
@@ -2643,6 +2646,11 @@ function mollom_moderate_validate_oauth() {
 
   // Validate protocol parameters.
   if (!isset($header['oauth_consumer_key'], $header['oauth_nonce'], $header['oauth_timestamp'], $header['oauth_signature_method'], $header['oauth_signature'])) {
+    _mollom_watchdog(array(
+      'Missing protocol parameters' => array(),
+      '<p>Request: @request</p>' => array('@request' => $_SERVER['REQUEST_METHOD'] . ' ' . $_GET['q']),
+      'Headers:<pre>@headers</pre>' => array('@headers' => $header),
+    ), WATCHDOG_WARNING);
     return FALSE;
   }
 
@@ -2681,6 +2689,11 @@ function mollom_moderate_validate_oauth() {
 
   // Validate nonce.
   if (empty($header['oauth_nonce'])) {
+    _mollom_watchdog(array(
+      'Missing authentication nonce' => array(),
+      '<p>Request: @request</p>' => array('@request' => $_SERVER['REQUEST_METHOD'] . ' ' . $_GET['q']),
+      'Headers:<pre>@headers</pre>' => array('@headers' => $header),
+    ), WATCHDOG_WARNING);
     return FALSE;
   }
   if ($cached = cache_get('mollom_moderation_nonces', 'cache')) {
@@ -2714,7 +2727,18 @@ function mollom_moderate_validate_oauth() {
   $key = Mollom::rawurlencode($privateKey) . '&' . '';
   $signature = rawurlencode(base64_encode(hash_hmac('sha1', $base_string, $key, TRUE)));
 
-  return $signature === $sent_signature;
+  $valid = ($signature === $sent_signature);
+  if (!$valid) {
+    _mollom_watchdog(array(
+      'Invalid authentication signature' => array(),
+      '<p>Request: @request</p>' => array('@request' => $_SERVER['REQUEST_METHOD'] . ' ' . $_GET['q']),
+      'Headers:<pre>@headers</pre>' => array('@headers' => $header + array('oauth_signature' => $sent_signature)),
+      'Base string:<pre>@base_string</pre>' => array('@base_string' => $base_string),
+      'Expected signature:<pre>@signature</pre>' => array('@signature' => $signature),
+      //'Expected key:<pre>@key</pre>' => array('@key' => $key),
+    ), WATCHDOG_WARNING);
+  }
+  return $valid;
 }
 
 /**
@@ -2732,6 +2756,7 @@ function mollom_moderate_validate_oauth() {
  */
 function mollom_moderate($data, $action) {
   $result = FALSE;
+  $messages = array();
 
   // Verify that action is supported or respond with a 404.
   if (!in_array($action, array('approve', 'spam', 'delete'))) {
@@ -2742,54 +2767,74 @@ function mollom_moderate($data, $action) {
   $form_info = mollom_form_load($data->form_id);
 
   if ($form_info) {
+    if (isset($form_info['entity load callback'])) {
+      $load_callback = $form_info['entity load callback'];
+      $messages[] = "May load $form_info[entity] entity via {$form_info['entity load callback']}().";
+    }
+    elseif (function_exists($data->entity . '_load')) {
+      $load_callback = $data->entity . '_load';
+      $messages[] = "May load $form_info[entity] entity via {$data->entity}_load().";
+    }
+    if (isset($form_info['entity save callback'])) {
+      $save_callback = $form_info['entity save callback'];
+      $messages[] = "May save $form_info[entity] entity via {$form_info['entity save callback']}().";
+    }
+    elseif (function_exists($data->entity . '_save')) {
+      $save_callback = $data->entity . '_save';
+      $messages[] = "May save $form_info[entity] entity via {$data->entity}_save().";
+    }
+    if (isset($form_info['entity delete multiple callback'])) {
+      $delete_callback = $form_info['entity delete multiple callback'];
+      $messages[] = "May delete $form_info[entity] entity via {$form_info['entity delete multiple callback']}().";
+    }
+    elseif (function_exists($data->entity . '_delete')) {
+      $delete_callback = $data->entity . '_delete';
+      $messages[] = "May delete $form_info[entity] entity via {$data->entity}_delete().";
+    }
+
     // Programmatically invoke publish action.
     if ($action == 'approve') {
       // @todo Abstract this. Possibly requires Entity module as dependency.
       if ($data->entity == 'comment') {
+        $messages[] = 'Invoked comment-specific code.';
         if ($comment = _comment_load($data->id)) {
+          $messages[] = "Loaded comment {$data->id} via _comment_load().";
           // comment_invoke_comment() is a mess, so we abuse the action.
           comment_publish_action($comment);
+          $messages[] = 'Invoked comment publish action.';
           // comment_admin_overview_submit() additionally updates node statistics
           // and invokes hooks, but the action does not.
           _comment_update_node_statistics($comment->nid);
           comment_invoke_comment($comment, 'publish');
+          $messages[] = 'Invoked comment publish hooks.';
 
           $result = TRUE;
         }
       }
-      else {
-        if (isset($form_info['entity load callback'])) {
-          $load_callback = $form_info['entity load callback'];
-        }
-        elseif (function_exists($data->entity . '_load')) {
-          $load_callback = $data->entity . '_load';
-        }
-        if (isset($form_info['entity save callback'])) {
-          $save_callback = $form_info['entity save callback'];
-        }
-        elseif (function_exists($data->entity . '_save')) {
-          $save_callback = $data->entity . '_save';
-        }
-      }
-      if (isset($load_callback) && isset($save_callback) && ($entity = $load_callback($data->id))) {
+      elseif (isset($load_callback) && isset($save_callback) && ($entity = $load_callback($data->id))) {
         $entity = (object) $entity;
         $entity->status = 1;
         $save_callback($entity);
+        $messages[] = "Updated status of $form_info[entity] entity via $load_callback() and $save_callback().";
+
         $result = TRUE;
       }
     }
     // Invoke entity delete multiple callback.
-    elseif (!empty($form_info['entity delete multiple callback'])) {
-      if (function_exists($form_info['entity delete multiple callback'])) {
-        $function = $form_info['entity delete multiple callback'];
-        $function(array($data->id));
+    elseif (isset($delete_callback)) {
+      $messages[] = "Attempt to delete $form_info[entity] entity via $delete_callback().";
+      if (function_exists($delete_callback)) {
+        $delete_callback(array($data->id));
+        $messages[] = "Deleted $form_info[entity] entity via $delete_callback().";
+
         // Entity delete callbacks do not return success or failure, so we can
         // only assume success.
         $result = TRUE;
       }
     }
     // Programmatically invoke delete confirmation form.
-    elseif (isset($form_info['delete form'])) {
+    elseif (isset($form_info['delete form']) && isset($load_callback)) {
+      $messages[] = "Attempt to delete $form_info[entity] entity via {$form_info['delete form']} form.";
       if (isset($form_info['delete form file'])) {
         $file = $form_info['delete form file'] + array(
           'type' => 'inc',
@@ -2797,6 +2842,7 @@ function mollom_moderate($data, $action) {
           'name' => NULL,
         );
         module_load_include($file['type'], $file['module'], $file['name']);
+        $messages[] = "Loaded {$file['name']}.{$file['type']} in {$file['module']}.";
       }
       // Programmatic form submissions are not able to automatically use the
       // primary form submit button/action, so we need to resemble
@@ -2806,11 +2852,11 @@ function mollom_moderate($data, $action) {
       // We assume that all delete confirmation forms take the fully loaded
       // entity as (only) argument.
       $args = array($form_id, &$form_state);
-      $args[] = $form_info['entity loader']($data->id);
+      $args[] = $load_callback($data->id);
       $form = call_user_func_array('drupal_retrieve_form', $args);
 
       $form_state['values'] = array();
-      $form_state['values']['mollom']['feedback'] = 0;
+      $form_state['values']['mollom']['feedback'] = '';
       // Take over the primary submit button of confirm_form().
       $form_state['values']['op'] = $form['actions']['submit']['#value'];
 
@@ -2822,10 +2868,12 @@ function mollom_moderate($data, $action) {
       drupal_prepare_form($form_id, $form, $form_state);
       drupal_process_form($form_id, $form, $form_state);
 
-      // @todo Check actual result.
-      $result = TRUE;
+      $errors = form_get_errors();
+      $result = empty($errors);
     }
   }
+
+  $messages = implode("\n", $messages);
 
   if ($result) {
     _mollom_watchdog(array(
@@ -2834,26 +2882,28 @@ function mollom_moderate($data, $action) {
         '@entity' => $data->entity,
         '@id' => $data->id,
       ),
-      'Mollom data:<pre>@data</pre>' => array('@data' => (array) $data),
-      'Messages:<pre>@messages</pre>' => array('@messages' => drupal_get_messages()),
     ));
   }
   else {
+    // 400 is not really appropriate, but comes closest.
+    drupal_set_header($_SERVER['SERVER_PROTOCOL'] . ' 400 Unable to process moderation request');
+
     _mollom_watchdog(array(
       '%action moderation failure for @entity @id' => array(
         '%action' => $action,
         '@entity' => $data->entity,
         '@id' => $data->id,
       ),
+      'Form ID:<pre>@form_id</pre>' => array('@form_id' => $data->form_id),
+      'Actions:<pre>@actions</pre>' => array('@actions' => $messages),
       'Mollom data:<pre>@data</pre>' => array('@data' => (array) $data),
       'Mollom form:<pre>@form</pre>' => array('@form' => $form_info),
-      'Messages:<pre>@messages</pre>' => array('@messages' => drupal_get_messages()),
+      'System messages:<pre>@messages</pre>' => array('@messages' => drupal_get_messages()),
     ), WATCHDOG_ERROR);
   }
 
   // Report back result as success status.
   echo (int) $result;
-  exit;
 }
 
 /**
@@ -3015,7 +3065,7 @@ function comment_mollom_form_list() {
     'title' => t('Comment form'),
     'entity' => 'comment',
     //'entity delete multiple callback' => 'comment_mollom_report_delete',
-    'entity loader' => '_comment_load',
+    'entity load callback' => '_comment_load',
     'delete form' => 'comment_confirm_delete',
     'delete form file' => array(
       'name' => 'comment.admin',

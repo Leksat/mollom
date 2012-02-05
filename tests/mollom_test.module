@@ -15,6 +15,12 @@ function mollom_test_menu() {
     'page arguments' => array('mollom_test_form'),
     'access callback' => TRUE,
   );
+  $items['mollom-test/form/%mollom_test/delete'] = array(
+    'title' => 'Delete Mollom test item',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('mollom_test_delete_form', 2),
+    'access callback' => TRUE,
+  );
   return $items;
 }
 
@@ -35,8 +41,8 @@ function mollom_test_mollom_form_list() {
   $forms['mollom_test_form'] = array(
     'title' => 'Mollom test form',
     'entity' => 'mollom_test',
-    'entity delete multiple callback' => 'mollom_test_delete_multiple',
     'moderation callback' => 'mollom_test_mollom_form_moderation',
+    'delete form' => 'mollom_test_delete_form',
   );
   // The basic test form is identical to the mollom_test_form, but only
   // registers minimal information (e.g., no entity or moderation callback) to
@@ -47,6 +53,13 @@ function mollom_test_mollom_form_list() {
   // Same as above, but supports elements for text analysis.
   $forms['mollom_basic_elements_test_form'] = array(
     'title' => 'Mollom basic elements test form',
+  );
+  // Same as mollom_test_form, but supports an entity delete callback.
+  // @todo Test mollom/moderate endpoint with entity delete callback.
+  $forms['mollom_entity_test_form'] = array(
+    'title' => 'Mollom entity test form',
+    'entity' => 'mollom_test',
+    'entity delete multiple callback' => 'mollom_test_delete_multiple',
   );
   return $forms;
 }
@@ -282,4 +295,26 @@ function mollom_test_delete_multiple(array $mids) {
  */
 function mollom_entity_delete($entity, $type) {
   mollom_data_delete('mollom_test', $entity->mid);
+}
+
+/**
+ * Form constructor for deleting a Mollom test item.
+ */
+function mollom_test_delete_form(&$form_state, $record) {
+  $form['mid'] = array('#type' => 'value', '#value' => $record['mid']);
+  return confirm_form($form,
+    t('Are you sure you want to delete the %title?', array('%title' => $record['title'])),
+    'mollom-test/form/' . $record['mid'],
+    NULL,
+    t('Delete')
+  );
+}
+
+/**
+ * Form submission handler for mollom_test_delete_form().
+ */
+function mollom_test_delete_form_submit($form, &$form_state) {
+  mollom_test_delete_multiple(array($form_state['values']['mid']));
+  drupal_set_message('The record has been deleted.');
+  $form_state['redirect'] = 'mollom-test/form';
 }
