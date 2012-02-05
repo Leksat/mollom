@@ -1216,15 +1216,16 @@ abstract class Mollom {
 /**
  * A catchable Mollom exception.
  *
- * The Mollom class internally uses exceptions to handle client-side server
- * balancing and eventually HTTP request errors within the Mollom::handleRequest()
- * method. All exceptions thrown in the Mollom class and derived classes should
- * be instances of the MollomException class if they pertain to errors that can
- * be catched/handled within the class. Other errors should not use the
- * MollomException class and handled differently.
+ * The Mollom class internally uses exceptions to handle HTTP request errors
+ * within the Mollom::handleRequest() method. All exceptions thrown in the
+ * Mollom class and derived classes should be instances of the MollomException
+ * class if they pertain to errors that can be catched/handled within the class.
+ * Other errors should not use the MollomException class and handled
+ * differently.
  *
  * No MollomException is supposed to pile up as a user-facing fatal error. All
- * functions that invoke Mollom::handleRequest() have to catch Mollom exceptions.
+ * functions that invoke Mollom::handleRequest() have to catch Mollom
+ * exceptions.
  *
  * @see Mollom::query()
  * @see Mollom::handleRequest()
