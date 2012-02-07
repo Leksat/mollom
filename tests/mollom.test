@@ -3892,26 +3892,24 @@ class MollomModerationIntegrationTestCase extends MollomWebTestCase {
       foreach ($oauth_hacks as $name => $value) {
         $oauth[$name] = $value;
       }
-      // PHPWTF: Can't access static methods on class in a property.
-      $class = $this->mollom;
 
       // Regenerate signature based on hacked protocol parameters.
       // Tests do not send additional GET/POST data at this point, so we do not
       // account for that possibility.
       // @see Mollom::addAuthentication()
       if (!isset($oauth_hacks['oauth_signature'])) {
-        $oauth_query = $class::httpBuildQuery($oauth);
+        $oauth_query = $this->mollom->httpBuildQuery($oauth);
         $base_string = implode('&', array(
           $method,
-          $class::rawurlencode($endpoint . '/' . $path),
-          $class::rawurlencode($oauth_query),
+          $this->mollom->rawurlencode($endpoint . '/' . $path),
+          $this->mollom->rawurlencode($oauth_query),
         ));
-        $key = $class::rawurlencode($this->mollom->privateKey) . '&' . '';
+        $key = $this->mollom->rawurlencode($this->mollom->privateKey) . '&' . '';
         $oauth['oauth_signature'] = base64_encode(hash_hmac('sha1', $base_string, $key, TRUE));
       }
 
       foreach ($oauth as $key => $value) {
-        $oauth[$key] = $key . '="' . $class::rawurlencode($value) . '"';
+        $oauth[$key] = $key . '="' . $this->mollom->rawurlencode($value) . '"';
       }
       $headers['Authorization'] = 'OAuth ' . implode(', ', $oauth);
     }
