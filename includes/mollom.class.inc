@@ -439,39 +439,32 @@ abstract class Mollom {
       }
     }
 
+    $request_info = array(
+      'request' => $method . ' ' . $server . '/' . $path,
+      'headers' => $headers,
+      'data' => $data,
+      'response_code' => $response->code,
+      'response_message' => $response->message,
+      'response' => !empty($response->data) ? $response->data : $response->body,
+    );
     if ($response->isError) {
-      $arguments = array(
-        'request' => $method . ' ' . $server . '/' . $path,
-        'headers' => $headers,
-        'data' => $data,
-        'response' => !empty($response->data) ? $response->data : $response->body,
-      );
       if ($response->code <= 0) {
-        throw new MollomNetworkException('Network error.', self::NETWORK_ERROR, NULL, $this, $arguments);
+        throw new MollomNetworkException('Network error.', self::NETWORK_ERROR, NULL, $this, $request_info);
       }
       if ($response->code == self::AUTH_ERROR) {
-        throw new MollomAuthenticationException('Invalid authentication.', self::AUTH_ERROR, NULL, $this, $arguments);
+        throw new MollomAuthenticationException('Invalid authentication.', self::AUTH_ERROR, NULL, $this, $request_info);
       }
       if ($response->code == self::RESPONSE_ERROR || $response->code >= 500) {
-        throw new MollomResponseException($response->message, $response->code, NULL, $this, $arguments);
+        throw new MollomResponseException($response->message, $response->code, NULL, $this, $request_info);
       }
-      throw new MollomException($response->message, $response->code, NULL, $this, $arguments);
+      throw new MollomException($response->message, $response->code, NULL, $this, $request_info);
     }
     else {
       $this->lastResponseCode = TRUE;
+      // No message is logged in case of success.
       $this->log[] = array(
         'severity' => 'debug',
-        'message' => '@code @method @uri',
-        'arguments' => array(
-          '@code' => $response->code,
-          '@method' => $method,
-          '@uri' => $path,
-        ),
-        'request' => $method . ' ' . $server . '/' . $path,
-        'headers' => $headers,
-        'data' => $data,
-        'response' => $response->data,
-      );
+      ) + $request_info;
 
       return $response->data;
     }
@@ -1258,14 +1251,17 @@ class MollomException extends Exception {
   /**
    * The severity of this exception.
    *
+   * By default, all exceptions should be logged and appear as errors (unless
+   * overridden by a later log entry).
+   *
    * @var string
    */
-  protected $severity = 'debug';
+  protected $severity = 'error';
 
   /**
    * Overrides Exception::__construct().
    */
-  function __construct($message = '', $code = 0, Exception $previous = NULL, Mollom $mollom, array $arguments = array()) {
+  function __construct($message = '', $code = 0, Exception $previous = NULL, Mollom $mollom, array $request_info = array()) {
     // Fatal error on PHP <5.3 when passing more arguments to Exception.
     if (version_compare(phpversion(), '5.3') >= 0) {
       parent::__construct($message, $code, $previous);
@@ -1288,8 +1284,8 @@ class MollomException extends Exception {
       ),
     );
     // Add HTTP request information, if available.
-    if (!empty($arguments)) {
-      $message += $arguments;
+    if (!empty($request_info)) {
+      $message += $request_info;
     }
     $mollom->log[] = $message;
   }
@@ -1302,7 +1298,12 @@ class MollomException extends Exception {
  * communication error.
  */
 class MollomNetworkException extends MollomException {
-  protected $severity = 'error';
+  /**
+   * Overrides MollomException::$severity.
+   *
+   * The client may be able to recover from this error, so use a warning level.
+   */
+  protected $severity = 'warning';
 }
 
 /**
@@ -1311,7 +1312,6 @@ class MollomNetworkException extends MollomException {
  * Thrown in case API keys or other authentication parameters are invalid.
  */
 class MollomAuthenticationException extends MollomException {
-  protected $severity = 'error';
 }
 
 /**
@@ -1324,6 +1324,12 @@ class MollomAuthenticationException extends MollomException {
  * @see Mollom::handleRequest()
  */
 class MollomResponseException extends MollomException {
+  /**
+   * Overrides MollomException::$severity.
+   *
+   * Might be a client-side error, but more likely a server-side error. The
+   * client may be able to recover from this error.
+   */
   protected $severity = 'debug';
 }
 

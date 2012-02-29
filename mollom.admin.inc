@@ -558,18 +558,16 @@ function mollom_admin_blacklist_form_submit($form, &$form_state) {
   );
   if (!empty($result['id'])) {
     drupal_set_message(t('The entry was added to the blacklist.'));
-    _mollom_watchdog(array(
-      'Added @value (@context, @match) to @reason blacklist.' => $args,
-      'Data:<pre>@data</pre>' => array('@data' => $data),
-      'Result:<pre>@result</pre>' => array('@result' => $result),
+    mollom_log(array(
+      'message' => 'Added @value (@context, @match) to @reason blacklist.',
+      'arguments' => $args,
     ));
   }
   else {
     drupal_set_message(t('An error occurred upon trying to add the value to the blacklist.'), 'error');
-    _mollom_watchdog(array(
-      'Failed to add @value (@context, @match) to @reason blacklist.' => $args,
-      'Data:<pre>@data</pre>' => array('@data' => $data),
-      'Result:<pre>@result</pre>' => array('@result' => $result),
+    mollom_log(array(
+      'message' => 'Failed to add @value (@context, @match) to @reason blacklist.',
+      'arguments' => $args,
     ), WATCHDOG_ERROR);
   }
 }
@@ -666,18 +664,16 @@ function mollom_admin_blacklist_delete_submit($form, &$form_state) {
   );
   if ($result === TRUE) {
     drupal_set_message(t('The entry was removed from the blacklist.'));
-    _mollom_watchdog(array(
-      'Removed @value (@context) from @reason blacklist.' => $args,
-      'Data:<pre>@data</pre>' => array('@data' => $form_state['values']['entry']),
-      'Result:<pre>@result</pre>' => array('@result' => $result),
+    mollom_log(array(
+      'message' => 'Removed @value (@context) from @reason blacklist.',
+      'arguments' => $args,
     ));
   }
   else {
     drupal_set_message(t('An error occurred upon trying to remove the item from the blacklist.'), 'error');
-    _mollom_watchdog(array(
-      'Failed to removed @value (%context) from @reason blacklist.' => $args,
-      'Data:<pre>@data</pre>' => array('@data' => $form_state['values']['entry']),
-      'Result:<pre>@result</pre>' => array('@result' => $result),
+    mollom_log(array(
+      'message' => 'Failed to remove @value (%context) from @reason blacklist.',
+      'arguments' => $args,
     ), WATCHDOG_ERROR);
   }
 

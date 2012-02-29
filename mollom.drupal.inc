@@ -81,48 +81,23 @@ class MollomDrupal extends Mollom {
    * Overrides Mollom::writeLog().
    */
   function writeLog() {
-    $messages = array();
-    foreach ($this->log as $i => $entry) {
-      $entry += array('arguments' => array());
-      $message = array(
-        $entry['message'] => $entry['arguments'],
-      );
-      if (isset($entry['request'])) {
-        $message['Request: @request<pre>@parameters</pre>'] = array(
-          '@request' => $entry['request'],
-          '@parameters' => !empty($entry['data']) ? $entry['data'] : '',
-        );
-      }
-      if (isset($entry['headers'])) {
-        $message['Request headers:<pre>@headers</pre>'] = array(
-          '@headers' => $entry['headers'],
-        );
-      }
-      if (isset($entry['response'])) {
-        $message['Response:<pre>@response</pre>'] = array(
-          '@response' => $entry['response'],
-        );
-      }
-      $messages[] = $message;
+    foreach ($this->log as $entry) {
+      $entry['Request: ' . $entry['request']] = !empty($entry['data']) ? $entry['data'] : NULL;
+      unset($entry['request'], $entry['data']);
 
-      // Translate log messages for debugging without watchdog.
-      // @todo Move into mollom.unit.inc implementation.
-      /*
-      $output = array();
-      foreach ($message as $text => $args) {
-        foreach ($args as &$arg) {
-          if (is_array($arg)) {
-            $arg = var_export($arg, TRUE);
-          }
-        }
-        $output[] = strtr($text, $args);
-      }
-      $this->log[$i]['message'] = implode("\n", $output);
-      unset($this->log[$i]['arguments']);
-      drupal_set_message(implode('<br />', $output)); //, $this->log[$i]['severity']);
-      */
+      $entry['Request headers:'] = $entry['headers'];
+      unset($entry['headers']);
+
+      $entry['Response: ' . $entry['response_code'] . ' ' . $entry['response_message']] = $entry['response'];
+      unset($entry['response'], $entry['response_code'], $entry['response_message']);
+
+      // The client class contains the logic for recovering from certain errors,
+      // and log messages are only written after that happened. Therefore, we
+      // can normalize the severity of all log entries to the overall success or
+      // failure of the attempted request.
+      // @see Mollom::query()
+      mollom_log($entry, $this->lastResponseCode === TRUE ? NULL : WATCHDOG_ERROR);
     }
-    _mollom_watchdog_multiple($messages, $this->lastResponseCode === TRUE ? WATCHDOG_DEBUG : WATCHDOG_ERROR);
 
     // After writing log messages, empty the log.
     $this->purgeLog();

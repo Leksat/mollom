@@ -181,6 +181,13 @@ class MollomWebTestCase extends DrupalWebTestCase {
    * @todo Add this to Drupal core.
    */
   protected function assertMollomWatchdogMessages($max_severity = WATCHDOG_NOTICE) {
+    // Ensure that all messages have been written before attempting to verify
+    // them. Actions executed within the test class may lead to log messages,
+    // but those get only logged when hook_exit() is triggered.
+    // mollom.module may not be installed by a test and thus not loaded yet.
+    drupal_load('module', 'mollom');
+    mollom_log_write();
+
     module_load_include('inc', 'dblog', 'dblog.admin');
 
     $this->messages = array();
@@ -3066,6 +3073,7 @@ class MollomDataTestCase extends MollomWebTestCase {
     );
     $form_state = array('values' => $values, 'buttons' => array());
     $data = mollom_form_get_values($form_state, $fields, $form_info['mapping']);
+    $this->assertMollomWatchdogMessages(WATCHDOG_WARNING);
     $this->assertFalse($data, 'Invalid UTF-8 detected.');
 
     // Verify that invalid XML characters are detected.
@@ -3074,6 +3082,7 @@ class MollomDataTestCase extends MollomWebTestCase {
     );
     $form_state = array('values' => $values, 'buttons' => array());
     $data = mollom_form_get_values($form_state, $fields, $form_info['mapping']);
+    $this->assertMollomWatchdogMessages(WATCHDOG_WARNING);
     $this->assertFalse($data, 'Invalid XML characters detected.');
   }
 

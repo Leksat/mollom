@@ -151,6 +151,14 @@ function mollom_link($type, $object, $teaser = FALSE) {
 }
 
 /**
+ * Implements hook_exit().
+ */
+function mollom_exit() {
+  // Write log messages.
+  mollom_log_write();
+}
+
+/**
  * Implements hook_menu().
  */
 function mollom_menu() {
@@ -1216,10 +1224,11 @@ function mollom_form_get_values(&$form_state, $fields, $mapping) {
   }
   if ($invalid_utf8 || $invalid_xml) {
     form_set_error('', t('Your submission contains invalid characters and will not be accepted.'));
-    _mollom_watchdog(array(
-      'Invalid !type in form values' => array('!type' => $invalid_utf8 ? 'UTF-8' : 'XML characters'),
-      'Data:<pre>@data</pre>' => array('@data' => $data),
-    ));
+    mollom_log(array(
+      'message' => 'Invalid !type in form values',
+      'arguments' => array('!type' => $invalid_utf8 ? 'UTF-8' : 'XML characters'),
+      'Data:' => $data,
+    ), WATCHDOG_WARNING);
     $data = FALSE;
   }
 
@@ -1397,6 +1406,16 @@ function _mollom_status($reset = FALSE) {
   // If we have keys and are asked to reset, check whether keys are valid.
   if ($status['keys'] && $reset) {
     $status['keys valid'] = $mollom->verifyKeys();
+    if ($status['keys valid'] === TRUE) {
+      mollom_log(array(
+        'message' => 'API keys are valid.',
+      ), WATCHDOG_INFO);
+    }
+    else {
+      mollom_log(array(
+        'message' => 'Invalid API keys.',
+      ), WATCHDOG_ERROR);
+    }
   }
   // Otherwise, if there are no keys, they cannot be valid.
   elseif (!$status['keys']) {
@@ -1821,10 +1840,9 @@ function mollom_validate_analysis(&$form, &$form_state) {
     else {
       $form_state['mollom']['require_moderation'] = TRUE;
     }
-    _mollom_watchdog(array(
-      'Profanity: %teaser' => array('%teaser' => $teaser),
-      'Data:<pre>@data</pre>' => array('@data' => $data),
-      'Result:<pre>@result</pre>' => array('@result' => $result),
+    mollom_log(array(
+      'message' => 'Profanity: %teaser',
+      'arguments' => array('%teaser' => $teaser),
     ));
   }
 
@@ -1840,10 +1858,9 @@ function mollom_validate_analysis(&$form, &$form_state) {
     switch ($result['spamClassification']) {
       case 'ham':
         $form_state['mollom']['require_captcha'] = FALSE;
-        _mollom_watchdog(array(
-          'Ham: %teaser' => array('%teaser' => $teaser),
-          'Data:<pre>@data</pre>' => array('@data' => $data),
-          'Result:<pre>@result</pre>' => array('@result' => $result),
+        mollom_log(array(
+          'message' => 'Ham: %teaser',
+          'arguments' => array('%teaser' => $teaser),
         ), WATCHDOG_INFO);
         break;
 
@@ -1855,18 +1872,16 @@ function mollom_validate_analysis(&$form, &$form_state) {
         else {
           $form_state['mollom']['require_moderation'] = TRUE;
         }
-        _mollom_watchdog(array(
-          'Spam: %teaser' => array('%teaser' => $teaser),
-          'Data:<pre>@data</pre>' => array('@data' => $data),
-          'Result:<pre>@result</pre>' => array('@result' => $result),
+        mollom_log(array(
+          'message' => 'Spam: %teaser',
+          'arguments' => array('%teaser' => $teaser),
         ));
         break;
 
       case 'unsure':
-        _mollom_watchdog(array(
-          'Unsure: %teaser' => array('%teaser' => $teaser),
-          'Data:<pre>@data</pre>' => array('@data' => $data),
-          'Result:<pre>@result</pre>' => array('@result' => $result),
+        mollom_log(array(
+          'message' => 'Unsure: %teaser',
+          'arguments' => array('%teaser' => $teaser),
         ), WATCHDOG_INFO);
 
         // Only throw a validation error and retrieve a CAPTCHA, if we check
@@ -1887,10 +1902,9 @@ function mollom_validate_analysis(&$form, &$form_state) {
         // Normally, this should not happen, but if it does, log it. As there
         // could be multiple reasons for this, it is not safe to trigger the
         // fallback mode.
-        _mollom_watchdog(array(
-          'Unknown: %teaser' => array('%teaser' => $teaser),
-          'Data:<pre>@data</pre>' => array('@data' => $data),
-          'Result:<pre>@result</pre>' => array('@result' => $result),
+        mollom_log(array(
+          'message' => 'Unknown: %teaser',
+          'arguments' => array('%teaser' => $teaser),
         ));
         break;
     }
@@ -1967,10 +1981,8 @@ function mollom_validate_captcha(&$form, &$form_state) {
     $form_state['mollom']['passed_captcha'] = TRUE;
     $form['mollom']['captcha']['#access'] = FALSE;
 
-    _mollom_watchdog(array(
-      'Correct CAPTCHA' => array(),
-      'Data:<pre>@data</pre>' => array('@data' => $data),
-      'Result:<pre>@result</pre>' => array('@result' => $result),
+    mollom_log(array(
+      'message' => 'Correct CAPTCHA',
     ), WATCHDOG_INFO);
   }
   else {
@@ -1979,11 +1991,9 @@ function mollom_validate_captcha(&$form, &$form_state) {
     // D6: Not possible here; deferred to mollom_pre_render_mollom().
     //mollom_form_add_captcha($form['mollom'], $form_state);
 
-    _mollom_watchdog(array(
-      'Incorrect CAPTCHA' => array(),
-      'Data:<pre>@data</pre>' => array('@data' => $data),
-      'Result:<pre>@result</pre>' => array('@result' => $result),
-    ), WATCHDOG_INFO);
+    mollom_log(array(
+      'message' => 'Incorrect CAPTCHA',
+    ));
   }
 }
 
@@ -2163,84 +2173,262 @@ function mollom($class = NULL) {
 }
 
 /**
- * Log a Mollom system message.
+ * Adds a log entry to a global log (per-request).
  *
- * @param $parts
- *   A list of message parts. Each item is an associative array whose keys are
- *   log message strings and whose corresponding values are t()-style
- *   replacement token arguments. At least one part is required.
- * @param $severity
- *   The severity of the message, as per RFC 3164. Possible values are
- *   WATCHDOG_ERROR, WATCHDOG_WARNING, etc.
+ * The Mollom client may perform multiple requests, and the client is able to
+ * recover from certain errors. The details of each request are important for
+ * support and debugging, but individual log messages for each request are too
+ * much and would confuse users, especially when (false-)errors appear in
+ * between.
  *
- * @see watchdog()
+ * Therefore, the Mollom module collects all messages generated by the module
+ * integration code as well as by the Mollom client class within a single
+ * request, and only logs a single message when the request ends.
+ *
+ * This collection expects that at least one entry is logged that contains the
+ * primary log message and its severity.
+ *
+ * @param array $entry
+ *   (optional) An associative array describing the entry to add to the log.
+ *   If supplied, the special keys 'message' and 'arguments' are taken over as
+ *   primary log message. All other key/value pairs will be appended to the
+ *   resulting log message, whereas the key denotes a label/heading and the
+ *   value is var_export()ed afterwards, unless NULL.
+ * @param int $severity
+ *   (optional) The severity of the primary log message, as per RFC 3164.
+ *   Possible values are WATCHDOG_ERROR, WATCHDOG_WARNING, etc. See watchdog()
+ *   for details. Defaults to WATCHDOG_NOTICE when a 'message' is passed.
+ * @param bool $reset
+ *   (optional) Whether to empty the log and return its contents.
+ *
+ * @return array
+ *   An associative array containing the log:
+ *   - message: The primary log message.
+ *   - arguments: An array of placeholder token replacement values for
+ *     _mollom_format_string().
+ *   - severity: The severity of the primary log message.
+ *   - entries: A list of all $entry items that have been passed in.
+ *
+ * @see mollom_exit()
  */
-function _mollom_watchdog(array $parts, $severity = WATCHDOG_NOTICE) {
-  // First message part is required.
-  $message = key($parts);
-  $arguments = $parts[$message];
-  unset($parts[$message]);
+function mollom_log(array $entry = NULL, $severity = NULL, $reset = FALSE) {
+  // Start with debug severity level.
+  static $log = array();
 
-  // Hide further message details in the log overview table, if any.
-  // @see theme_dblog_message()
-  if ($parts) {
-    $message = str_pad($message, 56, ' ', STR_PAD_RIGHT);
-    $message .= '<br />';
+  if ($reset) {
+    $return = $log;
+    $log = array();
+    return $return;
   }
-
-  // Each item in $parts is a part of the log message.
-  foreach ($parts as $string => $string_arguments) {
-    $message .= $string . "\n";
-    $arguments += $string_arguments;
+  if (!isset($entry)) {
+    return $log;
   }
+  // Take over the primary message.
+  // Only the module integration code sets a message.
+  if (isset($entry['message'])) {
+    $log['message'] = $entry['message'];
+    $log['arguments'] = isset($entry['arguments']) ? $entry['arguments'] : array();
 
-  // Prettify replacement token values, if possible.
-  foreach ($arguments as $token => $array) {
-    // Only prettify NULL, Booleans, arrays, and objects. All other values can
-    // be replaced as is.
-    if (is_scalar($array) && !is_bool($array)) {
-      continue;
-    }
-    $flat_value = FALSE;
-    // Convert arrays and objects.
-    if (isset($array) && !is_scalar($array)) {
-      $flat_value = '';
-      foreach ($array as $key => $value) {
-        // Only convert one-dimensional arrays, or we would lose debugging data.
-        if (is_array($value)) {
-          $flat_value = FALSE;
-          break;
-        }
-        $value = var_export($value, TRUE);
-        // Indent the new value, so there is a visual separation from the last.
-        $flat_value .= "  {$key} = {$value}\n";
-      }
-    }
-    // Use string representation of one-dimensional arrays and objects.
-    if ($flat_value !== FALSE) {
-      $arguments[$token] = $flat_value;
-    }
-    // Use var_export() representation for NULL, Booleans, and multi-dimensional
-    // arrays and objects.
-    else {
-      $arguments[$token] = var_export($array, TRUE);
+    // Default to notice severity for module messages.
+    if (!isset($severity)) {
+      $severity = WATCHDOG_NOTICE;
     }
   }
 
-  watchdog('mollom', $message, $arguments, $severity);
+  if (!isset($log['severity'])) {
+    $log['severity'] = WATCHDOG_DEBUG;
+  }
+  // Update severity, if the entry is more severe than existing.
+  // Fail-over handling for requests is encapsulated in the Mollom class, which
+  // only passes the final severity already.
+  if (isset($severity) && $severity < $log['severity']) {
+    $log['severity'] = $severity;
+  }
+
+  $log['entries'][] = $entry;
+
+  return $log;
 }
 
 /**
- * Helper function to invoke watchdog() with cumulative messages.
+ * Logs a single system message potentially containing multiple Mollom log entries.
  *
- * We do not want false errors to clutter the log, for example, when the server
- * list failed, but we were able to retrieve new servers. We therefore collect
- * all messages and invoke this function to log all messages as a single one.
+ * @see mollom_log()
+ * @see _mollom_format_log()
+ * @see watchdog()
  */
-function _mollom_watchdog_multiple($messages, $severity) {
-  foreach ($messages as $message) {
-    _mollom_watchdog($message, $severity);
+function mollom_log_write() {
+  // Retrieve the log and reset it.
+  $log = mollom_log(NULL, NULL, TRUE);
+  if (empty($log)) {
+    return;
   }
+  list($message, $arguments) = _mollom_format_log($log);
+  watchdog('mollom', $message, $arguments, $log['severity']);
+}
+
+/**
+ * Log a Mollom system message.
+ *
+ * @param $log
+ *   @todo A list of message parts. Each item is an associative array whose keys are
+ *   log message strings and whose corresponding values are t()-style
+ *   replacement token arguments. At least one part is required.
+ */
+function _mollom_format_log(array $log) {
+  $message = isset($log['message']) ? $log['message'] : '';
+  $arguments = isset($log['arguments']) ? $log['arguments'] : array();
+
+  // Hide further message details in the log overview table, if any.
+  // @see theme_dblog_message()
+  if (!empty($log['entries'])) {
+    // A <br> would be more appropriate, but filter_xss_admin() does not allow it.
+    //$message = '<p>' . $message . '</p>' . "\n\n";
+    $message = $message . "<p>\n\n</p>";
+  }
+
+  // Walk through each log entry to prepare and format its message and arguments.
+  $i = 0;
+  foreach ($log['entries'] as $entry) {
+    // Take over message and arguments literally (if any).
+    if (isset($entry['message'])) {
+      $message .= '<p>';
+      if (!empty($entry['arguments'])) {
+        $message .= _mollom_format_string($entry['message'], $entry['arguments']);
+        unset($entry['arguments']);
+      }
+      else {
+        $message .= $entry['message'];
+      }
+      unset($entry['message']);
+      $message .= "</p>\n";
+    }
+    unset($entry['severity']);
+
+    // Prettify replacement token values, if possible.
+    foreach ($entry as $token => $array) {
+      // Only prettify non-scalar values plus Booleans.
+      // I.e., NULL, TRUE, FALSE, array, and object.
+      if (is_scalar($array) && !is_bool($array)) {
+        continue;
+      }
+      $flat_value = NULL;
+      // Convert arrays and objects.
+      // @todo Objects?
+      if (isset($array) && !is_scalar($array)) {
+        $ref = &$array;
+        $key = key($ref);
+        $parents = array();
+        $flat_value = '';
+        while ($key !== NULL) {
+          if (is_scalar($ref[$key]) || is_bool($ref[$key]) || is_null($ref[$key])) {
+            $value = var_export($ref[$key], TRUE);
+            // Indent all values to have a visual separation from the last.
+            $flat_value .= str_repeat('  ', count($parents) + 1) . "{$key} = {$value}\n";
+          }
+
+          // Recurse into nested keys, if the current key is not scalar.
+          if (is_array($ref[$key])) {
+            $flat_value .= str_repeat('  ', count($parents) + 1) . "{$key} =\n";
+            $parents[] = &$ref;
+            $ref = &$ref[$key];
+            $key = key($ref);
+          }
+          else {
+            // Move to next key if there is one.
+            next($ref);
+            if (key($ref) !== NULL) {
+              $key = key($ref);
+            }
+            // Move back to parent key, if there is one.
+            elseif ($parent = array_pop($parents)) {
+              $ref = &$parent;
+              next($ref);
+              $key = key($ref);
+            }
+            // Otherwise, reached the end of array and recursion.
+            else {
+              $key = NULL;
+            }
+          }
+        }
+      }
+
+      $value = NULL;
+      // Use prettified string representation.
+      if ($flat_value !== NULL) {
+        $value = $flat_value;
+      }
+      // Use var_export() for Booleans.
+      // Do not output NULL values on the top-level to allow for labels without
+      // following value.
+      elseif ($array !== NULL) {
+        $value = var_export($array, TRUE);
+      }
+
+      // Inject all other key/value pairs as @headingN (and optional
+      // '<pre>@valueN</pre>') placeholders.
+      if (isset($value)) {
+        $message .= "@heading{$i}\n<pre>@value{$i}</pre>\n";
+        $arguments += array(
+          '@heading' . $i => $token,
+          '@value' . $i => $value,
+        );
+      }
+      else {
+        $message .= "<p>@heading{$i}</p>\n";
+        $arguments += array(
+          '@heading' . $i => $token,
+        );
+      }
+      $i++;
+    }
+  }
+  return array($message, $arguments);
+}
+
+/**
+ * Replaces placeholders with sanitized values in a string.
+ *
+ * Backported from Drupal 8.
+ *
+ * @param $string
+ *   A string containing placeholders.
+ * @param $args
+ *   An associative array of replacements to make. Occurrences in $string of
+ *   any key in $args are replaced with the corresponding value, after
+ *   sanitization. The sanitization function depends on the first character of
+ *   the key:
+ *   - !variable: Inserted as is. Use this for text that has already been
+ *     sanitized.
+ *   - @variable: Escaped to HTML using check_plain(). Use this for anything
+ *     displayed on a page on the site.
+ *   - %variable: Escaped as a placeholder for user-submitted content using
+ *     drupal_placeholder(), which shows up as <em>emphasized</em> text.
+ *
+ * @see t()
+ * @ingroup sanitization
+ */
+function _mollom_format_string($string, array $args = array()) {
+  // Transform arguments before inserting them.
+  foreach ($args as $key => $value) {
+    switch ($key[0]) {
+      case '@':
+        // Escaped only.
+        $args[$key] = check_plain($value);
+        break;
+
+      case '%':
+      default:
+        // Escaped and placeholder.
+        $args[$key] = theme('placeholder', $value);
+        break;
+
+      case '!':
+        // Pass-through.
+    }
+  }
+  return strtr($string, $args);
 }
 
 /**
@@ -2275,14 +2463,13 @@ function _mollom_send_feedback($data, $reason = 'spam') {
     'reason' => $reason,
   );
   $result = mollom()->sendFeedback($params);
-  _mollom_watchdog(array(
-    'Reported %feedback for @resource %id.' => array(
+  mollom_log(array(
+    'message' => 'Reported %feedback for @resource %id.',
+    'arguments' => array(
       '%feedback' => $reason,
       '@resource' => $resource,
       '%id' => $id,
     ),
-    'Data:<pre>@data</pre>' => array('@data' => $params),
-    'Result:<pre>@result</pre>' => array('@result' => $result),
   ));
   return $result;
 }
@@ -2548,13 +2735,6 @@ function mollom_mollom_data_insert($data) {
       $data->captchaId,
     ));
   }
-
-  // @todo Should be kept, but don't log debug messages in production.
-  _mollom_watchdog(array(
-    'Stored @entity @id.' => array('@entity' => $data->entity, '@id' => $data->id),
-    'Data:<pre>@data</pre>' => array('@data' => $params),
-    'Result:<pre>@result</pre>' => array('@result' => $result),
-  ), WATCHDOG_DEBUG);
 }
 
 /**
@@ -2581,12 +2761,6 @@ function mollom_mollom_data_delete($data) {
   $params['stored'] = 0;
 
   $result = mollom()->checkContent($params);
-
-  _mollom_watchdog(array(
-    'Deleted @entity @id.' => array('@entity' => $data->entity, '@id' => $data->id),
-    'Data:<pre>@data</pre>' => array('@data' => $params),
-    'Result:<pre>@result</pre>' => array('@result' => $result),
-  ), WATCHDOG_DEBUG);
 }
 
 /**
@@ -2635,8 +2809,8 @@ function mollom_moderate_validate_oauth() {
   $publicKey = variable_get('mollom_public_key', '');
   $privateKey = variable_get('mollom_private_key', '');
   if ($publicKey === '' || $privateKey === '') {
-    _mollom_watchdog(array(
-      'Missing module configuration' => array(),
+    mollom_log(array(
+      'message' => 'Missing module configuration',
     ), WATCHDOG_WARNING);
     return FALSE;
   }
@@ -2646,10 +2820,10 @@ function mollom_moderate_validate_oauth() {
 
   // Validate protocol parameters.
   if (!isset($header['oauth_consumer_key'], $header['oauth_nonce'], $header['oauth_timestamp'], $header['oauth_signature_method'], $header['oauth_signature'])) {
-    _mollom_watchdog(array(
-      'Missing protocol parameters' => array(),
-      '<p>Request: @request</p>' => array('@request' => $_SERVER['REQUEST_METHOD'] . ' ' . $_GET['q']),
-      'Headers:<pre>@headers</pre>' => array('@headers' => $header),
+    mollom_log(array(
+      'message' => 'Missing protocol parameters',
+      'Request:' => $_SERVER['REQUEST_METHOD'] . ' ' . $_GET['q'],
+      'Request headers:' => $header,
     ), WATCHDOG_WARNING);
     return FALSE;
   }
@@ -2661,11 +2835,11 @@ function mollom_moderate_validate_oauth() {
 
   // Validate consumer key.
   if ($header['oauth_consumer_key'] !== $publicKey) {
-    _mollom_watchdog(array(
-      'Invalid public/consumer key' => array(),
-      '<p>Request: @request</p>' => array('@request' => $_SERVER['REQUEST_METHOD'] . ' ' . $_GET['q']),
-      'Headers:<pre>@headers</pre>' => array('@headers' => $header),
-      'My key:<pre>@publickey</pre>' => array('@publickey' => $publicKey),
+    mollom_log(array(
+      'message' => 'Invalid public/consumer key',
+      'Request:' => $_SERVER['REQUEST_METHOD'] . ' ' . $_GET['q'],
+      'Request headers:' => $header,
+      'My public key:' => $publicKey,
     ), WATCHDOG_WARNING);
     return FALSE;
   }
@@ -2678,21 +2852,21 @@ function mollom_moderate_validate_oauth() {
     if ($diff < 0) {
       $diff *= -1;
     }
-    _mollom_watchdog(array(
-      'Outdated authentication timestamp' => array(),
-      '<p>Request: @request</p>' => array('@request' => $_SERVER['REQUEST_METHOD'] . ' ' . $_GET['q']),
-      'Headers:<pre>@headers</pre>' => array('@headers' => $header),
-      'Time difference:<pre>@time</pre>' => array('@time' => $diff_sign . format_interval($diff)),
+    mollom_log(array(
+      'message' => 'Outdated authentication timestamp',
+      'Request:' => $_SERVER['REQUEST_METHOD'] . ' ' . $_GET['q'],
+      'Request headers:' => $header,
+      'Time difference:' => $diff_sign . format_interval($diff),
     ), WATCHDOG_WARNING);
     return FALSE;
   }
 
   // Validate nonce.
   if (empty($header['oauth_nonce'])) {
-    _mollom_watchdog(array(
-      'Missing authentication nonce' => array(),
-      '<p>Request: @request</p>' => array('@request' => $_SERVER['REQUEST_METHOD'] . ' ' . $_GET['q']),
-      'Headers:<pre>@headers</pre>' => array('@headers' => $header),
+    mollom_log(array(
+      'message' => 'Missing authentication nonce',
+      'Request:' => $_SERVER['REQUEST_METHOD'] . ' ' . $_GET['q'],
+      'Request headers:' => $header,
     ), WATCHDOG_WARNING);
     return FALSE;
   }
@@ -2703,10 +2877,10 @@ function mollom_moderate_validate_oauth() {
     $nonces = array();
   }
   if (isset($nonces[$header['oauth_nonce']])) {
-    _mollom_watchdog(array(
-      'Replay attack' => array(),
-      '<p>Request: @request</p>' => array('@request' => $_SERVER['REQUEST_METHOD'] . ' ' . $_GET['q']),
-      'Headers:<pre>@headers</pre>' => array('@headers' => $header),
+    mollom_log(array(
+      'message' => 'Replay attack',
+      'Request:' => $_SERVER['REQUEST_METHOD'] . ' ' . $_GET['q'],
+      'Request headers:' => $header,
     ), WATCHDOG_WARNING);
     return FALSE;
   }
@@ -2729,13 +2903,13 @@ function mollom_moderate_validate_oauth() {
 
   $valid = ($signature === $sent_signature);
   if (!$valid) {
-    _mollom_watchdog(array(
-      'Invalid authentication signature' => array(),
-      '<p>Request: @request</p>' => array('@request' => $_SERVER['REQUEST_METHOD'] . ' ' . $_GET['q']),
-      'Headers:<pre>@headers</pre>' => array('@headers' => $header + array('oauth_signature' => $sent_signature)),
-      'Base string:<pre>@base_string</pre>' => array('@base_string' => $base_string),
-      'Expected signature:<pre>@signature</pre>' => array('@signature' => $signature),
-      //'Expected key:<pre>@key</pre>' => array('@key' => $key),
+    mollom_log(array(
+      'message' => 'Invalid authentication signature',
+      'Request:' => $_SERVER['REQUEST_METHOD'] . ' ' . $_GET['q'],
+      'Request headers:' => $header + array('oauth_signature' => $sent_signature),
+      'Base string:' => $base_string,
+      'Expected signature:' => $signature,
+      //'Expected key:' => $key,
     ), WATCHDOG_WARNING);
   }
   return $valid;
@@ -2876,8 +3050,9 @@ function mollom_moderate($data, $action) {
   $messages = implode("\n", $messages);
 
   if ($result) {
-    _mollom_watchdog(array(
-      '%action moderation success for @entity @id' => array(
+    mollom_log(array(
+      'message' => '%action moderation success for @entity @id',
+      'arguments' => array(
         '%action' => $action,
         '@entity' => $data->entity,
         '@id' => $data->id,
@@ -2888,17 +3063,18 @@ function mollom_moderate($data, $action) {
     // 400 is not really appropriate, but comes closest.
     drupal_set_header($_SERVER['SERVER_PROTOCOL'] . ' 400 Unable to process moderation request');
 
-    _mollom_watchdog(array(
-      '%action moderation failure for @entity @id' => array(
+    mollom_log(array(
+      'message' => '%action moderation failure for @entity @id',
+      'arguments' => array(
         '%action' => $action,
         '@entity' => $data->entity,
         '@id' => $data->id,
       ),
-      'Form ID:<pre>@form_id</pre>' => array('@form_id' => $data->form_id),
-      'Actions:<pre>@actions</pre>' => array('@actions' => $messages),
-      'Mollom data:<pre>@data</pre>' => array('@data' => (array) $data),
-      'Mollom form:<pre>@form</pre>' => array('@form' => $form_info),
-      'System messages:<pre>@messages</pre>' => array('@messages' => drupal_get_messages()),
+      'Form ID:' => $data->form_id,
+      'Actions:' => $messages,
+      'Mollom data:' => (array) $data,
+      'Mollom form:' => $form_info,
+      'System messages:' => drupal_get_messages(),
     ), WATCHDOG_ERROR);
   }
 
