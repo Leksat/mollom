@@ -2568,6 +2568,12 @@ function mollom_get_captcha(&$form_state) {
     $mollom = (isset($form_state['mollom']['class']) ? $form_state['mollom']['class'] : mollom());
     $result = $mollom->createCaptcha($data);
 
+    // Add a log message to prevent the request log from appearing without a
+    // message on CAPTCHA-only protected forms.
+    mollom_log(array(
+      'message' => 'Retrieved new CAPTCHA',
+    ), WATCHDOG_DEBUG);
+
     if (is_array($result) && isset($result['url'])) {
       $url = $result['url'];
       $form_state['mollom']['response']['captcha']['id'] = $result['id'];
