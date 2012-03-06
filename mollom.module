@@ -1232,12 +1232,6 @@ function mollom_form_get_values(&$form_state, $fields, $mapping) {
     $data = FALSE;
   }
 
-  // Save content properties for Mollom Moderation integration.
-  // @see mollom_mollom_data_insert()
-  if (!isset($form_state['mollom']['content_properties'])) {
-    $form_state['mollom']['content_properties'] = ($data ? $data : array());
-  }
-
   return $data;
 }
 
@@ -1614,10 +1608,6 @@ function mollom_process_mollom($element, $input, &$form_state, $complete_form) {
   if (empty($form_state['mollom']['moderation callback']) || !function_exists($form_state['mollom']['moderation callback'])) {
     $form_state['mollom']['discard'] = TRUE;
   }
-
-  // Clear out content properties from a previous submission.
-  // @see mollom_form_get_values()
-  unset($form_state['mollom']['content_properties']);
 
   // Add the JavaScript.
   drupal_add_js(drupal_get_path('module', 'mollom') . '/mollom.js');
@@ -2700,15 +2690,6 @@ function mollom_mollom_data_insert($data) {
   // Only content can be updated.
   if (empty($data->contentId)) {
     return;
-  }
-
-  $params = array();
-  // Start with content properties (which should be available).
-  // @todo It should not be required to re-send the content properties here.
-  $form_state['mollom'] = $GLOBALS['mollom'];
-  if (isset($form_state['mollom']['content_properties'])) {
-    $params = $form_state['mollom']['content_properties'];
-    unset($params['postId']);
   }
 
   // Mark the content as stored.
