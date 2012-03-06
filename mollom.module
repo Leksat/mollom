@@ -2697,26 +2697,22 @@ function mollom_mollom_data_insert($data) {
   if ($data->entity == 'mollom_content' || $data->entity == 'mollom_captcha') {
     return;
   }
+  // Only content can be updated.
+  if (empty($data->contentId)) {
+    return;
+  }
 
   $params = array();
   // Start with content properties (which should be available).
+  // @todo It should not be required to re-send the content properties here.
   $form_state['mollom'] = $GLOBALS['mollom'];
   if (isset($form_state['mollom']['content_properties'])) {
     $params = $form_state['mollom']['content_properties'];
     unset($params['postId']);
   }
 
-  // If we already have a content ID, update that content.
-  if (!empty($data->contentId)) {
-    $params['id'] = $data->contentId;
-  }
-  // Otherwise, map a CAPTCHA ID to it.
-  // @todo Confirm this.
-  else {
-    $params['captchaId'] = $data->captchaId;
-  }
-
   // Mark the content as stored.
+  $params['id'] = $data->contentId;
   $params['stored'] = 1;
 
   if ($data->entity == 'comment' && ($comment = _comment_load($data->id))) {
@@ -2732,15 +2728,6 @@ function mollom_mollom_data_insert($data) {
   }
 
   $result = mollom()->checkContent($params);
-
-  // If we did not have a contentId yet, inject it.
-  if (is_array($result) && !empty($result['id']) && empty($data->contentId)) {
-    $data->contentId = $result['id'];
-    db_query("UPDATE {mollom} SET contentId = '%s' WHERE captchaId = '%s'", array(
-      $data->contentId,
-      $data->captchaId,
-    ));
-  }
 }
 
 /**

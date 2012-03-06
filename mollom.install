@@ -895,3 +895,25 @@ function mollom_update_6204() {
   variable_del('mollom_test_servers');
   return $ret;
 }
+
+/**
+ * Remove corrupted Mollom data records.
+ *
+ * Due to a bug in the Mollom moderation system integration code, contentIds of
+ * existing Mollom data records might have been overwritten with the contentId
+ * of a new post; i.e., corrupted. These records lead to invalid contentId
+ * lookup results now. Since the original contentIds are no longer available,
+ * the corrupted Mollom data records have to be deleted.
+ *
+ * @see http://drupal.org/node/1470326
+ */
+function mollom_update_6205() {
+  $ret = array();
+  // Find all Mollom data records with duplicate contentIds.
+  $result = db_query('SELECT contentId FROM {mollom} GROUP BY contentId HAVING COUNT(contentId) > 1');
+  while ($contentId = db_result($result)) {
+    $ret[] = update_sql("DELETE FROM {mollom} WHERE contentId = '$contentId'");
+  }
+  return $ret;
+}
+
