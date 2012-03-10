@@ -747,7 +747,7 @@ function mollom_form_alter(&$form, &$form_state, $form_id) {
     // originating modules.
     $mollom_form_id = $forms['delete'][$form_id];
     $module = $forms['protected'][$mollom_form_id];
-    $form_info = mollom_form_info($mollom_form_id, $module);
+    $form_info = mollom_form_load($mollom_form_id, $module);
     // Check access, if there is a 'report access' permission list.
     if (isset($form_info['report access'])) {
       $access = FALSE;
@@ -3220,7 +3220,6 @@ function comment_mollom_form_list() {
   $forms['comment_form'] = array(
     'title' => t('Comment form'),
     'entity' => 'comment',
-    //'entity delete multiple callback' => 'comment_mollom_report_delete',
     'entity load callback' => '_comment_load',
     'delete form' => 'comment_confirm_delete',
     'delete form file' => array(
@@ -3401,6 +3400,11 @@ function user_mollom_form_list() {
   $forms['user_register'] = array(
     'title' => t('User registration form'),
     'entity' => 'user',
+    'delete form' => 'user_confirm_delete',
+    'delete form file' => array(
+      'name' => 'user.pages',
+    ),
+    'report access' => array('administer users'),
   );
   $forms['user_pass'] = array(
     'title' => t('User password request form'),
@@ -3446,6 +3450,44 @@ function user_mollom_form_info($form_id) {
  */
 function user_mollom_form_moderation(&$form, &$form_state) {
   $form_state['values']['status'] = 0;
+}
+
+/**
+ * Implements hook_user().
+ */
+function mollom_user($op, $edit, $account) {
+  if ($op == 'insert' || $op == 'update') {
+    // If the saved comment was checked by Mollom, store the session data.
+    if (!empty($GLOBALS['mollom']['entity']) && $GLOBALS['mollom']['entity'] == 'user') {
+      $form_state['mollom'] = $GLOBALS['mollom'];
+      $response = array();
+      if (isset($form_state['mollom']['response']['content'])) {
+        $response += $form_state['mollom']['response']['content'];
+        $response['contentId'] = $form_state['mollom']['response']['content']['id'];
+      }
+      if (isset($form_state['mollom']['response']['captcha'])) {
+        $response += $form_state['mollom']['response']['captcha'];
+        $response['captchaId'] = $form_state['mollom']['response']['captcha']['id'];
+      }
+      $data = (object) $response;
+      $data->entity = 'user';
+      $data->id = $account->uid;
+      $data->form_id = $form_state['mollom']['form_id'];
+      // Set the moderation flag for forms accepting bad posts.
+      $data->moderate = $form_state['mollom']['require_moderation'];
+      mollom_data_save($data);
+    }
+  }
+  if ($op == 'delete') {
+    mollom_data_delete('user', $account->uid);
+  }
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function mollom_form_user_confirm_delete_alter(&$form, &$form_state) {
+  $form['uid'] = array('#type' => 'value', '#value' => $form['_account']['#value']->uid);
 }
 
 /**

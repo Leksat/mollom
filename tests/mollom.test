@@ -3822,6 +3822,87 @@ class MollomReportTestCase extends MollomWebTestCase {
 }
 
 /**
+ * Tests moderating users.
+ */
+class MollomModerateUserTestCase extends MollomWebTestCase {
+  public static function getInfo() {
+    return array(
+      'name' => 'Moderate users',
+      'description' => 'Tests moderating user accounts.',
+      'group' => 'Mollom',
+    );
+  }
+
+  function setUp() {
+    parent::setUp();
+
+    $this->drupalLogin($this->admin_user);
+    $this->setProtection('user_register', MOLLOM_MODE_CAPTCHA);
+    $this->drupalLogout();
+
+    // Allow visitors to register.
+    variable_set('user_register', 1);
+    // Disable e-mail verification.
+    variable_set('user_email_verification', 0);
+  }
+
+  /**
+   * Tests moderating users.
+   */
+  function testModerateUser() {
+    $account = $this->registerUser();
+    $this->assertMollomData('user', $account->uid);
+
+    // Log in administrator and verify that we can report to Mollom.
+    $this->drupalLogin($this->admin_user);
+    $edit = array(
+      'mollom[feedback]' => 'spam',
+    );
+    $this->drupalPost('user/' . $account->uid . '/delete', $edit, t('Delete'));
+    // @todo errrrr, "content"? ;)
+    $this->assertText(t('The content was successfully reported as inappropriate.'));
+
+    // Verify that Mollom session data has been deleted.
+    $this->assertNoMollomData('user', $account->uid);
+  }
+
+  /**
+   * Registers a new user through the UI.
+   *
+   * @return int
+   *   The user ID of the new user account.
+   */
+  function registerUser() {
+    $password = $this->randomName();
+    $edit = array(
+      'name' => $this->randomName(),
+      'pass[pass1]' => $password,
+      'pass[pass2]' => $password,
+      'mail' => 'spam@example.com',
+    );
+    $this->postCorrectCaptcha('user/register', $edit, t('Create new account'));
+
+    // Determine new uid.
+    $uid = db_result(db_query("SELECT uid FROM {users} WHERE name = '%s'", array($edit['name'])));
+
+    $account = (object) array(
+      'uid' => $uid,
+      'name' => $edit['name'],
+      'pass_raw' => $password,
+      'mail' => $edit['mail'],
+    );
+
+    // If the user is logged in directly after registering, update the logged in
+    // user on DrupalWebTestCase, so drupalLogin() continues to work.
+    if (variable_get('user_register', 1) == 1) {
+      $this->loggedInUser = $account;
+    }
+
+    return $account;
+  }
+}
+
+/**
  * Tests integration with Mollom Moderation services.
  */
 class MollomModerationIntegrationTestCase extends MollomWebTestCase {
