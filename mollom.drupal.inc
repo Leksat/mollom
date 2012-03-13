@@ -111,6 +111,7 @@ class MollomDrupal extends Mollom {
       'method' => $method,
       'headers' => $headers,
       'timeout' => $this->requestTimeout,
+      'data' => NULL,
     );
     if (isset($query)) {
       if ($method == 'GET') {
@@ -121,7 +122,7 @@ class MollomDrupal extends Mollom {
       }
     }
 
-    $dhr = drupal_http_request($server . '/' . $path, $request['headers'], $method, isset($request['data']) ? $request['data'] : NULL);
+    $dhr = drupal_http_request($server . '/' . $path, $request['headers'], $method, $request['data'], 3, $request['timeout']);
     // @todo Core: Ensure that $dhr->code is an integer.
     $dhr->code = (int) $dhr->code;
     // @todo Core: Any other code than 200 is interpreted as error.
