@@ -79,6 +79,7 @@ abstract class Mollom {
    * Maximum number of attempts for a request to a Mollom server.
    *
    * @see Mollom::query()
+   * @see Mollom::$requestTimeout
    *
    * @var integer
    */
@@ -87,11 +88,22 @@ abstract class Mollom {
   /**
    * Seconds in which a request to a Mollom server times out.
    *
+   * Mollom servers usually respond within a few milliseconds. However, if a
+   * server is under very high load, or in case of networking issues, a response
+   * might take longer. A maximum response time of 3 seconds ensures that the
+   * client waits long enough in edge-cases, but also not too long in case a
+   * particular server is unreachable.
+   *
+   * The timeout applies per request. Mollom::query() will retry a request until
+   * it reaches Mollom::$requestMaxAttempts. With the default values, a Mollom
+   * API call has a total timeout of 6 seconds in case of a server failure.
+   *
    * @see Mollom::request()
+   * @see Mollom::$requestMaxAttempts
    *
    * @var float
    */
-  public $requestTimeout = 1.0;
+  public $requestTimeout = 3.0;
 
   /**
    * The status code of the last server response, or TRUE if the request succeeded.
