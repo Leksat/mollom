@@ -264,6 +264,12 @@ function hook_mollom_form_list() {
   $forms['mymodule_comment_form'] = array(
     'title' => t('Comment form'),
     'entity' => 'mymodule_comment',
+    // Mollom does not know how to determine access and the callback to invoke
+    // for reporting and deleting the entity, so your module needs to manually
+    // output links to Mollom's generic "Report to Mollom" form on
+    // 'mollom/report/[entity]/[id]' and supply the following two callbacks.
+    // This kind of integration is deprecated. Use the delete confirmation form
+    // integration below instead.
     'report access callback' => 'mymodule_comment_report_access',
     'report delete callback' => 'mymodule_comment_report_delete',
   );
@@ -278,6 +284,12 @@ function hook_mollom_form_list() {
     // (here: $form_state['values']['uid']).
     // @see http://drupal.org/node/645374
     'delete form' => 'mymodule_user_delete_confirm_form',
+    // Optionally specify an include file that contains the delete confirmation
+    // form constructor to be loaded. The array keys map to function arguments
+    // of module_load_include().
+    'delete form file' => array(
+      'name' => 'mymodule.pages',
+    ),
     // Optionally limit access to report options on the delete confirmation form.
     'report access' => array('administer users', 'bypass node access'),
   );

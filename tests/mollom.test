@@ -3751,12 +3751,12 @@ class MollomReportTestCase extends MollomWebTestCase {
     $this->drupalLogin($this->admin_user);
     $this->drupalGet('node/' . $this->node->nid);
     $this->assertText($edit['comment'], t('Comment found.'));
-    $this->clickLink('report to Mollom');
+    $this->clickLink('delete');
     $edit = array(
       'mollom[feedback]' => 'spam',
     );
     $this->drupalPost(NULL, $edit, t('Delete'));
-    $this->assertText(t('The comment has been deleted.'));
+    $this->assertText(t('The comment and all its replies have been deleted.'));
     $this->assertText(t('The content was successfully reported as inappropriate.'));
 
     // Verify that the comment and Mollom session data has been deleted.

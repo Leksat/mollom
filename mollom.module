@@ -130,33 +130,6 @@ function mollom_init() {
 }
 
 /**
- * Implements hook_link().
- */
-function mollom_link($type, $object, $teaser = FALSE) {
-  $links = array();
-
-  // Only show the links if the module is configured.
-  if (_mollom_status() === TRUE) {
-    if ($type == 'comment' && user_access('administer comments') && mollom_get_mode('comment_form')) {
-      $links['mollom_report'] = array(
-        'title' => t('report to Mollom'),
-        'href' => 'mollom/report/comment/' . $object->cid,
-        'query' => drupal_get_destination(),
-      );
-    }
-    elseif ($type == 'node' && user_access('administer nodes') && mollom_get_mode($object->type . '_node_form')) {
-      $links['mollom_report'] = array(
-        'title' => t('report to Mollom'),
-        'href' => 'mollom/report/node/' . $object->nid,
-        'query' => drupal_get_destination(),
-      );
-    }
-  }
-
-  return $links;
-}
-
-/**
  * Implements hook_exit().
  */
 function mollom_exit() {
@@ -3081,8 +3054,11 @@ function node_mollom_form_list() {
     $forms[$form_id] = array(
       'title' => t('@name form', array('@name' => $type->name)),
       'entity' => 'node',
-      'report access callback' => 'node_mollom_report_access',
-      'report delete callback' => 'node_mollom_report_delete',
+      'delete form' => 'node_delete_confirm',
+      'delete form file' => array(
+        'name' => 'node.pages',
+      ),
+      'report access' => array('administer nodes'),
     );
   }
   return $forms;
@@ -3190,21 +3166,6 @@ function mollom_form_node_admin_content_alter(&$form, &$form_state) {
 }
 
 /**
- * Mollom report access callback; Determine access to report and delete a node.
- */
-function node_mollom_report_access($entity, $id) {
-  $node = node_load($id);
-  return $node && node_access('delete', $node);
-}
-
-/**
- * Mollom report delete callback; Deletes a node.
- */
-function node_mollom_report_delete($entity, $id) {
-  node_delete($id);
-}
-
-/**
  * @} End of "name mollom_node".
  */
 
@@ -3226,7 +3187,6 @@ function comment_mollom_form_list() {
       'name' => 'comment.admin',
     ),
     'report access' => array('administer comments'),
-    'report delete callback' => 'comment_mollom_report_delete',
   );
   return $forms;
 }
@@ -3353,6 +3313,13 @@ function mollom_comment($comment, $op) {
 }
 
 /**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function mollom_form_comment_confirm_delete_alter(&$form, &$form_state) {
+  $form['cid'] = array('#type' => 'value', '#value' => $form['#comment']->cid);
+}
+
+/**
  * Implements hook_form_FORMID_alter().
  *
  * Hook into the mass comment administration page and add some operations to
@@ -3365,23 +3332,6 @@ function mollom_form_comment_admin_overview_alter(&$form, $form_state) {
   $form['options']['operation']['#options']['mollom-unpublish'] = t('Report to Mollom and unpublish');
   $form['options']['operation']['#options']['mollom-delete'] = t('Report to Mollom and delete');
   $form['#submit'][] = 'mollom_comment_admin_overview_submit';
-}
-
-/**
- * Mollom report delete callback; Deletes a comment and its replies.
- *
- * @see comment_confirm_delete_submit()
- */
-function comment_mollom_report_delete($entity, $id) {
-  module_load_include('inc', 'comment', 'comment.admin');
-  $comment = _comment_load($id);
-  // Delete the comment and its replies.
-  _comment_delete_thread($comment);
-  _comment_update_node_statistics($comment->nid);
-  // Clear the cache so an anonymous user sees that his comment was deleted.
-  cache_clear_all();
-
-  drupal_set_message(t('The comment has been deleted.'));
 }
 
 /**
