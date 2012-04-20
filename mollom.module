@@ -1389,8 +1389,8 @@ function _mollom_status($reset = FALSE) {
     // temporarily down. In this case, return an enforced RESPONSE_ERROR to
     // indicate a server-side service failure.
     // @todo Test this.
-    elseif ($status['keys valid'] !== $mollom::AUTH_ERROR && $current_status['keys valid'] === TRUE) {
-      $status['keys valid'] = $mollom::RESPONSE_ERROR;
+    elseif ($status['keys valid'] !== Mollom::AUTH_ERROR && $current_status['keys valid'] === TRUE) {
+      $status['keys valid'] = Mollom::RESPONSE_ERROR;
       // Do not update the stored configuration status with the bogus result
       // caused by the server-side failure.
       $reset = FALSE;
