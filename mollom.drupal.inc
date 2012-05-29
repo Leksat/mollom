@@ -327,22 +327,6 @@ class MollomDrupalTest extends MollomDrupal {
     $this->saveConfiguration('publicKey', $this->publicKey);
     $this->saveConfiguration('privateKey', $this->privateKey);
   }
-
-  /**
-   * Overrides Mollom::createCaptcha().
-   *
-   * Temporary fix to show proper image CAPTCHAs when testing mode is enabled.
-   *
-   * @todo Remove after REST Testing API has been fixed.
-   */
-  public function createCaptcha(array $data = array()) {
-    $result = parent::createCaptcha($data);
-    if (isset($data['type']) && $data['type'] === 'image' && isset($result['url']) && strpos($result['url'], 'url-to-a-captcha') !== FALSE) {
-      $protocol = (!empty($data['ssl']) ? 'https' : 'http');
-      $result['url'] = $protocol . '://rest.mollom.com/' . self::API_VERSION . '/captcha/image/test.png';
-    }
-    return $result;
-  }
 }
 
 /**
