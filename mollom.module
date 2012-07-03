@@ -1751,9 +1751,6 @@ function mollom_form_add_captcha(&$element, &$form_state) {
   // Otherwise, we have a communication or configuration error.
   else {
     $element['captcha']['#access'] = FALSE;
-    $element['captcha']['#required'] = FALSE;
-    $form_state['mollom']['require_analysis'] = FALSE;
-    $form_state['mollom']['require_captcha'] = FALSE;
     // Trigger fallback mode.
     _mollom_fallback();
   }
