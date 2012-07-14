@@ -281,7 +281,10 @@ function mollom_menu() {
  *   FALSE otherwise.
  */
 function _mollom_access($permission = FALSE) {
-  return variable_get('mollom_public_key', '') && variable_get('mollom_private_key', '') && (!$permission || user_access($permission));
+  $mollom = mollom();
+  $public_key = $mollom->loadConfiguration('publicKey');
+  $private_key = $mollom->loadConfiguration('privateKey');
+  return !empty($public_key) && !empty($private_key) && (!$permission || user_access($permission));
 }
 
 /**
@@ -2771,6 +2774,9 @@ function mollom_moderate_access($data, $action) {
  * Returns whether the OAuth request signature is valid.
  */
 function mollom_moderate_validate_oauth() {
+  // For inbound moderation requests, only the production API keys are valid.
+  // The testing mode API keys cannot be trusted. Therefore, this validation
+  // is based on the the stored variables only.
   $publicKey = variable_get('mollom_public_key', '');
   $privateKey = variable_get('mollom_private_key', '');
   if ($publicKey === '' || $privateKey === '') {
