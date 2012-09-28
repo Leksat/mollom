@@ -3707,7 +3707,19 @@ class MollomCaptchaTestCase extends MollomWebTestCase {
     // (without having a contentId)
     $this->drupalGet('mollom-test/form');
     $form_build_id = $this->getFieldValueByName('mollom[mollom_build_id]');
-    $out = $this->drupalGet('mollom/captcha/audio/' . $form_build_id);
+
+    // @see drupalPost(), drupalGet()
+    $path = url('mollom/captcha/audio/' . $form_build_id, array('absolute' => TRUE));
+    $out = $this->curlExec(array(
+      CURLOPT_URL => $path,
+      CURLOPT_POST => TRUE,
+    ));
+    // Ensure that any changes to variables in the other thread are picked up.
+    $this->refreshVariables();
+    $this->verbose('POST request to: ' . $path .
+                   '<hr />Ending URL: ' . $this->getUrl() .
+                   '<hr />' . $out);
+
     $this->assertResponse(200);
     $this->assertText('mollom-captcha-player.swf');
     // D6 can encode, but not decode its own JSON, so only check for captchaId.
