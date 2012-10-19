@@ -225,6 +225,13 @@ function mollom_schema() {
         'not null' => FALSE,
         'serialize' => TRUE,
       ),
+      'unsure' => array(
+        'description' => 'Action to perform when text analysis is unsure.',
+        'type' => 'varchar',
+        'length' => 24,
+        'not null' => TRUE,
+        'default' => 'captcha',
+      ),
       'discard' => array(
         'description' => 'Whether to discard (1) or retain (0) bad posts.',
         'type' => 'int',
@@ -897,6 +904,23 @@ function mollom_update_6205() {
   $result = db_query('SELECT contentId FROM {mollom} GROUP BY contentId HAVING COUNT(contentId) > 1');
   while ($contentId = db_result($result)) {
     $ret[] = update_sql("DELETE FROM {mollom} WHERE contentId = '$contentId'");
+  }
+  return $ret;
+}
+
+/**
+ * Add {mollom_form}.unsure field.
+ */
+function mollom_update_6206() {
+  $ret = array();
+  if (!db_column_exists('mollom_form', 'unsure')) {
+    db_add_field($ret, 'mollom_form', 'unsure', array(
+      'description' => 'Action to perform when text analysis is unsure.',
+      'type' => 'varchar',
+      'length' => 24,
+      'not null' => TRUE,
+      'default' => 'captcha',
+    ));
   }
   return $ret;
 }
