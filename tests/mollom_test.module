@@ -293,7 +293,7 @@ function mollom_test_delete_multiple(array $mids) {
 /**
  * Implements non-existing hook_entity_delete() on behalf of Mollom module.
  */
-function mollom_entity_delete($entity, $type) {
+function mollom_test_entity_delete($entity, $type) {
   mollom_data_delete('mollom_test', $entity->mid);
 }
 
