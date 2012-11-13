@@ -3586,6 +3586,53 @@ class MollomAnalysisTestCase extends MollomWebTestCase {
   }
 
   /**
+   * Tests binary unsure mode.
+   */
+  function testUnsureBinary() {
+    $this->drupalLogin($this->admin_user);
+    $this->setProtection('mollom_test_form', MOLLOM_MODE_ANALYSIS, NULL, array(
+      'mollom[unsure]' => 'binary',
+    ));
+    $this->drupalLogout();
+
+    // Verify that an unsure post is ham.
+    // Note: The actual binary mode of Mollom's production API is more granular.
+    $edit = array(
+      'title' => $this->randomString(),
+      'body' => 'unsure',
+    );
+    $this->assertHamSubmit('mollom-test/form', array(), $edit, 'Submit');
+    $mid = $this->assertTestSubmitData();
+    $data = $this->assertMollomData('mollom_test', $mid);
+    $record = mollom_test_load($mid);
+    $this->assertEqual($record->status, 1, t('Published test post found.'));
+    $this->assertSame('spamScore', $data->spamScore, 0);
+    $this->assertSame('spamClassification', $data->spamClassification, 'ham');
+    $this->assertSame('moderate', $data->moderate, 0);
+
+    // Verify that a ham post is accepted.
+    $edit = array(
+      'title' => $this->randomString(),
+      'body' => 'ham',
+    );
+    $this->assertHamSubmit('mollom-test/form', array(), $edit, 'Submit');
+    $mid = $this->assertTestSubmitData();
+    $data = $this->assertMollomData('mollom_test', $mid);
+    $record = mollom_test_load($mid);
+    $this->assertEqual($record->status, 1, t('Published test post found.'));
+    $this->assertSame('spamScore', $data->spamScore, 0);
+    $this->assertSame('spamClassification', $data->spamClassification, 'ham');
+    $this->assertSame('moderate', $data->moderate, 0);
+
+    // Verify that a spam post is blocked.
+    $edit = array(
+      'title' => $this->randomString(),
+      'body' => 'spam',
+    );
+    $this->assertSpamSubmit('mollom-test/form', array(), $edit, 'Submit');
+  }
+
+  /**
    * Tests retaining unsure posts and moderating them.
    */
   function testRetainUnsure() {

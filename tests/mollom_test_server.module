@@ -481,8 +481,15 @@ function mollom_test_server_check_content($data) {
     }
     // Lastly, take a forced 'unsure' into account.
     elseif (strpos($post, 'unsure') !== FALSE) {
-      $spam = TRUE;
-      $ham = TRUE;
+      // Differentiate between binary unsure mode.
+      if (!isset($data['unsure']) || $data['unsure']) {
+        $spam = TRUE;
+        $ham = TRUE;
+      }
+      else {
+        $spam = TRUE;
+        $ham = FALSE;
+      }
     }
     // Check blacklist.
     if ($matches = mollom_test_server_check_content_blacklist($post, $blacklist, 'spam')) {

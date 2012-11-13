@@ -1822,6 +1822,9 @@ function mollom_validate_analysis(&$form, &$form_state) {
   }
   $data['checks'] = $form_state['mollom']['checks'];
   $data['strictness'] = $form_state['mollom']['strictness'];
+  if (in_array('spam', $data['checks']) && $form_state['mollom']['unsure'] == 'binary') {
+    $data['unsure'] = 0;
+  }
   $result = $form_state['mollom']['class']->checkContent($data);
 
   // Use all available data properties for log messages below.

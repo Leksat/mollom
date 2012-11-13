@@ -290,10 +290,10 @@ function mollom_admin_configure_form(&$form_state, $mollom_form = NULL) {
         '#type' => 'radios',
         '#title' => t('When text analysis is unsure'),
         '#default_value' => $mollom_form['unsure'],
-        // @todo Add 'accept' and 'discard' actions for unsure posts.
         '#options' => array(
           'captcha' => t('Show a CAPTCHA'),
           'moderate' => t('Retain the post for manual moderation'),
+          'binary' => t('Accept the post'),
         ),
         '#required' => $mollom_form['mode'] == MOLLOM_MODE_ANALYSIS,
       );
