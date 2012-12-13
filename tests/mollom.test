@@ -900,6 +900,25 @@ class MollomWebTestCase extends DrupalWebTestCase {
     ));
     $this->assertNotEqual($first, $second, $message);
   }
+
+  /**
+   * Backport of user_role_grant_permissions().
+   *
+   * @param int $rid
+   *   The user role ID to grant permissions to.
+   * @param array $permissions
+   *   A list of permission names to grant to the role.
+   */
+  protected function userRoleGrantPermissions($rid, $permissions) {
+    $stored_permissions = db_result(db_query("SELECT perm FROM {permission} WHERE rid = %d", $rid));
+    $stored_permissions = array_flip(explode(', ', $stored_permissions));
+    $stored_permissions += array_flip($permissions);
+    $stored_permissions = implode(', ', array_keys($stored_permissions));
+    db_query("UPDATE {permission} SET perm = '%s' WHERE rid = %d", array(
+      $stored_permissions,
+      $rid,
+    ));
+  }
 }
 
 /**
@@ -2497,7 +2516,6 @@ class MollomUserFormsTestCase extends MollomWebTestCase {
     $count_initial = db_result(db_query("SELECT COUNT(uid) FROM {users}"));
 
     // Verify that a spam user registration is blocked.
-    /*
     $this->drupalGet('user/register');
     $this->assertNoCaptchaField();
     $edit = array(
@@ -2509,8 +2527,7 @@ class MollomUserFormsTestCase extends MollomWebTestCase {
     $this->assertText($this->spam_message);
     $count_new = db_result(db_query("SELECT COUNT(uid) FROM {users}"));
     $this->assertEqual($count_initial, $count_new, 'Existing user count found.');
-    $this->assertFalse(user_load_by_name($edit['name']), 'New user not found.');
-    */
+    $this->assertFalse(user_load(array('name' => $edit['name'])), 'New user not found.');
 
     // Verify that a unsure registration triggers a CAPTCHA.
     $this->drupalGet('user/register');
@@ -2616,7 +2633,9 @@ class MollomProfileFormsTestCase extends MollomWebTestCase {
       $this->drupalGet('user/register');
       $this->assertNoCaptchaField();
 
+      // @todo REST Testing API does not analyze postBody yet.
       $name = $this->randomName();
+      $name = 'unsure';
       $edit = array(
         'name' => $name,
         'mail' => $name . '@example.com',
@@ -4193,6 +4212,30 @@ class MollomModerationIntegrationTestCase extends MollomWebTestCase {
   }
 
   /**
+   * Creates a mollom_test post.
+   *
+   * @param array $edit
+   *   (optional) Custom form input for mollom_test form.
+   *
+   * @return stdClass
+   *   The Mollom data object for the created post.
+   */
+  protected function drupalCreateTestUser(array $edit = array()) {
+    $edit += array(
+      'name' => 'ham ' . $this->randomName(6),
+      'mail' => $this->randomName(6) . '@example.com',
+    );
+    $edit['pass[pass1]'] = $edit['pass[pass2]'] = user_password();
+    $this->drupalPost('user/register', $edit, t('Create new account'));
+    $this->assertText(t('Registration successful. You are now logged in.'));
+    $account = user_load(array('mail' => $edit['mail']));
+    $this->assertSame('Account status', $account->status, 1);
+    $data = mollom_data_load('user', $account->uid);
+    $this->assertTrue($data, 'Mollom data for user exists.');
+    return $data;
+  }
+
+  /**
    * Performs a Mollom moderation HTTP request against the child site.
    *
    * @param string $method
@@ -4421,4 +4464,106 @@ class MollomModerationIntegrationTestCase extends MollomWebTestCase {
       }
     }
   }
+
+  /**
+   * Tests that a stored users with stored content can be moderated.
+   */
+  function testModerateUser() {
+    // Allow registration by site visitors without administrator approval.
+    variable_set('user_register', 1);
+    // @todo Core: Submitting 'unsure' results in the account status to be
+    //   inactive upon submit, and user_register_form_submit() additionally
+    //   checks $account->status for the email verification.
+    variable_set('user_email_verification', FALSE);
+
+    $this->drupalCreateContentType(array('type' => 'article', 'name' => 'Article'));
+    // @todo 'view own unpublished content' permission required to prevent a
+    //   bogus access denied watchdog caused by a bug in Drupal core.
+    // @see http://drupal.org/node/1429442
+    $this->userRoleGrantPermissions(DRUPAL_AUTHENTICATED_RID, array('create article content', 'view own unpublished content', 'access content'));
+
+    $this->drupalLogin($this->admin_user);
+    $this->setProtection('user_register', MOLLOM_MODE_ANALYSIS, NULL, array(
+      //'mollom[unsure]' => 'moderate',
+      //'mollom[discard]' => 0,
+      'mollom[moderation]' => 1,
+    ));
+    $this->setProtection('article_node_form', MOLLOM_MODE_ANALYSIS, NULL, array(
+      'mollom[unsure]' => 'moderate',
+      'mollom[discard]' => 0,
+      'mollom[moderation]' => 1,
+    ));
+    $this->drupalLogout();
+
+    $actions = array('approve', 'spam', 'invalid');
+    // @todo See note above; testing 'approve' is not easily possible.
+    $actions = array('spam', 'invalid');
+    foreach ($actions as $action) {
+      // Register a new user. (we are directly logged in)
+      $data = $this->drupalCreateTestUser();
+      $account = user_load($data->id, TRUE);
+
+      // Create some posts.
+      $posts = array();
+      $edit = array(
+        'title' => $this->randomString(),
+        'body' => $this->randomString(),
+      );
+      $this->drupalPost('node/add/article', $edit, t('Save'));
+      $node = $this->drupalGetNodeByTitle($edit['title']);
+      $posts[$node->nid] = $node;
+
+      // Send a moderation request for the user.
+      $path = 'mollom/moderate/' . $data->contentId . '/' . $action;
+      $this->mollomRequest('POST', $path);
+
+      $account = user_load($data->id, TRUE);
+      $new_data = mollom_data_load('user', $data->id);
+
+      // Verify that the post was published.
+      if ($action == 'approve') {
+        $this->assertMollomWatchdogMessages();
+        $this->assertResponse(200);
+        $this->assertSame('User account status', $account->status, 1);
+        $this->assertTrue($new_data, 'Mollom data for approved user still exists.');
+        $this->assertFalse($new_data->moderate, 'User is flagged as moderated.');
+        foreach ($posts as $id => $post) {
+          $node = node_load($id, NULL, TRUE);
+          $node_data = mollom_data_load('node', $id);
+          $this->assertTrue($node, 'Test post still exists.');
+          $this->assertTrue($node_data, 'Mollom data for test post still exists.');
+        }
+      }
+      // Verify that the post was deleted.
+      elseif ($action == 'spam' || $action == 'delete') {
+        $this->assertMollomWatchdogMessages();
+        $this->assertResponse(200);
+        $this->assertFalse($account, 'Test user was deleted.');
+        $this->assertFalse($new_data, 'Mollom data for moderated/deleted user was deleted.');
+        foreach ($posts as $id => $post) {
+          $node = node_load($id, NULL, TRUE);
+          $node_data = mollom_data_load('node', $id);
+          // D6: Content is attributed to the Anonymous user upon deletion of a
+          // user account.
+          //$this->assertFalse($node, 'Test post was deleted.');
+          //$this->assertFalse($node_data, 'Mollom data for post of moderated/deleted user was deleted.');
+          $this->assertEqual($node->uid, 0);
+        }
+      }
+      // Verify that post still exists after invalid/unsupported action.
+      else {
+        $this->assertMollomWatchdogMessages(WATCHDOG_WARNING);
+        $this->assertResponse(404);
+        $this->assertTrue(!empty($account), 'Test user still exists.');
+        $this->assertSame('User account status', $account->status, 1);
+        foreach ($posts as $id => $post) {
+          $node = node_load($node->nid, NULL, TRUE);
+          $node_data = mollom_data_load('node', $id);
+          $this->assertTrue($node, 'Test post still exists.');
+          $this->assertTrue($node_data, 'Mollom data for test post still exists.');
+        }
+      }
+    }
+  }
+
 }

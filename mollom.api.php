@@ -330,6 +330,7 @@ function hook_mollom_form_list_alter(&$form_list) {
  *     - MOLLOM_MODE_ANALYSIS: Text analysis of submitted form values with
  *       fallback to CAPTCHA.
  *     - MOLLOM_MODE_CAPTCHA: CAPTCHA-only protection.
+ *   - type: Internal use only.
  *   - bypass access: (optional) A list of user permissions to check for the
  *     current user to determine whether to protect the form with Mollom or do
  *     not validate submitted form values. If the current user has at least one

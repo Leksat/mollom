@@ -950,6 +950,13 @@ abstract class Mollom {
    *   - checks: An indexed array of strings denoting the checks to perform, one
    *     or more of: 'spam', 'quality', 'profanity', 'language', 'sentiment'.
    *     Defaults to 'spam'.
+   *   - type: An optional string identifier to request a special content
+   *     classification behavior. Possible values are:
+   *     - 'user': Enables classification of 'author*' request parameters as
+   *       primary content. postTitle and postBody may be left empty without
+   *       negative impact on the classification result. Use this for checking
+   *       user registration forms. Optionally pass additional user profile text
+   *       fields as postBody.
    *   - unsure: Integer denoting whether a "unsure" response should be allowed
    *     (1) for the 'spam' check (which should lead to CAPTCHA) or not (0).
    *     Defaults to 1.
