@@ -183,6 +183,14 @@ function mollom_test_server_rest_validate_auth() {
   $header = mollom_test_server_rest_get_auth_header();
   $sites = variable_get('mollom_test_server_site', array());
 
+  // Validate the timestamp.
+  $client_time = $header['oauth_timestamp'];
+  $time = time();
+  $offset = abs($time - $client_time);
+  if ($offset > Mollom::TIME_OFFSET_MAX) {
+    return FALSE;
+  }
+
   $sent_signature = $header['oauth_signature'];
   unset($header['oauth_signature']);
 
@@ -191,7 +199,6 @@ function mollom_test_server_rest_validate_auth() {
     Mollom::rawurlencode($GLOBALS['base_url'] . '/' . $_GET['q']),
     Mollom::rawurlencode(Mollom::httpBuildQuery($data + $header)),
   ));
-  $time = $header['oauth_timestamp'];
   $nonce = $header['oauth_nonce'];
 
   if (!isset($sites[$header['oauth_consumer_key']]['privateKey'])) {

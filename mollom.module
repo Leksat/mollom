@@ -1385,12 +1385,23 @@ function _mollom_status($reset = FALSE) {
         'message' => 'API keys are valid.',
       ), WATCHDOG_INFO);
     }
-    // If the response is neither positive nor a negative authentication error,
-    // the previous status was positive, and if the Mollom service might be
+    elseif ($status['keys valid'] === Mollom::REQUEST_ERROR) {
+      mollom_log(array(
+        'message' => 'Invalid client configuration.',
+      ), WATCHDOG_ERROR);
+    }
+    elseif ($status['keys valid'] === Mollom::AUTH_ERROR) {
+      mollom_log(array(
+        'message' => 'Invalid API keys.',
+      ), WATCHDOG_ERROR);
+    }
+    // If the response is neither positive nor a known negative error, and
+    // the previous status was positive, then the Mollom service might be
     // temporarily down. In this case, return an enforced RESPONSE_ERROR to
-    // indicate a server-side service failure.
+    // indicate a server-side service failure, but do not update the stored
+    // status.
     // @todo Test this.
-    elseif ($status['keys valid'] !== Mollom::AUTH_ERROR && $current_status['keys valid'] === TRUE) {
+    elseif ($current_status['keys valid'] === TRUE) {
       $status['keys valid'] = Mollom::RESPONSE_ERROR;
       // Do not update the stored configuration status with the bogus result
       // caused by the server-side failure.
@@ -1398,11 +1409,6 @@ function _mollom_status($reset = FALSE) {
       mollom_log(array(
         'message' => 'API keys could not be verified.',
       ), WATCHDOG_WARNING);
-    }
-    else {
-      mollom_log(array(
-        'message' => 'Invalid API keys.',
-      ), WATCHDOG_ERROR);
     }
   }
   // Otherwise, if there are no keys, they cannot be valid.
