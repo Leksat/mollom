@@ -108,8 +108,8 @@ These are examples for implementations of the Mollom class.  As visible in the a
 
 This library is considered stable and is actively used, but API changes may not be able to avoid.
 
-* See the [change log](CHANGELOG.md) for details.
-* See the [todo list](TODO.md) for planned major refactoring in the future.
+* See the [change log](https://github.com/Mollom/MollomPHP/blob/master/CHANGELOG.md) for details.
+* See the [todo list](https://github.com/Mollom/MollomPHP/blob/master/TODO.md) for future refactoring tasks (which will happen in a new major version).
 
 ## License
 

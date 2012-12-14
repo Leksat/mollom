@@ -11,6 +11,7 @@ This file lists all major changes and additions to the PHP API for convenience. 
   * `Mollom::query()` returns a new possible `Mollom::REQUEST_ERROR` code (400) in case the local system time diverges too much from UTC.
   * Cause: Too many support requests from users reporting authentication failures, which are caused by a local server time that is not synchronized with UTC.  The maximum allowed time offset is `Mollom::TIME_OFFSET_MAX`.
   * All client implementations should check for this new error code (in the same places where authentication errors are handled already) and conditionally log and output a corresponding error message to site administrators along the lines of:
+
     > The server time of this site is incorrect. The time of the operating system is not synchronized with the Coordinated Universal Time (UTC), which prevents a successful authentication with Mollom. The maximum allowed offset is @minutes minutes. Please consult your hosting provider or server operator to correct the server time.
 
 
