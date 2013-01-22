@@ -1341,12 +1341,20 @@ class MollomException extends Exception {
     $mollom->lastResponseCode = $code;
 
     // Log the exception.
+    // To aid Mollom technical support, include the IP address of the server we
+    // tried to reach in case a request fails.
+    // PHP's native gethostbyname() is available on all platforms, but its DNS
+    // lookup and caching behavior is undocumented and unclear. User comments on
+    // php.net mention that it does not have an own cache and also does not use
+    // the OS/platform's native DNS name resolver. Due to that, we only use it
+    // under error conditions.
     $message = array(
       'severity' => $this->severity,
-      'message' => 'Error @code: %message',
+      'message' => 'Error @code: %message (@server-ip)',
       'arguments' => array(
         '@code' => $code,
         '%message' => $message,
+        '@server-ip' => gethostbyname($mollom->server),
       ),
     );
     // Add HTTP request information, if available.
