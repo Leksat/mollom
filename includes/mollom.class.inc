@@ -60,7 +60,7 @@ abstract class Mollom {
    *
    * @var integer
    */
-  const TIME_OFFSET_MAX = 600;
+  const TIME_OFFSET_MAX = 300;
 
   /**
    * The public Mollom API key to use for request authentication.
