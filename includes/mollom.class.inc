@@ -1216,7 +1216,8 @@ abstract class Mollom {
     if (!isset($publicKey)) {
       $publicKey = $this->publicKey;
     }
-    $result = $this->query('GET', 'blacklist/' . $publicKey . '/' . $entryId, array(), array('entry', 'id'));
+    $path = 'blacklist/' . $publicKey . '/' . rawurlencode($entryId);
+    $result = $this->query('GET', $path, array(), array('entry', 'id'));
     return isset($result['entry']) ? $result['entry'] : $result;
   }
 
@@ -1242,7 +1243,7 @@ abstract class Mollom {
     }
     $path = 'blacklist/' . $publicKey;
     if (!empty($data['id'])) {
-      $path .= '/' . $data['id'];
+      $path .= '/' . rawurlencode($data['id']);
       unset($data['id']);
     }
     $result = $this->query('POST', $path, $data, array('entry', 'id'));
@@ -1265,7 +1266,8 @@ abstract class Mollom {
     if (!isset($publicKey)) {
       $publicKey = $this->publicKey;
     }
-    $result = $this->query('POST', 'blacklist/' . $publicKey . '/' . $entryId . '/delete');
+    $path = 'blacklist/' . $publicKey . '/' . rawurlencode($entryId) . '/delete';
+    $result = $this->query('POST', $path);
     return $this->lastResponseCode === TRUE;
   }
 }
