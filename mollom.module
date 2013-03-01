@@ -1687,6 +1687,13 @@ function mollom_process_mollom($element, $input, &$form_state, $complete_form) {
   }
 
   // Add a spambot trap. Purposively use 'homepage' as field name.
+  // This form input element is only supposed to be visible for robots. It has
+  // - no label, since some screen-readers do not notice that the label is
+  //   attached to an input that is hidden.
+  // - no 'title' attribute, since some JavaScript libraries that are trying to
+  //   mimic HTML5 placeholders are injecting the 'title' into the input's value
+  //   and fail to clean up and remove the placeholder value upon form submission,
+  //   causing false-positive spam classifications.
   $element['homepage'] = array(
     '#type' => 'textfield',
     // Wrap the entire honeypot form element markup into a hidden container, so
@@ -1695,11 +1702,7 @@ function mollom_process_mollom($element, $input, &$form_state, $complete_form) {
     // with a honeypot field.
     '#prefix' => '<div style="display: none;">',
     '#suffix' => '</div>',
-    // Although this input is hidden and not visible to screen readers,
-    // accessibility validators (such as WAVE) would still complain about a form
-    // field without any kind of legend/label. t() is needless here.
     '#attributes' => array(
-      'title' => 'Homepage',
       // Disable browser autocompletion.
       'autocomplete' => 'off',
     ),
