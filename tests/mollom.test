@@ -123,6 +123,9 @@ class MollomWebTestCase extends DrupalWebTestCase {
     // automatically create testing API keys.
     variable_set('mollom_testing_create_keys', $this->createKeys);
 
+    // Disable testing mode warnings.
+    variable_set('mollom_testing_mode_omit_warning', TRUE);
+
     // If not explicitly disabled by a test, setup and validate testing keys,
     // and create a default admin user.
     if (empty($this->disableDefaultSetup)) {
@@ -374,6 +377,34 @@ class MollomWebTestCase extends DrupalWebTestCase {
   }
 
   /**
+   * Saves a mollom_form entity to protect a given form with Mollom.
+   *
+   * @param string $form_id
+   *   The form id to protect.
+   * @param int $mode
+   *   The protection mode. Defaults to MOLLOM_MODE_ANALYSIS.
+   * @param array $values
+   *   (optional) An associative array of properties to additionally set on the
+   *   mollom_form entity.
+   *
+   * @return int
+   *   The save status, as returned by mollom_form_save().
+   */
+  protected function setProtection($form_id, $mode = MOLLOM_MODE_ANALYSIS, $values = array()) {
+    if (!$mollom_form = mollom_form_load($form_id)) {
+      $mollom_form = mollom_form_new($form_id);
+    }
+    $mollom_form['mode'] = $mode;
+    if ($values) {
+      foreach ($values as $property => $value) {
+        $mollom_form[$property] = $value;
+      }
+    }
+    $status = mollom_form_save($mollom_form);
+    return $status;
+  }
+
+  /**
    * Configure Mollom protection for a given form.
    *
    * @param $form_id
@@ -388,7 +419,7 @@ class MollomWebTestCase extends DrupalWebTestCase {
    *   (optional) An array of POST data to pass through to drupalPost() when
    *   configuring the form's protection.
    */
-  protected function setProtection($form_id, $mode = MOLLOM_MODE_ANALYSIS, $fields = NULL, $edit = array()) {
+  protected function setProtectionUI($form_id, $mode = MOLLOM_MODE_ANALYSIS, $fields = NULL, $edit = array()) {
     // Always start from overview page, also to make debugging easier.
     $this->drupalGet('admin/settings/mollom');
     // Determine whether the form is already protected.
@@ -919,6 +950,17 @@ class MollomWebTestCase extends DrupalWebTestCase {
       $rid,
     ));
   }
+
+  /**
+   * Enables aggressive page caching options to resemble reverse-proxies.
+   */
+  protected function enablePageCache() {
+    variable_set('cache', 1);
+    variable_set('page_cache_maximum_age', 180);
+    // A minimum cache lifetime causes cache_clear_all() to start a session.
+    //variable_set('cache_lifetime', 60);
+  }
+
 }
 
 /**
@@ -949,6 +991,9 @@ class MollomTestingModeTestCase extends MollomWebTestCase {
   function setUp() {
     parent::setUp(array('mollom', 'mollom_test'));
 
+    // Enable testing mode warnings.
+    variable_del('mollom_testing_mode_omit_warning');
+
     $this->admin_user = $this->drupalCreateUser(array(
       'access administration pages',
       'administer mollom',
@@ -962,7 +1007,7 @@ class MollomTestingModeTestCase extends MollomWebTestCase {
     $this->drupalLogin($this->admin_user);
 
     // Protect mollom_test_form.
-    $this->setProtection('mollom_test_form', MOLLOM_MODE_ANALYSIS);
+    $this->setProtectionUI('mollom_test_form', MOLLOM_MODE_ANALYSIS);
 
     // Setup production API keys. They must be retained.
     $publicKey = 'the-invalid-mollom-api-key-value';
@@ -1687,7 +1732,7 @@ class MollomBypassAccessTestCase extends MollomWebTestCase {
    */
   function testBypassAccess() {
     $this->drupalLogin($this->admin_user);
-    $this->setProtection('comment_form');
+    $this->setProtectionUI('comment_form');
     $this->drupalLogout();
 
     $node = $this->drupalCreateNode(array('body' => 'node body', 'type' => 'story'));
@@ -1774,7 +1819,7 @@ class MollomFallbackModeTestCase extends MollomWebTestCase {
   function testBlock() {
     // Enable Mollom for the request password form.
     $this->drupalLogin($this->admin_user);
-    $this->setProtection('user_pass', MOLLOM_MODE_CAPTCHA);
+    $this->setProtectionUI('user_pass', MOLLOM_MODE_CAPTCHA);
     $this->drupalLogout();
 
     // Set the fallback strategy to 'blocking mode'.
@@ -1802,7 +1847,7 @@ class MollomFallbackModeTestCase extends MollomWebTestCase {
   function testAccept() {
     // Enable Mollom for the request password form.
     $this->drupalLogin($this->admin_user);
-    $this->setProtection('user_pass', MOLLOM_MODE_CAPTCHA);
+    $this->setProtectionUI('user_pass', MOLLOM_MODE_CAPTCHA);
     $this->drupalLogout();
 
     // Set the fallback strategy to 'accept mode'.
@@ -1822,7 +1867,7 @@ class MollomFallbackModeTestCase extends MollomWebTestCase {
    */
   function testFailover() {
     $this->drupalLogin($this->admin_user);
-    $this->setProtection('user_pass', MOLLOM_MODE_CAPTCHA);
+    $this->setProtectionUI('user_pass', MOLLOM_MODE_CAPTCHA);
     $this->drupalLogout();
 
     // Set the fallback strategy to 'blocking mode', so that if the failover
@@ -2088,7 +2133,7 @@ class MollomProfanityTestCase extends MollomWebTestCase {
       'mollom[checks][spam]' => TRUE,
       'mollom[checks][profanity]' => FALSE,
     );
-    $this->setProtection('mollom_test_form', MOLLOM_MODE_ANALYSIS, NULL, $edit_config);
+    $this->setProtectionUI('mollom_test_form', MOLLOM_MODE_ANALYSIS, NULL, $edit_config);
     $this->drupalLogout();
 
     // Assert that the profanity filter is disabled.
@@ -2106,7 +2151,7 @@ class MollomProfanityTestCase extends MollomWebTestCase {
       'mollom[checks][spam]' => FALSE,
       'mollom[checks][profanity]' => TRUE,
     );
-    $this->setProtection('mollom_test_form', MOLLOM_MODE_ANALYSIS, NULL, $edit_config);
+    $this->setProtectionUI('mollom_test_form', MOLLOM_MODE_ANALYSIS, NULL, $edit_config);
     $this->drupalLogout();
 
     // Verify that the profanity filter now blocks this content.
@@ -2132,7 +2177,7 @@ class MollomProfanityTestCase extends MollomWebTestCase {
       'mollom[checks][profanity]' => TRUE,
       'mollom[checks][spam]' => TRUE,
     );
-    $this->setProtection('mollom_test_form', MOLLOM_MODE_ANALYSIS, NULL, $edit_config);
+    $this->setProtectionUI('mollom_test_form', MOLLOM_MODE_ANALYSIS, NULL, $edit_config);
     $this->drupalLogout();
 
     // Sequence: Post profanity (ham), remove profanity (still ham), and expect
@@ -2464,7 +2509,7 @@ class MollomFormConfigurationTestCase extends MollomWebTestCase {
   function testFormAlter() {
     // Enable CAPTCHA-only protection for request user password form.
     $this->drupalLogin($this->admin_user);
-    $this->setProtection('user_pass', MOLLOM_MODE_CAPTCHA);
+    $this->setProtectionUI('user_pass', MOLLOM_MODE_CAPTCHA);
     $this->drupalLogout();
 
     // Verify regular form protection.
@@ -2504,7 +2549,7 @@ class MollomUserFormsTestCase extends MollomWebTestCase {
     // Verify that the protection mode defaults to CAPTCHA.
     $this->drupalGet('admin/settings/mollom/add/user_pass');
     $this->assertFieldByName('mollom[mode]', MOLLOM_MODE_CAPTCHA);
-    $this->setProtection('user_pass', MOLLOM_MODE_CAPTCHA);
+    $this->setProtectionUI('user_pass', MOLLOM_MODE_CAPTCHA);
     $this->drupalLogout();
 
     // Create a new user.
@@ -2532,7 +2577,7 @@ class MollomUserFormsTestCase extends MollomWebTestCase {
     // Verify that the protection mode defaults to CAPTCHA.
     $this->drupalGet('admin/settings/mollom/add/user_register');
     $this->assertFieldByName('mollom[mode]', MOLLOM_MODE_CAPTCHA);
-    $this->setProtection('user_register', MOLLOM_MODE_CAPTCHA);
+    $this->setProtectionUI('user_register', MOLLOM_MODE_CAPTCHA);
     $this->drupalLogout();
 
     // Retrieve initial count of registered users.
@@ -2590,7 +2635,7 @@ class MollomUserFormsTestCase extends MollomWebTestCase {
     variable_set('user_register', 1);
 
     $this->drupalLogin($this->admin_user);
-    $this->setProtection('user_register', MOLLOM_MODE_ANALYSIS);
+    $this->setProtectionUI('user_register', MOLLOM_MODE_ANALYSIS);
     $this->drupalLogout();
 
     // Retrieve initial count of registered users.
@@ -2706,7 +2751,7 @@ class MollomProfileFormsTestCase extends MollomWebTestCase {
     }
 
     // Enable text analysis protection for user registration form.
-    $this->setProtection('user_register', MOLLOM_MODE_ANALYSIS);
+    $this->setProtectionUI('user_register', MOLLOM_MODE_ANALYSIS);
     $this->drupalLogout();
 
     // Test each supported field separately.
@@ -2763,7 +2808,7 @@ class MollomNodeFormTestCase extends MollomWebTestCase {
   function testData() {
     // Enable Mollom CAPTCHA protection for Article nodes.
     $this->drupalLogin($this->admin_user);
-    $this->setProtection('story_node_form', MOLLOM_MODE_CAPTCHA);
+    $this->setProtectionUI('story_node_form', MOLLOM_MODE_CAPTCHA);
     $this->drupalLogout();
 
     // Login and submit a node.
@@ -2785,7 +2830,7 @@ class MollomNodeFormTestCase extends MollomWebTestCase {
    */
   function testRetain() {
     $this->drupalLogin($this->admin_user);
-    $this->setProtection('story_node_form', MOLLOM_MODE_ANALYSIS, NULL, array(
+    $this->setProtectionUI('story_node_form', MOLLOM_MODE_ANALYSIS, NULL, array(
       'mollom[checks][profanity]' => TRUE,
       'mollom[discard]' => 0,
     ));
@@ -2849,7 +2894,7 @@ class MollomCommentFormTestCase extends MollomWebTestCase {
   function testCaptchaProtectedCommentForm() {
     // Enable Mollom CAPTCHA protection for comments.
     $this->drupalLogin($this->admin_user);
-    $this->setProtection('comment_form', MOLLOM_MODE_CAPTCHA);
+    $this->setProtectionUI('comment_form', MOLLOM_MODE_CAPTCHA);
     $this->drupalLogout();
 
     // Request the comment reply form. There should be a CAPTCHA form.
@@ -2863,7 +2908,7 @@ class MollomCommentFormTestCase extends MollomWebTestCase {
     // required field.
     $this->postIncorrectCaptcha(NULL, array(), t('Preview'));
     $this->assertText(t('Comment field is required.'));
-    $this->assertResponseIDInForm('captchaId', TRUE);
+    $this->assertResponseIDInForm('captchaId');
     $this->assertNoPrivacyLink();
 
     // Try to submit a correct answer for the CAPTCHA, still without required
@@ -2886,7 +2931,7 @@ class MollomCommentFormTestCase extends MollomWebTestCase {
   function testTextAnalysisProtectedCommentForm() {
     // Enable Mollom text-classification for comments.
     $this->drupalLogin($this->admin_user);
-    $this->setProtection('comment_form');
+    $this->setProtectionUI('comment_form');
     $this->drupalLogout();
 
     // Request the comment reply form.  Initially, there should be no CAPTCHA.
@@ -3008,7 +3053,7 @@ class MollomContactFormTestCase extends MollomWebTestCase {
   function testProtectContactUserForm() {
     // Enable Mollom for the contact form.
     $this->drupalLogin($this->admin_user);
-    $this->setProtection('contact_mail_user');
+    $this->setProtectionUI('contact_mail_user');
     $this->drupalLogout();
 
     $this->drupalLogin($this->web_user);
@@ -3038,7 +3083,7 @@ class MollomContactFormTestCase extends MollomWebTestCase {
   function testProtectContactSiteForm() {
     // Enable Mollom for the contact form.
     $this->drupalLogin($this->admin_user);
-    $this->setProtection('contact_mail_page');
+    $this->setProtectionUI('contact_mail_page');
     $this->drupalLogout();
 
     // Add some fields to the contact form so that it is active.
@@ -3313,7 +3358,7 @@ class MollomDataTestCase extends MollomWebTestCase {
    */
   function testFormButtonValues() {
     $this->drupalLogin($this->admin_user);
-    $this->setProtection('mollom_test_form');
+    $this->setProtectionUI('mollom_test_form');
     $this->drupalLogout();
 
     // Verify that neither the "Submit" nor the "Add" button value is contained
@@ -3332,7 +3377,7 @@ class MollomDataTestCase extends MollomWebTestCase {
    */
   function testAnalysis() {
     $this->drupalLogin($this->admin_user);
-    $this->setProtection('comment_form');
+    $this->setProtectionUI('comment_form');
 
     // Make comment preview optional.
     $edit = array(
@@ -3442,7 +3487,7 @@ class MollomDataTestCase extends MollomWebTestCase {
   function testHoneypot() {
     // Enable protection for mollom_test_form.
     $this->drupalLogin($this->admin_user);
-    $this->setProtection('mollom_test_form');
+    $this->setProtectionUI('mollom_test_form');
     $this->drupalLogout();
 
     // Verify that the hidden honeypot field is output.
@@ -3472,7 +3517,7 @@ class MollomDataTestCase extends MollomWebTestCase {
 
     // Change form protection to CAPTCHA only.
     $this->drupalLogin($this->admin_user);
-    $this->setProtection('mollom_test_form', MOLLOM_MODE_CAPTCHA);
+    $this->setProtectionUI('mollom_test_form', MOLLOM_MODE_CAPTCHA);
     $this->drupalLogout();
     $this->resetServerRecords();
 
@@ -3508,7 +3553,7 @@ class MollomDataTestCase extends MollomWebTestCase {
   function testPostIdMapping() {
     // Enable protection for mollom_test_form.
     $this->drupalLogin($this->admin_user);
-    $this->setProtection('mollom_test_form');
+    $this->setProtectionUI('mollom_test_form');
     $this->drupalLogout();
 
     // Submit a mollom_test thingy.
@@ -3690,7 +3735,7 @@ class MollomAnalysisTestCase extends MollomWebTestCase {
    */
   function testUnsureBinary() {
     $this->drupalLogin($this->admin_user);
-    $this->setProtection('mollom_test_form', MOLLOM_MODE_ANALYSIS, NULL, array(
+    $this->setProtectionUI('mollom_test_form', MOLLOM_MODE_ANALYSIS, NULL, array(
       'mollom[unsure]' => 'binary',
     ));
     $this->drupalLogout();
@@ -3739,12 +3784,12 @@ class MollomAnalysisTestCase extends MollomWebTestCase {
     $this->drupalLogin($this->admin_user);
     // Verify that mollom_basic_elements_test_form cannot be configured to put
     // posts into moderation queue.
-    $this->setProtection('mollom_basic_elements_test_form');
+    $this->setProtectionUI('mollom_basic_elements_test_form');
     $this->drupalGet('admin/settings/mollom/manage/mollom_basic_elements_test_form');
     $this->assertNoFieldByName('mollom[unsure]');
 
     // Configure mollom_test_form to retain unsure posts.
-    $this->setProtection('mollom_test_form', MOLLOM_MODE_ANALYSIS, NULL, array(
+    $this->setProtectionUI('mollom_test_form', MOLLOM_MODE_ANALYSIS, NULL, array(
       'mollom[unsure]' => 'moderate',
     ));
     $this->drupalLogout();
@@ -3800,12 +3845,12 @@ class MollomAnalysisTestCase extends MollomWebTestCase {
     $this->drupalLogin($this->admin_user);
     // Verify that mollom_basic_test_form cannot be configured to put posts into
     // moderation queue.
-    $this->setProtection('mollom_basic_elements_test_form');
+    $this->setProtectionUI('mollom_basic_elements_test_form');
     $this->drupalGet('admin/settings/mollom/manage/mollom_basic_elements_test_form');
     $this->assertNoFieldByName('mollom[discard]');
 
     // Configure mollom_test_form to accept bad posts.
-    $this->setProtection('mollom_test_form', MOLLOM_MODE_ANALYSIS, NULL, array(
+    $this->setProtectionUI('mollom_test_form', MOLLOM_MODE_ANALYSIS, NULL, array(
       'mollom[checks][profanity]' => TRUE,
       'mollom[discard]' => 0,
     ));
@@ -3905,6 +3950,63 @@ class MollomAnalysisTestCase extends MollomWebTestCase {
 }
 
 /**
+ * Tests basic text analysis functionality with enabled caching.
+ */
+class MollomAnalysisPageCacheTestCase extends MollomWebTestCase {
+
+  protected $disableDefaultSetup = TRUE;
+
+  public static function getInfo() {
+    return array(
+      'name' => 'Text analysis with caching',
+      'description' => 'Tests basic text analysis functionality with enabled caching.',
+      'group' => 'Mollom',
+    );
+  }
+
+  function setUp() {
+    parent::setUp(array('mollom', 'mollom_test'));
+    $this->setKeys();
+    $this->assertValidKeys();
+    $this->enablePageCache();
+  }
+
+  /**
+   * Tests text analysis.
+   */
+  function testAnalysis() {
+    $this->setProtection('mollom_test_form');
+    // Prime the form + page cache.
+    $this->drupalGet('mollom-test/form');
+    $this->assertText('Views: 1');
+    $this->drupalGet('mollom-test/form');
+    $this->assertText('Views: 1');
+    $this->assertUnsureSubmit(NULL, array('title'), array(), 'Submit');
+
+    $this->drupalGet('mollom-test/form');
+    $this->assertText('Views: 1');
+    $this->assertUnsureSubmit(NULL, array('title'), array(), 'Submit');
+
+    $this->drupalGet('mollom-test/form');
+    $this->assertText('Views: 1');
+    $this->assertSpamSubmit(NULL, array('title'), array(), 'Submit');
+
+    $this->drupalGet('mollom-test/form');
+    $this->assertText('Views: 1');
+    $this->assertHamSubmit(NULL, array('title'), array(), 'Submit');
+  }
+
+  /**
+   * Tests text analysis with additionally enabled Form API cache.
+   */
+  function testAnalysisFormCache() {
+    variable_set('mollom_test.form.cache', TRUE);
+    $this->testAnalysis();
+  }
+
+}
+
+/**
  * Tests CAPTCHA functionality.
  */
 class MollomCaptchaTestCase extends MollomWebTestCase {
@@ -3933,7 +4035,7 @@ class MollomCaptchaTestCase extends MollomWebTestCase {
     $this->web_user = $this->drupalCreateUser(array('access content'));
 
     $this->drupalLogin($this->admin_user);
-    $this->setProtection('mollom_test_form', MOLLOM_MODE_CAPTCHA);
+    $this->setProtectionUI('mollom_test_form', MOLLOM_MODE_CAPTCHA);
     $this->drupalLogout();
   }
 
@@ -4073,7 +4175,7 @@ class MollomReportTestCase extends MollomWebTestCase {
    */
   function testReportComment() {
     $this->drupalLogin($this->admin_user);
-    $this->setProtection('comment_form');
+    $this->setProtectionUI('comment_form');
     $this->drupalLogout();
 
     $this->node = $this->drupalCreateNode(array('type' => 'story'));
@@ -4111,7 +4213,7 @@ class MollomReportTestCase extends MollomWebTestCase {
    */
   function testMassReportComments() {
     $this->drupalLogin($this->admin_user);
-    $this->setProtection('comment_form');
+    $this->setProtectionUI('comment_form');
     $this->drupalLogout();
 
     $this->node = $this->drupalCreateNode(array('type' => 'story'));
@@ -4179,7 +4281,7 @@ class MollomModerateUserTestCase extends MollomWebTestCase {
     parent::setUp();
 
     $this->drupalLogin($this->admin_user);
-    $this->setProtection('user_register', MOLLOM_MODE_CAPTCHA);
+    $this->setProtectionUI('user_register', MOLLOM_MODE_CAPTCHA);
     $this->drupalLogout();
 
     // Allow visitors to register.
@@ -4262,7 +4364,7 @@ class MollomModerationIntegrationTestCase extends MollomWebTestCase {
     parent::setUp(array('mollom_test'));
 
     $this->drupalLogin($this->admin_user);
-    $this->setProtection('mollom_test_form', MOLLOM_MODE_ANALYSIS, NULL, array(
+    $this->setProtectionUI('mollom_test_form', MOLLOM_MODE_ANALYSIS, NULL, array(
       'mollom[discard]' => 0,
       'mollom[moderation]' => 1,
     ));
@@ -4431,7 +4533,7 @@ class MollomModerationIntegrationTestCase extends MollomWebTestCase {
 
     // Test no Mollom moderation access with disabled integration.
     $this->drupalLogin($this->admin_user);
-    $this->setProtection('mollom_test_form', MOLLOM_MODE_ANALYSIS, NULL, array(
+    $this->setProtectionUI('mollom_test_form', MOLLOM_MODE_ANALYSIS, NULL, array(
       'mollom[moderation]' => FALSE,
     ));
 
@@ -4441,7 +4543,7 @@ class MollomModerationIntegrationTestCase extends MollomWebTestCase {
     $record = mollom_test_load($data->id);
     $this->assertTrue(!empty($record) && $record->status == 0, 'Test post still exists.');
 
-    $this->setProtection('mollom_test_form', MOLLOM_MODE_ANALYSIS, NULL, array(
+    $this->setProtectionUI('mollom_test_form', MOLLOM_MODE_ANALYSIS, NULL, array(
       'mollom[moderation]' => 1,
     ));
     $this->drupalLogout();
@@ -4564,12 +4666,12 @@ class MollomModerationIntegrationTestCase extends MollomWebTestCase {
     $this->userRoleGrantPermissions(DRUPAL_AUTHENTICATED_RID, array('create article content', 'view own unpublished content', 'access content'));
 
     $this->drupalLogin($this->admin_user);
-    $this->setProtection('user_register', MOLLOM_MODE_ANALYSIS, NULL, array(
+    $this->setProtectionUI('user_register', MOLLOM_MODE_ANALYSIS, NULL, array(
       //'mollom[unsure]' => 'moderate',
       //'mollom[discard]' => 0,
       'mollom[moderation]' => 1,
     ));
-    $this->setProtection('article_node_form', MOLLOM_MODE_ANALYSIS, NULL, array(
+    $this->setProtectionUI('article_node_form', MOLLOM_MODE_ANALYSIS, NULL, array(
       'mollom[unsure]' => 'moderate',
       'mollom[discard]' => 0,
       'mollom[moderation]' => 1,

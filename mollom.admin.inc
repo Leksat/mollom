@@ -348,6 +348,8 @@ function mollom_admin_configure_form(&$form_state, $mollom_form = NULL) {
  * #after_build callback for mollom_admin_configure_form().
  */
 function mollom_admin_configure_form_after_build($form, &$form_state) {
+  $form['mollom']['mode'][MOLLOM_MODE_CAPTCHA]['#description'] = t('Only choose CAPTCHA if text analysis is not suitable. Page caching is disabled on all pages containing CAPTCHA-only protected forms.');
+
   // Conditionally make text analysis form elements required.
   // Accounts for different add and edit form builds and rebuilds.
   $required = ($form_state['values']['mollom']['mode'] == MOLLOM_MODE_ANALYSIS);

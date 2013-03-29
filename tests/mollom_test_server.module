@@ -108,6 +108,9 @@ function mollom_test_server_rest_deliver($callback) {
   array_shift($args);
   $page_callback_result = call_user_func_array($callback, $args);
 
+  // All fake-server responses are not cached.
+  $GLOBALS['conf']['cache'] = FALSE;
+
   drupal_set_header('Content-Type: application/xml; charset=utf-8');
 
   $xml = new DOMDocument('1.0', 'utf-8');
