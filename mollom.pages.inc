@@ -50,12 +50,12 @@ function mollom_captcha_js($type, $mollom_build_id, $contentId = NULL) {
   if (!empty($form_state['mollom']['response']['captcha']['id'])) {
     // Update cached session id in the cached $form_state.
     if ($cache) {
-      cache_set($mollom_build_id, $form_state['mollom'], 'cache_mollom', time() + 21600);
+      cache_set($mollom_build_id, $form_state['mollom'], 'cache_mollom', $cache->expire);
     }
     // Return new content and CAPTCHA ID via JSON.
     $data = array(
-      'content' => $captcha,
       'captchaId' => $form_state['mollom']['response']['captcha']['id'],
+      'content' => $captcha,
     );
     drupal_json($data);
   }
