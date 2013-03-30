@@ -2228,6 +2228,8 @@ function mollom_form_submit($form, &$form_state) {
       $form_state['mollom']['data'] = mollom_data_save($data);
     }
   }
+  // Prune expired {cache_mollom} records on every successful form submission.
+  cache_clear_all(NULL, 'cache_mollom');
 }
 
 /**
