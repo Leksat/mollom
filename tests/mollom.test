@@ -2704,10 +2704,10 @@ class MollomUserFormsTestCase extends MollomWebTestCase {
     // registration form.
     $this->drupalLogin($this->admin_user);
     $this->drupalGet('admin/settings/mollom/add/user_register');
-    $this->assertNoField('mollom[unsure]', 'discard');
-    $this->assertNoField('mollom[unsure]', 'moderate');
-    $this->assertNoField('mollom[discard]', '0');
-    $this->assertNoField('mollom[discard]', '1');
+    $this->assertFieldByName('mollom[unsure]', 'captcha', 'Unsure: CAPTCHA option found.');
+    $this->assertNoFieldByName('mollom[unsure]', 'moderate', 'Unsure: Moderation option not found.');
+    $this->assertFieldByName('mollom[unsure]', 'binary', 'Unsure: Binary/accept option found.');
+    $this->assertNoFieldByName('mollom[discard]', NULL, 'Spam: Discard options not found.');
   }
 }
 
