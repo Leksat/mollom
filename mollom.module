@@ -56,24 +56,33 @@ function mollom_help($path, $arg) {
 
   if ($path == 'admin/help#mollom') {
     $output = '<p>';
-    $output .= t("Allowing users to react, participate and contribute while still keeping your site's content under control can be a huge challenge. Mollom is a web service that helps you identify content quality and, more importantly, helps you stop spam. When content moderation becomes easier, you have more time and energy to interact with your web community. More information about Mollom is available on the <a href=\"@mollom-website\">Mollom website</a> or in the <a href=\"@mollom-faq\">Mollom FAQ</a>.",
-      array(
-        '@mollom-website' => 'http://mollom.com',
-        '@mollom-faq' => 'http://mollom.com/faq',
-      )
-    );
+    $output .= t('Allowing users to react, participate and contribute while still keeping your site\'s content under control can be a huge challenge. <a href="@mollom-website">Mollom</a> is a web service that helps you identify content quality and, most importantly, helps you stop spam. When content moderation becomes easier, you have more time and energy to interact with your site visitors and community. For more information, see <a href="@mollom-works">How Mollom Works</a> and the <a href="@mollom-faq">Mollom FAQ</a>.', array(
+      '@mollom-website' => '//mollom.com',
+      '@mollom-works' => '//mollom.com/how-mollom-works',
+      '@mollom-faq' => '//mollom.com/faq',
+    ));
     $output .= '</p><p>';
-    $output .= t("Mollom can be used to block all types of spam received on your website's protected forms. Each form can be set to one of the following options:");
-    $output .= '</p><ul><li>';
-    $output .= t("<strong>Text analysis and CAPTCHA backup</strong>: Mollom analyzes the data submitted on the form and presents a CAPTCHA challenge if necessary. This option is strongly recommended, as it takes full advantage of the Mollom anti-spam service to categorize your posts into ham (not spam) and spam.");
-    $output .= '</li><li>';
-    $output .= t("<strong>CAPTCHA only</strong>: the form's data is not sent to Mollom for analysis, and a remotely-hosted CAPTCHA challenge is always presented. This option is useful when you wish to always display a CAPTCHA or want to send less data to the Mollom network. Note, however, that forms displayed with a CAPTCHA are never cached, so always displaying a CAPTCHA challenge may reduce performance.");
-    $output .= '</li></ul><p>';
-    $output .= t("Data is processed and stored as explained in our <a href=\"@mollom-privacy\">Web Service Privacy Policy</a>. It is your responsibility to provide any necessary notices and obtain the appropriate consent regarding Mollom's use of your data. For more information, see <a href=\"@mollom-works\">How Mollom Works</a> and the <a href=\"@mollom-faq\">Mollom FAQ</a>.", array(
-      '@mollom-privacy' => 'http://mollom.com/service-agreement-free-subscriptions',
-      '@mollom-works' => 'http://mollom.com/how-mollom-works',
-      '@mollom-faq' => 'http://mollom.com/faq')
-    );
+    $output .= t('Mollom can protect forms your site from unwanted posts. Each form can be set to one of the following options:');
+    $output .= '</p><ul>';
+    $output .= '<li><p><strong>';
+    $output .= t('Text analysis with CAPTCHA backup');
+    $output .= '</strong></p><p>';
+    $output .= t('Mollom analyzes the data submitted on the form and presents a CAPTCHA challenge if necessary. This option is strongly recommended, as it takes full advantage of the Mollom service to categorize posts into ham (not spam) and spam.');
+    $output .= '</p></li>';
+    $output .= '<li><p><strong>';
+    $output .= t('CAPTCHA only');
+    $output .= '</strong></p><p>';
+    $output .= t('The form data is not sent to Mollom for analysis, and a remotely-hosted CAPTCHA challenge is always presented. This option is useful when you want to send less data to the Mollom network. Note, however, that forms displayed with a CAPTCHA are never cached, so always displaying a CAPTCHA challenge may reduce performance.');
+    $output .= '</p></li>';
+    $output .= '</ul><p>';
+    $output .= t('Data is processed and stored as explained in the <a href="@mollom-privacy">Mollom Web Service Privacy Policy</a>. It is your responsibility to provide necessary notices and obtain the appropriate consent regarding Mollom\'s use of submitted data.', array(
+      '@mollom-privacy' => '//mollom.com/web-service-privacy-policy',
+      '@mollom-works' => '//mollom.com/how-mollom-works',
+      '@mollom-faq' => '//mollom.com/faq',
+    ));
+    $output .= '</p>';
+    $output .= '<p>';
+    $output .= t('If Mollom may not block a spam post for any reason, you can help to train and improve its filters by choosing the appropriate feedback option when deleting the post on your site.');
     $output .= '</p>';
     $output .= '<h3>' . t('Mollom blacklist') . '</h3>';
     $output .= '<p>';
