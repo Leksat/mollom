@@ -1481,6 +1481,41 @@ function _mollom_fallback() {
 }
 
 /**
+ * Formats a message for end-users to report false-positives.
+ *
+ * @param array $form_state
+ *   The current state of the form.
+ * @param array $data
+ *   The latest Mollom session data pertaining to the form submission attempt.
+ *
+ * @return string
+ *   A message string containing a specially crafted link to Mollom's
+ *   false-positive report form, supplying these parameters:
+ *   - public_key: The public API key of this site.
+ *   - url: The current, absolute URL of the form.
+ *   At least one or both of:
+ *   - contentId: The content ID of the Mollom session.
+ *   - captchaId: The CAPTCHA ID of the Mollom session.
+ *   If available, to speed up and simplify the false-positive report form:
+ *   - authorName: The author name, if supplied.
+ *   - authorMail: The author's e-mail address, if supplied.
+ */
+function _mollom_format_message_falsepositive($form_state, $data) {
+  $mollom = mollom();
+  $report_url = '//mollom.com/false-positive';
+  $params = array(
+    'public_key' => $mollom->loadConfiguration('publicKey'),
+  );
+  $params += array_intersect_key($form_state['values']['mollom'], array_flip(array('contentId', 'captchaId')));
+  $params += array_intersect_key($data, array_flip(array('authorName', 'authorMail')));
+  $params['url'] = $GLOBALS['base_root'] . request_uri();
+  $report_url .= '?' . drupal_query_string_encode($params);
+  return t('If you feel this is in error, please <a href="@report-url" class="mollom-target">report that you are blocked</a>.', array(
+    '@report-url' => $report_url,
+  ));
+}
+
+/**
  * @defgroup mollom_form_api Mollom Form API workarounds
  * @{
  * Various helper functions to work around bugs in Form API.
@@ -1958,7 +1993,7 @@ function mollom_validate_analysis(&$form, &$form_state) {
       case 'spam':
         $form_state['mollom']['require_captcha'] = FALSE;
         if ($form_state['mollom']['discard']) {
-          form_set_error('mollom', t('Your submission has triggered the spam filter and will not be accepted.'));
+          form_set_error('mollom', t('Your submission has triggered the spam filter and will not be accepted.') . ' ' . _mollom_format_message_falsepositive($form_state, $data));
         }
         else {
           $form_state['mollom']['require_moderation'] = TRUE;
@@ -2082,7 +2117,7 @@ function mollom_validate_captcha(&$form, &$form_state) {
   }
   else {
     $form_state['mollom']['passed_captcha'] = FALSE;
-    form_set_error('mollom][captcha', t('The word verification was not completed correctly. Please complete this new word verification and try again.'));
+    form_set_error('mollom][captcha', t('The word verification was not completed correctly. Please complete this new word verification and try again.') . ' ' . _mollom_format_message_falsepositive($form_state, $data));
     // D6: Not possible here; deferred to mollom_pre_render_mollom().
     //mollom_form_add_captcha($form['mollom'], $form_state);
 
@@ -2707,7 +2742,6 @@ function mollom_get_captcha(&$form_state) {
 
     case 'image':
       $captcha = theme('image', $url, t('Type the characters you see in this picture.'), '', NULL, FALSE);
-      $captcha = '<a href="//mollom.com/captcha" class="mollom-target">' . $captcha . '</a>';
       $output = '<span class="mollom-captcha-content mollom-image-captcha">' . $captcha . '</span>';
       $output .= ' (<a href="#" class="mollom-switch-captcha mollom-audio-captcha">' . t('verify using audio') . '</a>)';
       break;
