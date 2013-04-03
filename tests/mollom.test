@@ -574,8 +574,12 @@ class MollomWebTestCase extends DrupalWebTestCase {
    *   An optional message to test does appear after submission.
    */
   protected function postCorrectCaptcha($url, array $edit = array(), $button, $success_message = '') {
+    if (isset($url)) {
+      $this->drupalGet($url);
+    }
+    $this->assertCaptchaField();
     $edit['mollom[captcha]'] = 'correct';
-    $this->drupalPost($url, $edit, $button);
+    $this->drupalPost(NULL, $edit, $button);
     $this->assertNoCaptchaField();
     $this->assertNoText($this->incorrect_message);
     if ($success_message) {
@@ -596,12 +600,14 @@ class MollomWebTestCase extends DrupalWebTestCase {
    *   An optional message to test does not appear after submission.
    */
   protected function postIncorrectCaptcha($url, array $edit = array(), $button, $success_message = '') {
+    if (isset($url)) {
+      $this->drupalGet($url);
+    }
+    $this->assertCaptchaField();
     $edit['mollom[captcha]'] = 'incorrect';
     $before_url = $this->getUrl();
-    $this->drupalPost($url, $edit, $button);
-    if ($this->getUrl() == $before_url) {
-      $this->assertCaptchaField();
-    }
+    $this->drupalPost(NULL, $edit, $button);
+    $this->assertCaptchaField();
     $this->assertText($this->incorrect_message);
     if ($success_message) {
       $this->assertNoText($success_message);
@@ -625,7 +631,7 @@ class MollomWebTestCase extends DrupalWebTestCase {
   protected function assertSpamSubmit($url, array $spam_fields, array $edit = array(), $button, $success_message = '') {
     $edit += array_fill_keys($spam_fields, 'spam');
     $this->drupalPost($url, $edit, $button);
-    $this->assertNoCaptchaField($url);
+    $this->assertNoCaptchaField();
     $this->assertText($this->spam_message);
     if ($success_message) {
       $this->assertNoText($success_message);
@@ -673,11 +679,8 @@ class MollomWebTestCase extends DrupalWebTestCase {
    */
   protected function assertUnsureSubmit($url, array $unsure_fields, array $edit = array(), $button, $success_message = '') {
     $edit += array_fill_keys($unsure_fields, 'unsure');
-    $before_url = $this->getUrl();
     $this->drupalPost($url, $edit, $button);
-    if ($this->getUrl() == $before_url) {
-      $this->assertCaptchaField();
-    }
+    $this->assertCaptchaField();
     $this->assertText($this->unsure_message);
     if ($success_message) {
       $this->assertNoText($success_message);
@@ -3710,6 +3713,10 @@ class MollomDataCRUDTestCase extends MollomWebTestCase {
 class MollomAnalysisTestCase extends MollomWebTestCase {
   protected $disableDefaultSetup = TRUE;
 
+  // Re-route Mollom communication to this testing site.
+  // @todo Remove this when Testing API is fixed.
+  protected $mollomClass = 'MollomDrupalTestLocal';
+
   public static function getInfo() {
     return array(
       'name' => 'Text analysis',
@@ -3727,7 +3734,211 @@ class MollomAnalysisTestCase extends MollomWebTestCase {
       'access administration pages',
       'administer mollom',
     ));
-    $this->web_user = $this->drupalCreateUser(array('access content'));
+  }
+
+  function testUnsure() {
+    $methods = get_class_methods($this);
+    foreach ($methods as $method) {
+      if (substr($method, 0, 7) === 'subtest') {
+        //debug($method);
+        $this->$method();
+      }
+    }
+  }
+
+  /**
+   * Tests basic unsure submission flow.
+   */
+  function subtestUnsureCorrect() {
+    $this->setProtection('mollom_test_form', MOLLOM_MODE_ANALYSIS);
+
+    $this->drupalGet('mollom-test/form');
+    $this->assertNoCaptchaField();
+    $edit = array(
+      'title' => 'unsure',
+    );
+    $this->drupalPost(NULL, $edit, 'Submit');
+    $this->assertResponseIDInForm('contentId', TRUE);
+    $this->assertResponseIDInForm('captchaId', TRUE);
+    $this->assertCaptchaField();
+
+    $edit = array(
+      'title' => 'unsure unsure',
+      'mollom[captcha]' => 'correct',
+    );
+    $this->drupalPost(NULL, $edit, 'Submit');
+    $this->assertNoCaptchaField();
+    $this->assertTestSubmitData();
+  }
+
+  /**
+   * Tests unsure post with repetitive incorrect CAPTCHA solution.
+   *
+   * @todo CAPTCHA ID should stay the same.
+   * @see http://drupal.org/node/1959904
+   */
+  function subtestUnsureIncorrect() {
+    $this->setProtection('mollom_test_form', MOLLOM_MODE_ANALYSIS);
+
+    $this->drupalGet('mollom-test/form');
+    $this->assertNoCaptchaField();
+    $edit = array(
+      'title' => 'unsure',
+    );
+    $this->drupalPost(NULL, $edit, 'Submit');
+    $this->assertResponseIDInForm('contentId', TRUE);
+    $this->assertResponseIDInForm('captchaId', TRUE);
+    $this->assertCaptchaField();
+
+    $edit = array();
+    $this->drupalPost(NULL, $edit, 'Submit');
+    $this->assertResponseIDInForm('contentId');
+//    $this->assertResponseIDInForm('captchaId');
+    $this->assertCaptchaField();
+    $edit = array(
+      'mollom[captcha]' => 'incorrect',
+    );
+    $this->drupalPost(NULL, $edit, 'Submit');
+    $this->assertResponseIDInForm('contentId');
+//    $this->assertResponseIDInForm('captchaId');
+    $this->assertCaptchaField();
+
+    $edit = array(
+      'mollom[captcha]' => 'correct',
+    );
+    $this->drupalPost(NULL, $edit, 'Submit');
+    $this->assertNoCaptchaField();
+    $this->assertTestSubmitData();
+  }
+
+  /**
+   * Tests unsure post with other validation errors.
+   */
+  function subtestUnsureValidation() {
+    $this->setProtection('mollom_test_form', MOLLOM_MODE_ANALYSIS);
+
+    // The 'title' field is required. Omit its value to verify that the CAPTCHA
+    // can be solved, repetitive form validations do not show a CAPTCHA again,
+    // and the post can finally be submitted by providing a title.
+    $this->drupalGet('mollom-test/form');
+    $this->assertNoCaptchaField();
+    $edit = array(
+      'body' => 'unsure',
+    );
+    $this->drupalPost(NULL, $edit, 'Submit');
+    $this->assertResponseIDInForm('contentId', TRUE);
+    $this->assertResponseIDInForm('captchaId', TRUE);
+    $this->assertCaptchaField();
+    $edit = array(
+      'body' => 'unsure unsure',
+      'mollom[captcha]' => 'correct',
+    );
+    $this->drupalPost(NULL, $edit, 'Submit');
+    $this->assertResponseIDInForm('contentId');
+    $this->assertResponseIDInForm('captchaId');
+    $this->assertNoCaptchaField();
+    $edit = array(
+      'body' => 'unsure unsure unsure',
+    );
+    $this->drupalPost(NULL, $edit, 'Submit');
+    $this->assertResponseIDInForm('contentId');
+    $this->assertResponseIDInForm('captchaId');
+    $this->assertNoCaptchaField();
+    $edit = array(
+      'title' => 'unsure',
+      'body' => 'unsure',
+    );
+    $this->drupalPost(NULL, $edit, 'Submit');
+    $this->assertNoCaptchaField();
+    $this->assertTestSubmitData();
+  }
+
+  /**
+   * Tests unsure posts turning into ham.
+   *
+   * @todo CAPTCHA ID should stay the same.
+   * @see http://drupal.org/node/1959904
+   */
+  function subtestUnsureHam() {
+    $this->setProtection('mollom_test_form', MOLLOM_MODE_ANALYSIS);
+
+    $this->drupalGet('mollom-test/form');
+    $this->assertNoCaptchaField();
+    // Posting ham as title would submit the form, so post as body instead.
+    $edit = array(
+      'body' => 'unsure',
+    );
+    $this->drupalPost(NULL, $edit, 'Submit');
+    $this->assertResponseIDInForm('contentId', TRUE);
+    $this->assertResponseIDInForm('captchaId', TRUE);
+    $this->assertCaptchaField();
+    // Turn the post into ham.
+    $edit = array(
+      'body' => 'ham',
+    );
+    $this->drupalPost(NULL, $edit, 'Submit');
+    $this->assertResponseIDInForm('contentId');
+//    $this->assertResponseIDInForm('captchaId');
+    $this->assertNoCaptchaField();
+    // Turn the post back into unsure.
+    $edit = array(
+      'body' => 'unsure',
+    );
+    $this->drupalPost(NULL, $edit, 'Submit');
+    $this->assertResponseIDInForm('contentId');
+//    $this->assertResponseIDInForm('captchaId');
+    $this->assertCaptchaField();
+
+    $edit = array(
+      'title' => 'irrelevant',
+      'mollom[captcha]' => 'correct',
+    );
+    $this->drupalPost(NULL, $edit, 'Submit');
+    $this->assertNoCaptchaField();
+    $this->assertTestSubmitData();
+  }
+
+  /**
+   * Tests unsure posts turning into spam.
+   *
+   * @todo CAPTCHA ID should stay the same.
+   * @see http://drupal.org/node/1959904
+   */
+  function subtestUnsureSpam() {
+    $this->setProtection('mollom_test_form', MOLLOM_MODE_ANALYSIS);
+
+    $this->drupalGet('mollom-test/form');
+    $this->assertNoCaptchaField();
+    $edit = array(
+      'title' => 'unsure',
+    );
+    $this->drupalPost(NULL, $edit, 'Submit');
+    $this->assertResponseIDInForm('contentId', TRUE);
+    $this->assertResponseIDInForm('captchaId', TRUE);
+    $this->assertCaptchaField();
+    // Turn the post into spam.
+    $edit = array(
+      'title' => 'spam',
+    );
+    $this->drupalPost(NULL, $edit, 'Submit');
+    $this->assertResponseIDInForm('contentId');
+//    $this->assertResponseIDInForm('captchaId');
+    $this->assertNoCaptchaField();
+    // Turn the post back into unsure.
+    $edit = array(
+      'title' => 'unsure',
+    );
+    $this->drupalPost(NULL, $edit, 'Submit');
+    $this->assertResponseIDInForm('contentId');
+//    $this->assertResponseIDInForm('captchaId');
+    $this->assertCaptchaField();
+
+    $edit = array(
+      'mollom[captcha]' => 'correct',
+    );
+    $this->drupalPost(NULL, $edit, 'Submit');
+    $this->assertNoCaptchaField();
+    $this->assertTestSubmitData();
   }
 
   /**

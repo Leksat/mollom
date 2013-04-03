@@ -1772,19 +1772,20 @@ function mollom_process_mollom($element, $input, &$form_state, $complete_form) {
   if (!variable_get('mollom_testing_mode', 0)) {
     $element['captcha']['#attributes']['autocomplete'] = 'off';
   }
-  // For CAPTCHA-only protected forms, retrieve and show an initial CAPTCHA.
+  // For CAPTCHA-only protected forms:
   if (!$form_state['mollom']['require_analysis'] && $form_state['mollom']['require_captcha']) {
-    // Unless the CAPTCHA was solved, display the CAPTCHA.
-    if (!$form_state['mollom']['passed_captcha']) {
+    // Retrieve and show an initial CAPTCHA.
+    if (empty($form_state['process_input'])) {
       // Enable Form API caching, in order to track the state of the CAPTCHA.
       $form_state['cache'] = TRUE;
       // mollom_form_add_captcha() adds the CAPTCHA and disables page caching.
       mollom_form_add_captcha($element, $form_state);
     }
-    // Otherwise, resemble mollom_validate_captcha(). This case is only reached
-    // in case the form 1) is not cached, 2) fully validated, 3) was submitted,
-    // and 4) is getting rebuilt; e.g., "Preview" on comment and node forms.
-    else {
+    // If the CAPTCHA was solved in a previous submission already, resemble
+    // mollom_validate_captcha(). This case is only reached in case the form
+    // 1) is not cached, 2) fully validated, 3) was submitted, and 4) is getting
+    // rebuilt; e.g., "Preview" on comment and node forms.
+    if ($form_state['mollom']['passed_captcha']) {
       $element['captcha']['#solved'] = TRUE;
     }
   }
@@ -1984,6 +1985,7 @@ function mollom_validate_analysis(&$form, &$form_state) {
     switch ($result['spamClassification']) {
       case 'ham':
         $form_state['mollom']['require_captcha'] = FALSE;
+        $form['mollom']['captcha']['#access'] = FALSE;
         mollom_log(array(
           'message' => 'Ham: %teaser',
           'arguments' => array('%teaser' => $teaser),
@@ -1992,6 +1994,7 @@ function mollom_validate_analysis(&$form, &$form_state) {
 
       case 'spam':
         $form_state['mollom']['require_captcha'] = FALSE;
+        $form['mollom']['captcha']['#access'] = FALSE;
         if ($form_state['mollom']['discard']) {
           form_set_error('mollom', t('Your submission has triggered the spam filter and will not be accepted.') . ' ' . _mollom_format_message_falsepositive($form_state, $data));
         }
@@ -2010,6 +2013,7 @@ function mollom_validate_analysis(&$form, &$form_state) {
         }
         else {
           $form_state['mollom']['require_captcha'] = TRUE;
+          $form['mollom']['captcha']['#access'] = TRUE;
         }
         mollom_log(array(
           'message' => 'Unsure: %teaser',
@@ -2026,7 +2030,7 @@ function mollom_validate_analysis(&$form, &$form_state) {
         mollom_log(array(
           'message' => 'Unknown: %teaser',
           'arguments' => array('%teaser' => $teaser),
-        ));
+        ), WATCHDOG_ERROR);
         break;
     }
   }
@@ -2693,8 +2697,8 @@ function mollom_get_captcha(&$form_state) {
       'type' => $form_state['mollom']['captcha_type'],
       'ssl' => (int) (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] == 'on'),
     );
-    if (!empty($form_state['mollom']['response']['content']['id'])) {
-      $data['contentId'] = $form_state['mollom']['response']['content']['id'];
+    if (!empty($form_state['values']['mollom']['contentId'])) {
+      $data['contentId'] = $form_state['values']['mollom']['contentId'];
     }
     $result = mollom()->createCaptcha($data);
 
@@ -2707,7 +2711,7 @@ function mollom_get_captcha(&$form_state) {
     if (is_array($result) && isset($result['url'])) {
       $url = $result['url'];
       $form_state['mollom']['response'][$key] = $url;
-      $form_state['mollom']['response']['captcha']['id'] = $result['id'];
+      $form_state['mollom']['response']['captcha'] = $result;
     }
     else {
       return '';
