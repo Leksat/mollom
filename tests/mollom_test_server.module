@@ -646,19 +646,20 @@ function mollom_test_server_check_content_blacklist($string, $blacklist, $reason
  * API callback for mollom.getImageCaptcha to fetch a CAPTCHA image.
  */
 function mollom_test_server_get_captcha($data) {
-  $response = array();
+  $captchaId = (!empty($data['id']) ? $data['id'] : md5(mt_rand()));
+  $response = array(
+    'id' => $captchaId,
+  );
 
   // Return a HTTPS URL if 'ssl' parameter was passed.
   $base_url = $GLOBALS['base_url'];
   if (!empty($data['ssl'])) {
     $base_url = str_replace('http', 'https', $base_url);
   }
-  $response['url'] = $base_url . '/' . drupal_get_path('module', 'mollom') . '/images/powered-by-mollom-2.gif';
+  $response['url'] = $base_url . '/' . drupal_get_path('module', 'mollom') . '/images/powered-by-mollom-2.gif?captchaId=' . $captchaId;
 
   $storage = variable_get('mollom_test_server_captcha', array());
-  $captchaId = (!empty($data['id']) ? $data['id'] : md5(mt_rand()));
   $storage[$captchaId] = $data;
-  $response['id'] = $captchaId;
   variable_set('mollom_test_server_captcha', $storage);
 
   return $response;

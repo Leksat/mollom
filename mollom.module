@@ -1725,11 +1725,6 @@ function mollom_process_mollom($element, $input, &$form_state, $complete_form) {
   );
   $element['captchaId'] = array(
     '#type' => 'hidden',
-    // For CAPTCHA-only protected forms, the most recent CAPTCHA ID is tracked
-    // in $form_state. A new CAPTCHA ID may be injected by mollom_get_captcha().
-    // Furthermore, the CAPTCHA type can be switched between image and audio,
-    // and for each switch, there is a new CAPTCHA ID.
-    '#default_value' => isset($form_state['mollom']['response']['captcha']['id']) ? $form_state['mollom']['response']['captcha']['id'] : '',
     '#attributes' => array('class' => 'mollom-captcha-id'),
   );
   $element['form_id'] = array(
@@ -2013,6 +2008,7 @@ function mollom_validate_analysis(&$form, &$form_state) {
         }
         else {
           $form_state['mollom']['require_captcha'] = TRUE;
+          $form_state['mollom']['passed_captcha'] = FALSE;
           $form['mollom']['captcha']['#access'] = TRUE;
         }
         mollom_log(array(
@@ -2199,6 +2195,10 @@ function mollom_pre_render_mollom($element) {
   // UX: Empty the CAPTCHA field value, as the user has to re-enter a new one.
   $element['captcha']['#value'] = '';
 
+  // DX: Debugging helpers.
+//  $element['captcha']['#suffix'] = 'contentId: ' . $element['contentId']['#value'];
+//  $element['captcha']['#suffix'] .= '<br />captchaId: ' . $element['captchaId']['#value'];
+
   return $element;
 }
 
@@ -2258,19 +2258,8 @@ function mollom_form_submit($form, &$form_state) {
     // We only consider non-empty and non-zero values as valid entity ids.
     if (!empty($values['postId'])) {
       // Save the Mollom session data.
-      $response = array();
-      if (isset($form_state['mollom']['response']['content'])) {
-        $response += $form_state['mollom']['response']['content'];
-        $response['contentId'] = $form_state['mollom']['response']['content']['id'];
-      }
-      if (isset($form_state['mollom']['response']['captcha'])) {
-        $response += $form_state['mollom']['response']['captcha'];
-        $response['captchaId'] = $form_state['mollom']['response']['captcha']['id'];
-      }
-      $data = (object) $response;
-      $data->entity = $form_state['mollom']['entity'];
+      $data = (object) $form_state['values']['mollom'];
       $data->id = $values['postId'];
-      $data->form_id = $form_state['mollom']['form_id'];
       // Set the moderation flag for forms accepting bad posts.
       $data->moderate = $form_state['mollom']['require_moderation'];
       $form_state['mollom']['data'] = mollom_data_save($data);
@@ -2691,34 +2680,29 @@ function mollom_content_extra_fields($type_name) {
  *   The markup of the CAPTCHA HTML.
  */
 function mollom_get_captcha(&$form_state) {
-  $key = 'captcha_url_' . $form_state['mollom']['captcha_type'];
-  if (empty($form_state['mollom']['response'][$key])) {
-    $data = array(
-      'type' => $form_state['mollom']['captcha_type'],
-      'ssl' => (int) (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] == 'on'),
-    );
-    if (!empty($form_state['values']['mollom']['contentId'])) {
-      $data['contentId'] = $form_state['values']['mollom']['contentId'];
-    }
-    $result = mollom()->createCaptcha($data);
+  // @todo Re-use existing CAPTCHA URL when the Mollom server response for
+  //   verifying a CAPTCHA solution returns the existing URL.
+  $data = array(
+    'type' => $form_state['mollom']['captcha_type'],
+    'ssl' => (int) (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] == 'on'),
+  );
+  if (!empty($form_state['values']['mollom']['contentId'])) {
+    $data['contentId'] = $form_state['values']['mollom']['contentId'];
+  }
+  $result = mollom()->createCaptcha($data);
 
-    // Add a log message to prevent the request log from appearing without a
-    // message on CAPTCHA-only protected forms.
-    mollom_log(array(
-      'message' => 'Retrieved new CAPTCHA',
-    ), WATCHDOG_DEBUG);
+  // Add a log message to prevent the request log from appearing without a
+  // message on CAPTCHA-only protected forms.
+  mollom_log(array(
+    'message' => 'Retrieved new CAPTCHA',
+  ), WATCHDOG_INFO);
 
-    if (is_array($result) && isset($result['url'])) {
-      $url = $result['url'];
-      $form_state['mollom']['response'][$key] = $url;
-      $form_state['mollom']['response']['captcha'] = $result;
-    }
-    else {
-      return '';
-    }
+  if (is_array($result) && isset($result['url'])) {
+    $url = $result['url'];
+    $form_state['mollom']['response']['captcha'] = $result;
   }
   else {
-    $url = $form_state['mollom']['response'][$key];
+    return '';
   }
 
   // @todo Convert these to actual theme functions?
