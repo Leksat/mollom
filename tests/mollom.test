@@ -3737,11 +3737,6 @@ class MollomAnalysisTestCase extends MollomWebTestCase {
     $this->setKeys(TRUE, TRUE);
     $this->assertValidKeys();
 
-    $this->admin_user = $this->drupalCreateUser(array(
-      'access administration pages',
-      'administer mollom',
-    ));
-
     $this->setProtection('mollom_test_form', MOLLOM_MODE_ANALYSIS);
   }
 
@@ -4028,7 +4023,7 @@ class MollomAnalysisAuthenticatedTestCase extends MollomAnalysisTestCase {
 
   function setUp() {
     parent::setUp();
-    $this->web_user = $this->drupalCreateUser(array());
+    $this->web_user = $this->drupalCreateUser(array('access content'));
     $this->drupalLogin($this->web_user);
   }
 }
@@ -4059,7 +4054,7 @@ class MollomAnalysisAuthenticatedPageFormCacheTestCase extends MollomAnalysisTes
     $this->drupalGet('mollom-test/form');
     $this->assertText('Views: 1');
 
-    $this->web_user = $this->drupalCreateUser(array());
+    $this->web_user = $this->drupalCreateUser(array('access content'));
     $this->drupalLogin($this->web_user);
   }
 }
