@@ -547,6 +547,8 @@ class MollomWebTestCase extends DrupalWebTestCase {
    * Assert that the CAPTCHA field is not found on the current page.
    */
   protected function assertNoCaptchaField() {
+    $this->assertNoText($this->unsure_message);
+    $this->assertNoText($this->incorrect_message);
     $this->assertNoFieldByXPath('//input[@type="text"][@name="mollom[captcha]"]', '', 'CAPTCHA field not found.');
     $image = $this->xpath('//img[@alt="' . t('Type the characters you see in this picture.') . '"]');
     $this->assert(empty($image), 'CAPTCHA image not found.');
@@ -969,6 +971,24 @@ class MollomWebTestCase extends DrupalWebTestCase {
     variable_set('page_cache_maximum_age', 180);
     // A minimum cache lifetime causes cache_clear_all() to start a session.
     //variable_set('cache_lifetime', 60);
+  }
+
+  /**
+   * Asserts a successful mollom_test_form submission.
+   *
+   * @param $old_mid
+   *   (optional) The existing test record id to assert.
+   */
+  protected function assertTestSubmitData($old_mid = NULL) {
+    $this->assertText('Successful form submission.');
+    $mid = $this->getFieldValueByName('mid');
+    if (isset($old_mid)) {
+      $this->assertSame('Test record id', $mid, $old_mid);
+    }
+    else {
+      $this->assertTrue($mid > 0, t('Test record id @id found.', array('@id' => $mid)));
+    }
+    return $mid;
   }
 
 }
@@ -3934,24 +3954,6 @@ class MollomAnalysisTestCase extends MollomWebTestCase {
     $this->assertNoCaptchaField();
     $this->assertTestSubmitData();
   }
-
-  /**
-   * Asserts a successful mollom_test_form submission.
-   *
-   * @param $old_mid
-   *   (optional) The existing test record id to assert.
-   */
-  protected function assertTestSubmitData($old_mid = NULL) {
-    $this->assertText('Successful form submission.');
-    $mid = $this->getFieldValueByName('mid');
-    if (isset($old_mid)) {
-      $this->assertSame('Test record id', $mid, $old_mid);
-    }
-    else {
-      $this->assertTrue($mid > 0, t('Test record id @id found.', array('@id' => $mid)));
-    }
-    return $mid;
-  }
 }
 
 /**
@@ -4284,23 +4286,6 @@ class MollomAnalysisOptionsTestCase extends MollomWebTestCase {
     }
   }
 
-  /**
-   * Asserts a successful mollom_test_form submission.
-   *
-   * @param $old_mid
-   *   (optional) The existing test record id to assert.
-   */
-  protected function assertTestSubmitData($old_mid = NULL) {
-    $this->assertText('Successful form submission.');
-    $mid = $this->getFieldValueByName('mid');
-    if (isset($old_mid)) {
-      $this->assertSame('Test record id', $mid, $old_mid);
-    }
-    else {
-      $this->assertTrue($mid > 0, t('Test record id @id found.', array('@id' => $mid)));
-    }
-    return $mid;
-  }
 }
 
 /**
@@ -4364,10 +4349,10 @@ class MollomAnalysisPageCachingTestCase extends MollomWebTestCase {
  * Tests CAPTCHA functionality.
  */
 class MollomCaptchaTestCase extends MollomWebTestCase {
+  protected $disableDefaultSetup = TRUE;
+
   // Re-route Mollom communication to this testing site.
   protected $mollomClass = 'MollomDrupalTestLocal';
-
-  protected $disableDefaultSetup = TRUE;
 
   public static function getInfo() {
     return array(
@@ -4379,24 +4364,26 @@ class MollomCaptchaTestCase extends MollomWebTestCase {
 
   function setUp() {
     parent::setUp(array('mollom', 'mollom_test'));
-    $this->setKeys();
+    $this->setKeys(TRUE, TRUE);
     $this->assertValidKeys();
 
-    $this->admin_user = $this->drupalCreateUser(array(
-      'access administration pages',
-      'administer mollom',
-    ));
-    $this->web_user = $this->drupalCreateUser(array('access content'));
+    $this->setProtection('mollom_test_form', MOLLOM_MODE_CAPTCHA);
+  }
 
-    $this->drupalLogin($this->admin_user);
-    $this->setProtectionUI('mollom_test_form', MOLLOM_MODE_CAPTCHA);
-    $this->drupalLogout();
+  function testCAPTCHA() {
+    $methods = get_class_methods($this);
+    foreach ($methods as $method) {
+      if (substr($method, 0, 7) === 'subtest') {
+        //debug($method);
+        $this->$method();
+      }
+    }
   }
 
   /**
    * Tests #required validation of CAPTCHA form element.
    */
-  function testRequiredValidation() {
+  function subtestCAPTCHARequired() {
     $this->drupalGet('mollom-test/form');
 
     // Verify that CAPTCHA cannot be left empty.
@@ -4417,18 +4404,28 @@ class MollomCaptchaTestCase extends MollomWebTestCase {
     );
     $this->postIncorrectCaptcha(NULL, $edit, 'Submit', 'Successful form submission.');
 
-    // Lastly, verify correct solution.
+    // Verify correct solution, but trigger other validation errors.
     $edit = array(
+      'title' => '',
       'mollom[captcha]' => 'correct',
     );
     $this->drupalPost(NULL, $edit, 'Submit');
+    $this->assertNoCaptchaField();
+    $this->assertNoText('Successful form submission.');
+
+    // Lastly, confirm we're able to submit.
+    $edit = array(
+      'title' => $this->randomString(),
+    );
+    $this->drupalPost(NULL, $edit, 'Submit');
+    $this->assertNoText($this->incorrect_message);
     $this->assertTestSubmitData();
   }
 
   /**
    * Tests incorrect solution of CAPTCHA form element.
    */
-  function testIncorrect() {
+  function subtestCAPTCHAIncorrect() {
     $this->drupalGet('mollom-test/form');
 
     // Verify that incorrect solution still leaves the field required.
@@ -4446,9 +4443,36 @@ class MollomCaptchaTestCase extends MollomWebTestCase {
   }
 
   /**
-   * Tests correct solution of CAPTCHA form element.
+   * Tests correct solution of CAPTCHA.
    */
-  function testCorrect() {
+  function subtestCAPTCHACorrect() {
+    $this->drupalGet('mollom-test/form');
+
+    $edit = array(
+      'mollom[captcha]' => 'correct',
+    );
+    $this->drupalPost(NULL, $edit, 'Submit');
+    $this->assertNoCaptchaField();
+    $this->assertNoText('Successful form submission.');
+
+    $edit = array(
+      'body' => $this->randomString(),
+    );
+    $this->drupalPost(NULL, $edit, 'Submit');
+    $this->assertNoCaptchaField();
+    $this->assertNoText('Successful form submission.');
+
+    $edit = array(
+      'title' => $this->randomString(),
+    );
+    $this->drupalPost(NULL, $edit, 'Submit');
+    $this->assertTestSubmitData();
+  }
+
+  /**
+   * Tests correct solution of CAPTCHA in a single pass.
+   */
+  function subtestCAPTCHACorrectSinglePass() {
     $this->drupalGet('mollom-test/form');
 
     // Verify that CAPTCHA can be solved in one shot.
@@ -4461,27 +4485,9 @@ class MollomCaptchaTestCase extends MollomWebTestCase {
   }
 
   /**
-   * Asserts a successful mollom_test_form submission.
-   *
-   * @param $old_mid
-   *   (optional) The existing test record id to assert.
-   */
-  protected function assertTestSubmitData($old_mid = NULL) {
-    $this->assertText('Successful form submission.');
-    $mid = $this->getFieldValueByName('mid');
-    if (isset($old_mid)) {
-      $this->assertSame('Test record id', $mid, $old_mid);
-    }
-    else {
-      $this->assertTrue($mid > 0, t('Test record id @id found.', array('@id' => $mid)));
-    }
-    return $mid;
-  }
-
-  /**
    * Tests the CAPTCHA type switch callback.
    */
-  function testSwitchCallback() {
+  function subtestCAPTCHASwitchCallback() {
     // Verify that the CAPTCHA can be switched on a CAPTCHA-only protected form.
     // (without having a contentId)
     $this->drupalGet('mollom-test/form');
@@ -4503,6 +4509,102 @@ class MollomCaptchaTestCase extends MollomWebTestCase {
     $this->assertText('mollom-captcha-player.swf');
     // D6 can encode, but not decode its own JSON, so only check for captchaId.
     $this->assertText('captchaId');
+  }
+}
+
+/**
+ * Tests CAPTCHA with page cache.
+ */
+class MollomCaptchaPageCacheTestCase extends MollomCaptchaTestCase {
+  public static function getInfo() {
+    return array(
+      'name' => 'CAPTCHA (page cache)',
+      'description' => 'Tests CAPTCHA with page cache.',
+      'group' => 'Mollom',
+    );
+  }
+
+  function setUp() {
+    parent::setUp();
+    $this->enablePageCache();
+
+    // Prime the page + form cache.
+    $this->drupalGet('mollom-test/form');
+    $this->assertText('Views: 1');
+    $this->drupalGet('mollom-test/form');
+    $this->assertText('Views: 2');
+  }
+}
+
+/**
+ * Tests CAPTCHA with page and form cache.
+ */
+class MollomCaptchaPageFormCacheTestCase extends MollomCaptchaTestCase {
+  public static function getInfo() {
+    return array(
+      'name' => 'CAPTCHA (page + form cache)',
+      'description' => 'Tests CAPTCHA with page and form cache.',
+      'group' => 'Mollom',
+    );
+  }
+
+  function setUp() {
+    parent::setUp();
+    $this->enablePageCache();
+    variable_set('mollom_test.form.cache', TRUE);
+
+    // Prime the page + form cache.
+    $this->drupalGet('mollom-test/form');
+    $this->assertText('Views: 1');
+    $this->drupalGet('mollom-test/form');
+    $this->assertText('Views: 2');
+  }
+}
+
+/**
+ * Tests CAPTCHA as authenticated user.
+ */
+class MollomCaptchaAuthenticatedTestCase extends MollomCaptchaTestCase {
+  public static function getInfo() {
+    return array(
+      'name' => 'CAPTCHA (authenticated)',
+      'description' => 'Tests CAPTCHA as authenticated user.',
+      'group' => 'Mollom',
+    );
+  }
+
+  function setUp() {
+    parent::setUp();
+    $this->web_user = $this->drupalCreateUser(array('access content'));
+    $this->drupalLogin($this->web_user);
+  }
+}
+
+/**
+ * Tests CAPTCHA as authenticated user with enabled page and form cache.
+ */
+class MollomCaptchaAuthenticatedPageFormCacheTestCase extends MollomCaptchaTestCase {
+  public static function getInfo() {
+    return array(
+      'name' => 'CAPTCHA (authenticated + page + form cache)',
+      'description' => 'Tests CAPTCHA as authenticated user with enabled page and form cache.',
+      'group' => 'Mollom',
+    );
+  }
+
+  function setUp() {
+    parent::setUp();
+    $this->enablePageCache();
+    variable_set('mollom_test.form.cache', TRUE);
+
+    // Prime the page + form cache.
+    $this->drupalGet('mollom-test/form');
+    $this->assertText('Views: 1');
+    $this->drupalGet('mollom-test/form');
+    $this->assertText('Views: 2');
+
+    $this->web_user = $this->drupalCreateUser(array('access content'));
+    $this->drupalLogin($this->web_user);
   }
 }
 
