@@ -1630,22 +1630,20 @@ function theme_mollom($element) {
  *     validation errors preventing the form from submitting directly, as well as
  *     "Preview" buttons that may rebuild the entire form from scratch (if there
  *     are no validation errors).
- *   - To track state, the Form API cache is enabled, which allows to store and
- *     retrieve the entire $form_state of a previous submission (attempt).
+ *   - To track state, a unique and reliable mollom_build_id is generated,
+ *     mimicking D7's form_build_id, which allows to store and retrieve the
+ *     $form_state of a previous submission (attempt).
  *   - Furthermore, page caching is force-disabled, so as to ensure that cached
  *     form data is not re-used by different users/visitors.
- *   - In combination with the Form API cache, this is essentially equal to
- *     force-starting a session for all users that try to submit a CAPTCHA-only
- *     protected form. However, a session would persist across other pages.
+ *   - This is essentially equal to force-starting a session for all users that
+ *     try to submit a CAPTCHA-only protected form. However, a session would
+ *     persist across other pages.
  *
  * @see mollom_form_alter()
  * @see mollom_element_info()
  * @see mollom_pre_render_mollom()
- *
- * The session ID is valid for a given $form_id only. We expire it as soon as
- * the form is submitted, to avoid it being replayed.
  */
-function mollom_process_mollom($element, $input, &$form_state, $complete_form) {
+function mollom_process_mollom($element, $input, &$form_state, &$complete_form) {
   // Setup initial Mollom session and form information.
   $form_state += array('mollom' => array());
   $form_state['mollom'] += array(
@@ -1678,26 +1676,6 @@ function mollom_process_mollom($element, $input, &$form_state, $complete_form) {
 
   // Add the JavaScript.
   drupal_add_js(drupal_get_path('module', 'mollom') . '/mollom.js');
-
-  // D6:
-  // mollom_build_id works similar to form_build_id in D7; it is an ID that is
-  // unique for each build of a form. However, unlike form_build_id in D6, it
-  // does not change across POSTs, regardless of whether form storage/caching
-  // is enabled or not. Mollom uses the mollom_build_id as cache identifier to
-  // track the state of a form session/submission, which is required to
-  // re-inject prior knowledge about the submission (such as a "unsure" text
-  // analysis result). Although generated whenever this function is called,
-  // $form_state['mollom'] including mollom_build_id will already be
-  // prepopulated by mollom_process_mollom_form_state() and thus not overidden
-  // here. If mollom_build_id is manually removed from the form, the form's
-  // state is merely lost and the form submission needs to go through Mollom
-  // validation from scratch.
-  if (!$form_state['mollom']['require_analysis']) {
-    $element['mollom_build_id'] = array(
-      '#type' => 'hidden',
-      '#value' => !empty($form_state['mollom']['mollom_build_id']) ? $form_state['mollom']['mollom_build_id'] : md5(uniqid(mt_rand(), TRUE)),
-    );
-  }
 
   // Add the Mollom session data elements.
   // These elements resemble the {mollom} database schema. The form validation
@@ -1762,12 +1740,41 @@ function mollom_process_mollom($element, $input, &$form_state, $complete_form) {
   if (!variable_get('mollom_testing_mode', 0)) {
     $element['captcha']['#attributes']['autocomplete'] = 'off';
   }
+
+  // D6: Comment module invokes form validation from within an #after_build
+  // callback during form processing; i.e., the form is not fully built yet.
+  // A proper submit via drupal_process_form() sets $form_state['submitted']
+  // to TRUE and has a $form_state['clicked_button'].
+  // We cannot check for $form_state['process_input'], since that is only set
+  // after form building/processing, before validation handlers are invoked.
+  // Regular build has: submitted=FALSE, values
+  // Proper submit has: submitted=TRUE, clicked_button, values
+  // Bogus submit has:  submitted=FALSE, clicked_button, buttons, values
+  // ~ + clicked_button][#executes_submit_callback = FALSE
+  $triggered_from_after_build = (!$form_state['submitted'] && isset($form_state['clicked_button']));
+
   // For CAPTCHA-only protected forms:
   if (!$form_state['mollom']['require_analysis'] && $form_state['mollom']['require_captcha']) {
+    // D6: Mimic D7's unique, reliable form build ID.
+    // Tracks the state of a CAPTCHA. Only applies to CAPTCHA-only protected
+    // forms, for which page caching is force-disabled.
+    // @see mollom_process_mollom_form_state()
+    // @see mollom_validate_post()
+    if (!isset($form_state['mollom']['mollom_build_id'])) {
+      $form_state['mollom']['mollom_build_id'] = md5(uniqid(mt_rand(), TRUE));
+    }
+    $element['mollom_build_id'] = array(
+      '#type' => 'hidden',
+      '#value' => $form_state['mollom']['mollom_build_id'],
+    );
+
     // Retrieve and show an initial CAPTCHA.
-    if (empty($form_state['process_input'])) {
-      // Enable Form API caching, in order to track the state of the CAPTCHA.
-      $form_state['cache'] = TRUE;
+    // D6: As authenticated user, after previewing + incorrectly solving a
+    // CAPTCHA on the comment form, previewing + solving it + with other
+    // validation errors, and finally saving/submitting, the
+    // $triggered_from_after_build condition from involved #after_builds is
+    // still FALSE, so additionally check the 'passed_captcha' state.
+    if (empty($form_state['process_input']) && !$form_state['submitted'] && !$triggered_from_after_build && !$form_state['mollom']['passed_captcha']) {
       // mollom_form_add_captcha() adds the CAPTCHA and disables page caching.
       mollom_form_add_captcha($element, $form_state);
     }
@@ -1802,6 +1809,18 @@ function mollom_process_mollom($element, $input, &$form_state, $complete_form) {
     ),
   );
 
+  // D6: The complete form available to the #pre_render callback.
+  // Only applies to forms with enabled form caching (#cache = TRUE), for which
+  // mollom_form_alter() is not executed. D6 Form API does not pass $form or
+  // $complete_form by reference internally, nor to any callbacks.
+  // The following assignments build a cross-reference for $complete_form
+  // between $form_state and the element property.
+  // @see mollom_pre_render_mollom()
+  if (!isset($form_state['complete form']) || $triggered_from_after_build) {
+    $form_state['complete form'] = &$complete_form;
+    $element['#complete form'] = &$complete_form;
+  }
+
   // Make Mollom form and session information available to entirely different
   // functions.
   // @see mollom_mail_alter()
@@ -1821,26 +1840,18 @@ function mollom_process_mollom($element, $input, &$form_state, $complete_form) {
  * @see http://drupal.org/node/642702
  */
 function mollom_process_mollom_form_state($element, $input, &$form_state) {
-  // The current state can come either from the $form_state, if the form
-  // was just rebuilt in the same request, or from data posted by the user. In
-  // the latter case the state is fetched from the temporary data store. It is
-  // verified that the session was created for the current form and that it has
-  // not expired or already been used.
   if (empty($form_state['mollom']) && !empty($input['mollom_build_id'])) {
-    if (!$cache = cache_get($input['mollom_build_id'], 'cache_mollom')) {
-      watchdog('mollom', 'Unknown form build ID %form_build_id.', array(
-        '%form_build_id' => $input['mollom_build_id'],
-      ), WATCHDOG_WARNING);
-    }
-    elseif ($cache->data['form_id'] !== $form_state['values']['form_id']) {
-      watchdog('mollom', 'Invalid form ID %form_id for build ID %form_build_id (generated for %cached_form_id).', array(
-        '%form_build_id' => $input['mollom_build_id'],
-        '%cached_form_id' => $cache->data['form_id'],
-        '%form_id' => $form_state['values']['form_id'],
-      ), WATCHDOG_WARNING);
-    }
-    else {
-      $form_state['mollom'] = $cache->data;
+    if ($cache = cache_get($input['mollom_build_id'], 'cache_mollom')) {
+      if ($cache->data['form_id'] !== $form_state['values']['form_id']) {
+        watchdog('mollom', 'Invalid form ID %form_id for build ID %form_build_id (generated for %cached_form_id).', array(
+          '%form_build_id' => $input['mollom_build_id'],
+          '%cached_form_id' => $cache->data['form_id'],
+          '%form_id' => $form_state['values']['form_id'],
+        ), WATCHDOG_WARNING);
+      }
+      else {
+        $form_state['mollom'] = $cache->data;
+      }
     }
   }
   return $element;
@@ -2121,9 +2132,13 @@ function mollom_validate_captcha(&$form, &$form_state) {
  * - Marks the CAPTCHA as required.
  */
 function mollom_pre_render_mollom($element) {
-  // Store the Mollom form state.
-  if (!empty($form_state['mollom']['mollom_build_id'])) {
-    cache_set($form_state['mollom']['mollom_build_id'], $form_state['mollom'], 'cache_mollom', time() + 21600);
+  // D6: Take over any adjustments performed by form validation handlers.
+  // Only applies to forms with enabled form caching (#cache = TRUE).
+  // @see mollom_process_mollom()
+  if (isset($element['#complete form']['mollom'])) {
+    foreach (element_children($element['#complete form']['mollom']) as $key) {
+      $element[$key] = array_merge($element[$key], $element['#complete form']['mollom'][$key]);
+    }
   }
 
   // If there is no CAPTCHA ID, then there is no CAPTCHA that can be displayed.
@@ -2144,8 +2159,11 @@ function mollom_pre_render_mollom($element) {
   $element['captcha']['#value'] = '';
 
   // DX: Debugging helpers.
-//  $element['captcha']['#suffix'] = 'contentId: ' . $element['contentId']['#value'];
-//  $element['captcha']['#suffix'] .= '<br />captchaId: ' . $element['captchaId']['#value'];
+//  $element['#suffix'] = 'contentId: ' . $element['contentId']['#value'] . '<br>';
+//  $element['#suffix'] .= 'captchaId: ' . $element['captchaId']['#value'] . '<br>';
+//  if (isset($element['mollom_build_id'])) {
+//    $element['#suffix'] .= 'mollom_build_id: ' . $element['mollom_build_id']['#value'] . '<br>';
+//  }
 
   return $element;
 }
@@ -2163,6 +2181,11 @@ function mollom_validate_post(&$form, &$form_state) {
 
     $function = $form_state['mollom']['moderation callback'];
     $function($form, $form_state);
+  }
+
+  // Update the Mollom form state.
+  if (!empty($form_state['mollom']['mollom_build_id'])) {
+    cache_set($form_state['mollom']['mollom_build_id'], $form_state['mollom'], 'cache_mollom', time() + (6 * 3600));
   }
 }
 
@@ -2216,6 +2239,10 @@ function mollom_form_submit($form, &$form_state) {
   // Prune expired {cache_mollom} records on every successful form submission.
   cache_clear_all(NULL, 'cache_mollom');
 }
+
+/**
+ * @} End of "defgroup mollom_form_api".
+ */
 
 /**
  * Instantiates a new Mollom client.

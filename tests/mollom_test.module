@@ -142,7 +142,7 @@ function mollom_test_form(&$form_state, $mid = NULL) {
     if (!isset($form_state['storage'])) {
       $form_state['storage'] = $values;
     }
-    $form_state['cache'] = TRUE;
+    $form['#cache'] = TRUE;
   }
 
   $form['#tree'] = TRUE;

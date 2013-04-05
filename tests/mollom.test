@@ -2847,9 +2847,8 @@ class MollomNodeFormTestCase extends MollomWebTestCase {
     $captchaId = $this->assertResponseIDInForm('captchaId');
     $edit = array(
       'title' => 'spam',
-      'mollom[captcha]' => 'correct',
     );
-    $this->drupalPost(NULL, $edit, t('Save'));
+    $this->postCorrectCaptcha(NULL, $edit, t('Save'));
     $this->node = $this->drupalGetNodeByTitle($edit['title']);
     $this->assertUrl('node/' . $this->node->nid);
     $this->assertMollomData('node', $this->node->nid, 'captchaId', $captchaId);
@@ -2931,7 +2930,7 @@ class MollomCommentFormTestCase extends MollomWebTestCase {
     $this->drupalLogin($this->web_user);
     $this->drupalGet('comment/reply/' . $this->node->nid);
     $this->assertCaptchaField();
-    $this->assertResponseIDInForm('captchaId');
+    $this->assertResponseIDInForm('captchaId', TRUE);
     $this->assertNoPrivacyLink();
 
     // Try to submit an incorrect answer for the CAPTCHA, without value for
@@ -2945,7 +2944,7 @@ class MollomCommentFormTestCase extends MollomWebTestCase {
     // field value.
     $this->postCorrectCaptcha(NULL, array(), t('Preview'));
     $this->assertText(t('Comment field is required.'));
-    $captchaId = $this->assertResponseIDInForm('captchaId', TRUE);
+    $captchaId = $this->assertResponseIDInForm('captchaId');
     $this->assertNoPrivacyLink();
 
     // Finally, we should be able to submit a comment.
