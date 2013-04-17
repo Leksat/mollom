@@ -3546,6 +3546,28 @@ function mollom_form_comment_confirm_delete_alter(&$form, &$form_state) {
 
 /**
  * Implements hook_form_FORMID_alter().
+ */
+function mollom_form_comment_multiple_delete_confirm_alter(&$form, &$form_state) {
+  mollom_data_delete_form_alter($form, $form_state);
+  // Report before deletion.
+  array_unshift($form['#submit'], 'mollom_form_comment_multiple_delete_confirm_submit');
+}
+
+/**
+ * Form submission handler for comment_multiple_delete_confirm().
+ */
+function mollom_form_comment_multiple_delete_confirm_submit($form, &$form_state) {
+  $cids = array_keys($form_state['values']['comments']);
+  if (!empty($form_state['values']['mollom']['feedback'])) {
+    if (mollom_data_report_multiple('comment', $cids, $form_state['values']['mollom']['feedback'])) {
+      drupal_set_message(t('The posts were successfully reported as inappropriate.'));
+    }
+  }
+  mollom_data_delete_multiple('comment', $cids);
+}
+
+/**
+ * Implements hook_form_FORMID_alter().
  *
  * Hook into the mass comment administration page and add some operations to
  * communicate ham/spam to the XML-RPC server.
