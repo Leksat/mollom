@@ -3382,10 +3382,30 @@ function node_mollom_form_moderation(&$form, &$form_state) {
  * @see mollom_node_admin_overview_submit()
  */
 function mollom_form_node_admin_content_alter(&$form, &$form_state) {
-  module_load_include('inc', 'mollom', 'mollom.admin');
-  $form['admin']['options']['operation']['#options']['mollom-unpublish'] = t('Report to Mollom and unpublish');
-  $form['admin']['options']['operation']['#options']['mollom-delete'] = t('Report to Mollom and delete');
-  $form['#validate'][] = 'mollom_node_admin_overview_submit';
+  // @see node_admin_content()
+  if (!(isset($form_state['values']['operation']) && $form_state['values']['operation'] == 'delete')) {
+    module_load_include('inc', 'mollom', 'mollom.admin');
+    $form['admin']['options']['operation']['#options']['mollom-unpublish'] = t('Report to Mollom and unpublish');
+    $form['admin']['options']['operation']['#options']['mollom-delete'] = t('Report to Mollom and delete');
+    $form['#validate'][] = 'mollom_node_admin_overview_submit';
+    return;
+  }
+  mollom_data_delete_form_alter($form, $form_state);
+  // Report before deletion.
+  array_unshift($form['#submit'], 'mollom_form_node_multiple_delete_confirm_submit');
+}
+
+/**
+ * Form submit handler for node_multiple_delete_confirm().
+ */
+function mollom_form_node_multiple_delete_confirm_submit($form, &$form_state) {
+  $nids = array_keys($form_state['values']['nodes']);
+  if (!empty($form_state['values']['mollom']['feedback'])) {
+    if (mollom_data_report_multiple('node', $nids, $form_state['values']['mollom']['feedback'])) {
+      drupal_set_message(t('The posts were successfully reported as inappropriate.'));
+    }
+  }
+  mollom_data_delete_multiple('node', $nids);
 }
 
 /**
