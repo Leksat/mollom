@@ -683,8 +683,8 @@ function mollom_form_alter(&$form, &$form_state, $form_id) {
       // Form-level validation handlers are required, since we need access to
       // all validated and submitted form values. _form_validate() invokes
       // #element_validate handlers while it is recursing into the form.
-      $form['#validate'][] = 'mollom_validate_analysis';
       $form['#validate'][] = 'mollom_validate_captcha';
+      $form['#validate'][] = 'mollom_validate_analysis';
       $form['#validate'][] = 'mollom_validate_post';
       // Add an #after_build callback on the $form to collect all buttons.
       // @see mollom_form_get_values()
@@ -1979,11 +1979,12 @@ function mollom_validate_analysis($form_copy, &$form_state) {
   // It may also change to 'spam', if the user replaced the values with very
   // spammy content. In any case, we always do what we are told to do.
   // Note: The returned spamScore may diverge from the spamClassification.
+  $form_state['mollom']['require_captcha'] = FALSE;
+  $form['mollom']['captcha']['#access'] = FALSE;
+
   if (isset($result['spamClassification'])) {
     switch ($result['spamClassification']) {
       case 'ham':
-        $form_state['mollom']['require_captcha'] = FALSE;
-        $form['mollom']['captcha']['#access'] = FALSE;
         mollom_log(array(
           'message' => 'Ham: %teaser',
           'arguments' => array('%teaser' => $teaser),
@@ -1991,8 +1992,6 @@ function mollom_validate_analysis($form_copy, &$form_state) {
         break;
 
       case 'spam':
-        $form_state['mollom']['require_captcha'] = FALSE;
-        $form['mollom']['captcha']['#access'] = FALSE;
         if ($form_state['mollom']['discard']) {
           form_set_error('mollom', t('Your submission has triggered the spam filter and will not be accepted.') . ' ' . _mollom_format_message_falsepositive($form_state, $data));
         }
@@ -2012,7 +2011,17 @@ function mollom_validate_analysis($form_copy, &$form_state) {
         else {
           $form_state['mollom']['require_captcha'] = TRUE;
           $form_state['mollom']['passed_captcha'] = FALSE;
+
+          // Retrieve a new CAPTCHA and throw an error.
+          mollom_form_add_captcha($form['mollom'], $form_state);
           $form['mollom']['captcha']['#access'] = TRUE;
+
+          if (!empty($form_state['temporary']['mollom']['had_captcha'])) {
+            form_set_error('mollom][captcha', t('The word verification was not completed correctly. Please complete this new word verification and try again.') . ' ' . _mollom_format_message_falsepositive($form_state, $data));
+          }
+          else {
+            form_set_error('mollom][captcha', t('To complete this form, please complete the word verification below.'));
+          }
         }
         mollom_log(array(
           'message' => 'Unsure: %teaser',
@@ -2046,16 +2055,30 @@ function mollom_validate_captcha($form_copy, &$form_state) {
   // D6: The complete but unprocessed form structure from before form_builder().
   $form = &$form_state['complete form'];
 
-  if (!$form_state['mollom']['require_captcha']) {
-    return;
+  if ($form_state['mollom']['require_analysis']) {
+    // For text analysis, only validate the CAPTCHA if there is an ID. If the ID
+    // is maliciously removed from the form values, text analysis will punish
+    // the author's reputation and present a new CAPTCHA to solve.
+    if (empty($form_state['values']['mollom']['captchaId'])) {
+      return;
+    }
   }
-
-  // If there is no CAPTCHA ID yet, retrieve one and throw an error.
-  if (empty($form_state['values']['mollom']['captchaId'])) {
-    mollom_form_add_captcha($form['mollom'], $form_state);
-    form_set_error('mollom][captcha', t('To complete this form, please complete the word verification below.'));
-    return;
+  else {
+    // Otherwise, this form is protected with a CAPTCHA only, unless disabled by
+    // another module.
+    if (!$form_state['mollom']['require_captcha']) {
+      return;
+    }
+    // If there is no CAPTCHA ID yet, retrieve one and throw an error.
+    if (empty($form_state['values']['mollom']['captchaId'])) {
+      mollom_form_add_captcha($form['mollom'], $form_state);
+      form_set_error('mollom][captcha', t('To complete this form, please complete the word verification below.'));
+      return;
+    }
   }
+  // Inform text analysis validation that a CAPTCHA was validated, so the
+  // appropriate error message can be output.
+  $form_state['temporary']['mollom']['had_captcha'] = TRUE;
 
   // $form_state['mollom']['passed_captcha'] may only ever be set by this
   // validation handler and must not be changed elsewhere.
@@ -2112,6 +2135,11 @@ function mollom_validate_captcha($form_copy, &$form_state) {
   $form['mollom']['captchaId']['#value'] = $result['captchaId'];
 
   if (!empty($result['solved'])) {
+    // For text analysis, remove the CAPTCHA ID from the output if it was
+    // solved, so this validation handler does not run again.
+    if ($form_state['mollom']['require_analysis']) {
+      $form['mollom']['captchaId']['#value'] = '';
+    }
     $form_state['mollom']['passed_captcha'] = TRUE;
     $form['mollom']['captcha']['#access'] = FALSE;
     $form['mollom']['captcha']['#solved'] = TRUE;
@@ -2121,9 +2149,12 @@ function mollom_validate_captcha($form_copy, &$form_state) {
     ), WATCHDOG_INFO);
   }
   else {
-    $form_state['mollom']['passed_captcha'] = FALSE;
-    form_set_error('mollom][captcha', t('The word verification was not completed correctly. Please complete this new word verification and try again.') . ' ' . _mollom_format_message_falsepositive($form_state, $data));
-    mollom_form_add_captcha($form['mollom'], $form_state);
+    // Text analysis will re-check the content and may trigger a CAPTCHA on its
+    // own again (not guaranteed).
+    if (!$form_state['mollom']['require_analysis']) {
+      form_set_error('mollom][captcha', t('The word verification was not completed correctly. Please complete this new word verification and try again.') . ' ' . _mollom_format_message_falsepositive($form_state, $data));
+      mollom_form_add_captcha($form['mollom'], $form_state);
+    }
 
     mollom_log(array(
       'message' => 'Incorrect CAPTCHA',
