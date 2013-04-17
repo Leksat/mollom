@@ -2042,6 +2042,15 @@ function mollom_validate_analysis($form_copy, &$form_state) {
         break;
     }
   }
+  // Prevent the CAPTCHA element from being rendered, in case the form will be
+  // rebuilt after submission (e.g., comment preview).
+  // Unless text analysis was unsure, no CAPTCHA ID is required. But a previous
+  // submission attempt might have been unsure. If this submit will pass
+  // validation, then the rebuilt form will have no indication that it passed
+  // analysis and will be auto-populated with values from $form_state['input'].
+  if (!$form_state['mollom']['require_captcha']) {
+    $form_state['input']['mollom']['captchaId'] = '';
+  }
 }
 
 /**
