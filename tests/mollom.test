@@ -4973,7 +4973,7 @@ class MollomModerationIntegrationTestCase extends MollomModerationBaseTestCase {
 
     // Delete the post.
     // @todo Implement a delete (confirmation) form.
-    mollom_test_delete_multiple(array($mid));
+    mollom_test_delete($mid);
     $this->assertMollomWatchdogMessages();
 
     // Verify that 'stored=0' was passed to Mollom.
