@@ -286,7 +286,7 @@ abstract class Mollom {
    * @see Mollom::handleRequest()
    * @see Mollom::request()
    */
-  protected function query($method, $path, array $data = array(), array $expected = array()) {
+  public function query($method, $path, array $data = array(), array $expected = array()) {
     // Reset list response properties.
     $this->listCount = NULL;
     $this->listOffset = 0;

@@ -415,7 +415,7 @@ class MollomDrupalTestInvalid extends MollomDrupalTest {
   /**
    * Overrides Mollom::query().
    */
-  protected function query($method, $path, array $data = array(), array $expected = array()) {
+  public function query($method, $path, array $data = array(), array $expected = array()) {
     $this->currentAttempt = 0;
     return parent::query($method, $path, $data, $expected);
   }
