@@ -2125,23 +2125,26 @@ function mollom_validate_captcha($form_copy, &$form_state) {
   // Use all available data properties for log messages below.
   $data += $all_data;
 
-  // Trigger global fallback behavior if there is a unexpected result.
-  if (!is_array($result) || !isset($result['id'])) {
-    return _mollom_fallback();
+  // Handle the result, unless it is FALSE (bogus CAPTCHA ID input).
+  if ($result !== FALSE) {
+    // Trigger global fallback behavior if there is a unexpected result.
+    if (!is_array($result) || !isset($result['id'])) {
+      return _mollom_fallback();
+    }
+
+    // Store the response for #submit handlers.
+    $form_state['mollom']['response']['captcha'] = $result;
+    // Set form values accordingly. Do not overwrite the entity ID.
+    // @todo Rename 'id' to 'entity_id'.
+    $result['captchaId'] = $result['id'];
+    unset($result['id']);
+    $form_state['values']['mollom'] = array_merge($form_state['values']['mollom'], $result);
+
+    // Ensure the latest CAPTCHA ID is output as value.
+    // form_set_value() is effectless, as this is not a element-level but a
+    // form-level validation handler.
+    $form['mollom']['captchaId']['#value'] = $result['captchaId'];
   }
-
-  // Store the response for #submit handlers.
-  $form_state['mollom']['response']['captcha'] = $result;
-  // Set form values accordingly. Do not overwrite the entity ID.
-  // @todo Rename 'id' to 'entity_id'.
-  $result['captchaId'] = $result['id'];
-  unset($result['id']);
-  $form_state['values']['mollom'] = array_merge($form_state['values']['mollom'], $result);
-
-  // Ensure the latest CAPTCHA ID is output as value.
-  // form_set_value() is effectless, as this is not a element-level but a
-  // form-level validation handler.
-  $form['mollom']['captchaId']['#value'] = $result['captchaId'];
 
   if (!empty($result['solved'])) {
     // For text analysis, remove the CAPTCHA ID from the output if it was
