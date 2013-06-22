@@ -4803,6 +4803,15 @@ class MollomModerateUserTestCase extends MollomWebTestCase {
 abstract class MollomModerationBaseTestCase extends MollomWebTestCase {
   protected $mollomClass = 'MollomDrupalTestLocal';
 
+  function setUp() {
+    $modules = func_get_args();
+    $modules = (isset($modules[0]) ? $modules[0] : array());
+    parent::setUp($modules);
+
+    // CMP integration requires clean URLs to be enabled.
+    variable_set('clean_url', TRUE);
+  }
+
   /**
    * Registers a test user through the UI.
    *
