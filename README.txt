@@ -1,7 +1,7 @@
 
 -- SUMMARY --
 
-Integrates with the Mollom content moderation service: http://mollom.com
+Integrates with the Mollom content moderation service: https://mollom.com
 
 For a full description of the module, visit the project page:
   http://drupal.org/project/mollom
@@ -10,7 +10,7 @@ To submit bug reports and feature suggestions, or to track changes:
   http://drupal.org/project/issues/mollom
 
 For issues pertaining to the Mollom service, contact Mollom Support:
-  http://mollom.com/contact
+  https://mollom.com/contact
   - e.g., inappropriately blocked posts, spam posts getting through, etc.
   - Ensure to include the Mollom session/content IDs of affected posts; find
     them in Drupal's Recent log messages by filtering by the "mollom" category.
@@ -26,7 +26,7 @@ None.
 * Install as usual:
   http://drupal.org/documentation/install/modules-themes/modules-5-6
 
-* Go to http://mollom.com,
+* Go to https://mollom.com,
 
   - sign up or log in with your account
   - go to your Site manager ("Manage sites" link in the upper right)
@@ -109,7 +109,7 @@ A: Out of the box, the Mollom module allows to protect Drupal core forms only.
 
 -- CONTACT --
 
-For questions pertaining to the Mollom service go to http://mollom.com/support
+For questions pertaining to the Mollom service go to https://mollom.com/support
 
 Current maintainers:
 * Daniel F. Kudwien (sun) - http://drupal.org/user/54136

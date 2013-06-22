@@ -322,7 +322,7 @@ function mollom_admin_configure_form(&$form_state, $mollom_form = NULL) {
       $form['mollom']['moderation'] = array(
         '#type' => 'checkbox',
         '#title' => t('Allow content to be moderated from the <a href="@moderation-url">@moderation-product</a>', array(
-          '@moderation-url' => '//mollom.com/moderation',
+          '@moderation-url' => 'https://mollom.com/moderation',
           '@moderation-product' => 'Mollom Content Moderation Platform',
         )),
         '#default_value' => (string) (int) ($mollom_form['moderation'] && $has_clean_urls),
@@ -729,8 +729,8 @@ function mollom_admin_settings(&$form_state) {
     '#type' => 'fieldset',
     '#title' => t('Access keys'),
     '#description' => t('To use Mollom, you need a public and private key. To obtain Mollom API keys, <a href="@mollom-login-url">register and login on mollom.com</a>, create a subscription for your site, and copy the API keys from your <a href="@mollom-manager-url">site manager</a> into the fields below.', array(
-      '@mollom-login-url' => '//mollom.com/user',
-      '@mollom-manager-url' => '//mollom.com/site-manager',
+      '@mollom-login-url' => 'https://mollom.com/user',
+      '@mollom-manager-url' => 'https://mollom.com/site-manager',
     )),
     '#collapsible' => TRUE,
     // Only show key configuration fields if they are not configured or invalid.
@@ -772,8 +772,8 @@ function mollom_admin_settings(&$form_state) {
       MOLLOM_FALLBACK_ACCEPT => t('Accept all form submissions'),
     ),
     '#description' => t('In case Mollom services are unreachable, no text analysis can be performed and no CAPTCHAs can be generated. Customers on <a href="@pricing-url">paid plans</a> have access to <a href="@sla-url">Mollom\'s high-availability backend infrastructure</a>, not available to free users, reducing potential downtime.', array(
-      '@pricing-url' => '//mollom.com/pricing',
-      '@sla-url' => '//mollom.com/standard-service-level-agreement',
+      '@pricing-url' => 'https://mollom.com/pricing',
+      '@sla-url' => 'https://mollom.com/standard-service-level-agreement',
     )),
   );
 
@@ -781,7 +781,7 @@ function mollom_admin_settings(&$form_state) {
     '#type' => 'checkbox',
     '#title' => t('Redirect <a href="@local-moderation-url">local moderation pages</a> to the <a href="@moderation-url">@moderation-product</a>', array(
       '@local-moderation-url' => url('admin/content/comment'),
-      '@moderation-url' => '//mollom.com/moderation',
+      '@moderation-url' => 'https://mollom.com/moderation',
       '@moderation-product' => 'Mollom Content Moderation Platform',
     )),
     '#return_value' => 1,
@@ -794,9 +794,9 @@ function mollom_admin_settings(&$form_state) {
     '#return_value' => 1,
     '#default_value' => variable_get('mollom_privacy_link', 1),
     '#description' => t('Displays a link to the recommended <a href="@privacy-policy-url">privacy policy on mollom.com</a> on all forms that are protected via <a href="@help-url">textual analysis</a>. When disabling this option, you are required to inform visitors about data privacy through other means, as stated in the <a href="@terms-of-service-url">terms of service</a>.', array(
-      '@privacy-policy-url' => '//mollom.com/web-service-privacy-policy',
+      '@privacy-policy-url' => 'https://mollom.com/web-service-privacy-policy',
       '@help-url' => url('admin/help/mollom'),
-      '@terms-of-service-url' => '//mollom.com/terms-of-service',
+      '@terms-of-service-url' => 'https://mollom.com/terms-of-service',
     )),
   );
 
@@ -907,7 +907,7 @@ function mollom_node_admin_overview_submit($form, &$form_state) {
  */
 function mollom_reports_page() {
   $embed_attributes = array(
-    'src' => '//mollom.com/statistics.swf?key=' . check_plain(variable_get('mollom_public_key', '')),
+    'src' => 'https://mollom.com/statistics.swf?key=' . check_plain(variable_get('mollom_public_key', '')),
     'quality' => 'high',
     'width' => '100%',
     'height' => '430',

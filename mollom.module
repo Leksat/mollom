@@ -57,9 +57,9 @@ function mollom_help($path, $arg) {
   if ($path == 'admin/help#mollom') {
     $output = '<p>';
     $output .= t('Allowing users to react, participate and contribute while still keeping your site\'s content under control can be a huge challenge. <a href="@mollom-website">Mollom</a> is a web service that helps you identify content quality and, most importantly, helps you stop spam. When content moderation becomes easier, you have more time and energy to interact with your site visitors and community. For more information, see <a href="@mollom-works">How Mollom Works</a> and the <a href="@mollom-faq">Mollom FAQ</a>.', array(
-      '@mollom-website' => '//mollom.com',
-      '@mollom-works' => '//mollom.com/how-mollom-works',
-      '@mollom-faq' => '//mollom.com/faq',
+      '@mollom-website' => 'https://mollom.com',
+      '@mollom-works' => 'https://mollom.com/how-mollom-works',
+      '@mollom-faq' => 'https://mollom.com/faq',
     ));
     $output .= '</p><p>';
     $output .= t('Mollom can protect forms your site from unwanted posts. Each form can be set to one of the following options:');
@@ -76,9 +76,9 @@ function mollom_help($path, $arg) {
     $output .= '</p></li>';
     $output .= '</ul><p>';
     $output .= t('Data is processed and stored as explained in the <a href="@mollom-privacy">Mollom Web Service Privacy Policy</a>. It is your responsibility to provide necessary notices and obtain the appropriate consent regarding Mollom\'s use of submitted data.', array(
-      '@mollom-privacy' => '//mollom.com/web-service-privacy-policy',
-      '@mollom-works' => '//mollom.com/how-mollom-works',
-      '@mollom-faq' => '//mollom.com/faq',
+      '@mollom-privacy' => 'https://mollom.com/web-service-privacy-policy',
+      '@mollom-works' => 'https://mollom.com/how-mollom-works',
+      '@mollom-faq' => 'https://mollom.com/faq',
     ));
     $output .= '</p>';
     $output .= '<p>';
@@ -529,7 +529,7 @@ function mollom_data_delete_form_alter(&$form, &$form_state) {
       'unwanted' => t('Unwanted, taunting, off-topic'),
     ),
     '#default_value' => '',
-    '#description' => t('Sending feedback to <a href="@mollom-url">Mollom</a> improves the automated moderation of new submissions.', array('@mollom-url' => 'http://mollom.com')),
+    '#description' => t('Sending feedback to <a href="@mollom-url">Mollom</a> improves the automated moderation of new submissions.', array('@mollom-url' => 'https://mollom.com')),
   );
 }
 
@@ -719,7 +719,7 @@ function mollom_form_alter(&$form, &$form_state, $form_id) {
           '#prefix' => '<div class="description mollom-privacy">',
           '#suffix' => '</div>',
           '#value' => t('By submitting this form, you accept the <a href="@privacy-policy-url" class="mollom-target" rel="nofollow">Mollom privacy policy</a>.', array(
-            '@privacy-policy-url' => '//mollom.com/web-service-privacy-policy',
+            '@privacy-policy-url' => 'https://mollom.com/web-service-privacy-policy',
           )),
           '#weight' => 10,
         );
@@ -1505,7 +1505,7 @@ function _mollom_fallback() {
  */
 function _mollom_format_message_falsepositive($form_state, $data) {
   $mollom = mollom();
-  $report_url = '//mollom.com/false-positive';
+  $report_url = 'https://mollom.com/false-positive';
   $params = array(
     'public_key' => $mollom->loadConfiguration('publicKey'),
   );
