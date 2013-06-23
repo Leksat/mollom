@@ -47,6 +47,13 @@ None.
   If you see the same IP address for different visitors, then your reverse proxy
   configuration is not correct.
 
+* On servers running PHP <5.4, and PHP as CGI (not Apache module), inbound HTTP
+  request headers are not made available to PHP.  Add the following lines to
+  your .htaccess file:
+
+    RewriteEngine On
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
 
 -- CONFIGURATION --
 
