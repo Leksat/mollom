@@ -1151,6 +1151,11 @@ function mollom_form_get_values(&$form_state, $fields, $mapping) {
     $account = user_load($data['authorId']);
   }
 
+  // Author creation date.
+  if (!empty($account->created)) {
+    $data['authorCreated'] = $account->created;
+  }
+
   // Author name.
   // A form value mapping always has precedence.
   if (!empty($mapping['author_name'])) {
@@ -2117,6 +2122,9 @@ function mollom_validate_captcha($form_copy, &$form_state) {
   );
   if (isset($all_data['authorId'])) {
     $data['authorId'] = $all_data['authorId'];
+  }
+  if (isset($all_data['authorCreated'])) {
+    $data['authorCreated'] = $all_data['authorCreated'];
   }
   if (isset($all_data['honeypot'])) {
     $data['honeypot'] = $all_data['honeypot'];

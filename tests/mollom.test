@@ -3289,7 +3289,7 @@ class MollomDataTestCase extends MollomWebTestCase {
     );
     $form_state = array('values' => $values, 'buttons' => array());
     $data = mollom_form_get_values($form_state, $fields, $form_info['mapping']);
-    $data += array_fill_keys(array('postTitle', 'postBody', 'authorId', 'authorName', 'authorMail', 'authorUrl', 'authorOpenid', 'authorIp'), NULL);
+    $data += array_fill_keys(array('postTitle', 'postBody', 'authorId', 'authorCreated', 'authorName', 'authorMail', 'authorUrl', 'authorOpenid', 'authorIp'), NULL);
 
     $this->assertSame('postTitle', $data['postTitle'], $values['subject']);
     $body = array(
@@ -3300,6 +3300,7 @@ class MollomDataTestCase extends MollomWebTestCase {
     );
     $this->assertSame('postBody', $data['postBody'], implode(" \n", $body));
     $this->assertSame('authorId', $data['authorId'], NULL);
+    $this->assertSame('authorCreated', $data['authorCreated'], NULL);
     $this->assertSame('authorName', $data['authorName'], $values['name']);
     $this->assertSame('authorMail', $data['authorMail'], $values['mail']);
     $this->assertSame('authorUrl', $data['authorUrl'], NULL);
@@ -3326,7 +3327,7 @@ class MollomDataTestCase extends MollomWebTestCase {
     );
     $form_state = array('values' => $values, 'buttons' => array());
     $data = mollom_form_get_values($form_state, $fields, $form_info['mapping']);
-    $data += array_fill_keys(array('postTitle', 'postBody', 'authorId', 'authorName', 'authorMail', 'authorUrl', 'authorOpenid', 'authorIp'), NULL);
+    $data += array_fill_keys(array('postTitle', 'postBody', 'authorId', 'authorCreated', 'authorName', 'authorMail', 'authorUrl', 'authorOpenid', 'authorIp'), NULL);
 
     $this->assertSame('postTitle', $data['postTitle'], $values['subject']);
     $body = array(
@@ -3337,6 +3338,7 @@ class MollomDataTestCase extends MollomWebTestCase {
     );
     $this->assertSame('postBody', $data['postBody'], implode(" \n", $body));
     $this->assertSame('authorId', $data['authorId'], NULL);
+    $this->assertSame('authorCreated', $data['authorCreated'], NULL);
     $this->assertSame('authorName', $data['authorName'], $values['name']);
     $this->assertSame('authorMail', $data['authorMail'], NULL);
     $this->assertSame('authorUrl', $data['authorUrl'], NULL);
@@ -3352,11 +3354,12 @@ class MollomDataTestCase extends MollomWebTestCase {
     );
     $form_state = array('values' => $values, 'buttons' => array());
     $data = mollom_form_get_values($form_state, $fields, $form_info['mapping']);
-    $data += array_fill_keys(array('postTitle', 'postBody', 'authorId', 'authorName', 'authorMail', 'authorUrl', 'authorOpenid', 'authorIp'), NULL);
+    $data += array_fill_keys(array('postTitle', 'postBody', 'authorId', 'authorCreated', 'authorName', 'authorMail', 'authorUrl', 'authorOpenid', 'authorIp'), NULL);
 
     $this->assertSame('postTitle', $data['postTitle'], $values['subject']);
     $this->assertSame('postBody', $data['postBody'], $values['message']);
     $this->assertSame('authorId', $data['authorId'], $this->admin_user->uid);
+    $this->assertSame('authorCreated', $data['authorCreated'], $this->admin_user->created);
     $this->assertSame('authorName', $data['authorName'], $this->admin_user->name);
     $this->assertSame('authorMail', $data['authorMail'], $this->admin_user->mail);
     $this->assertSame('authorUrl', $data['authorUrl'], NULL);
