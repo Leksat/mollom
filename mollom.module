@@ -1368,11 +1368,11 @@ function _mollom_get_openid($account) {
 /**
  * Returns the (last known) status of the configured Mollom API keys.
  *
- * @param $reset
- *   (optional) Boolean whether to reset the stored state and re-check.
+ * @param bool $force
+ *   (optional) Boolean whether to ignore the cached state and re-check.
  *   Defaults to FALSE.
  *
- * @return
+ * @return bool|array
  *   TRUE if the module is considered operable, or an associative array
  *   describing the current status of the module:
  *   - keys: Boolean whether Mollom API keys have been configured.
@@ -1383,25 +1383,41 @@ function _mollom_get_openid($account) {
  * @see mollom_admin_settings()
  * @see mollom_requirements()
  */
-function _mollom_status($reset = FALSE) {
-  // Load stored status.
-  $status = variable_get('mollom_status', array(
+function _mollom_status($force = FALSE) {
+  static $status;
+
+  if (!$force && isset($status)) {
+    return $status;
+  }
+  // Check the cached status.
+  $cid = 'mollom_status';
+  $time = time();
+  $expire_valid = 86400; // once per day
+  $expire_invalid = 3600; // once per hour
+
+  if (!$force && $cache = cache_get($cid, 'cache')) {
+    if ($cache->expire > $time) {
+      // D6: cache_set() only serializes arrays and objects.
+      $status = $cache->data === "1" ? TRUE : $cache->data;
+      return $status;
+    }
+  }
+
+  // Re-check configuration status.
+  $mollom = mollom();
+  $status = array(
     'keys' => FALSE,
     'keys valid' => FALSE,
-  ));
-  $current_status = $status;
-
-  $mollom = mollom();
-
-  // Both API keys are required.
+  );
   $public_key = $mollom->loadConfiguration('publicKey');
   $private_key = $mollom->loadConfiguration('privateKey');
   $status['keys'] = (!empty($public_key) && !empty($private_key));
 
-  // If we have keys and are asked to reset, check whether keys are valid.
-  if ($status['keys'] && $reset) {
+  if ($status['keys']) {
     $status['keys valid'] = $mollom->verifyKeys();
+
     if ($status['keys valid'] === TRUE) {
+      $status = TRUE;
       mollom_log(array(
         'message' => 'API keys are valid.',
       ), WATCHDOG_INFO);
@@ -1416,37 +1432,19 @@ function _mollom_status($reset = FALSE) {
         'message' => 'Invalid API keys.',
       ), WATCHDOG_ERROR);
     }
-    // If the response is neither positive nor a known negative error, and
-    // the previous status was positive, then the Mollom service might be
-    // temporarily down. In this case, return an enforced RESPONSE_ERROR to
-    // indicate a server-side service failure, but do not update the stored
-    // status.
-    // @todo Test this.
-    elseif ($current_status['keys valid'] === TRUE) {
-      $status['keys valid'] = Mollom::RESPONSE_ERROR;
-      // Do not update the stored configuration status with the bogus result
-      // caused by the server-side failure.
-      $reset = FALSE;
+    elseif ($status['keys valid'] === Mollom::NETWORK_ERROR) {
+      mollom_log(array(
+        'message' => 'Unable to connect to verify API keys.',
+      ), WATCHDOG_ERROR);
+    }
+    else {
       mollom_log(array(
         'message' => 'API keys could not be verified.',
       ), WATCHDOG_WARNING);
     }
   }
-  // Otherwise, if there are no keys, they cannot be valid.
-  elseif (!$status['keys']) {
-    $status['keys valid'] = FALSE;
-  }
-
-  // Update stored status upon reset, but only if the status changed, as a
-  // variable_set() invalidates the variable cache.
-  // Requires array_diff_assoc() instead of ($current_status != $status), since
-  // 'keys valid' may be an error code integer, which is equal to TRUE, so a
-  // type-agnostic strict comparison is required.
-  if ($reset && array_diff_assoc($current_status, $status)) {
-    variable_set('mollom_status', $status);
-  }
-
-  return ($status['keys valid'] === TRUE ? TRUE : $status);
+  cache_set($cid, $status, 'cache', $time + ($status === TRUE ? $expire_valid : $expire_invalid));
+  return $status;
 }
 
 /**
