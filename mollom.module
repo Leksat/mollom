@@ -517,15 +517,15 @@ function mollom_data_delete_form_alter(&$form, &$form_state) {
   );
   $form['mollom']['feedback'] = array(
     '#type' => 'radios',
-    '#title' => t('Report as inappropriate'),
+    '#title' => t('Report as…'),
     '#options' => array(
-      '' => t('Do not report'),
       'spam' => t('Spam, unsolicited advertising'),
-      'profanity' => t('Obscene, violent, profane'),
+      'profanity' => t('Profane, obscene, violent'),
       'quality' => t('Low-quality'),
       'unwanted' => t('Unwanted, taunting, off-topic'),
+      '' => t('Do not report'),
     ),
-    '#default_value' => '',
+    '#default_value' => 'spam',
     '#description' => t('Sending feedback to <a href="@mollom-url">Mollom</a> improves the automated moderation of new submissions.', array('@mollom-url' => 'https://mollom.com')),
   );
 }
