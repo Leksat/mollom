@@ -47,10 +47,6 @@ class MollomDrupal extends Mollom {
    * Implements Mollom::getClientInformation().
    */
   public function getClientInformation() {
-    if ($cache = cache_get('mollom_version')) {
-      return $cache->data;
-    }
-
     // Retrieve Drupal distribution and installation profile information.
     include_once './includes/install.inc';
     // Prior to D7, there is no distribution name recorded anywhere, so we have to
@@ -72,8 +68,6 @@ class MollomDrupal extends Mollom {
       'clientName' => $mollom_info['name'],
       'clientVersion' => $mollom_info['version'],
     );
-    cache_set('mollom_version', $data);
-
     return $data;
   }
 
@@ -288,7 +282,12 @@ class MollomDrupalTest extends MollomDrupal {
       return TRUE;
     }
     else {
-      unset($this->publicKey, $this->privateKey);
+      $this->publicKey = $this->privateKey = '';
+      // Extra sanity check due to corresponding condition in __construct().
+      if (variable_get('mollom_testing_mode', 0)) {
+        $this->deleteConfiguration('publicKey');
+        $this->deleteConfiguration('privateKey');
+      }
       return FALSE;
     }
   }

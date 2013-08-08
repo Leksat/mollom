@@ -932,3 +932,12 @@ function mollom_update_6206() {
   return $ret;
 }
 
+/**
+ * Remove 'mollom_status' variable (replaced by cache).
+ */
+function mollom_update_6207() {
+  $ret = array();
+  variable_del('mollom_status');
+  return $ret;
+}
+
