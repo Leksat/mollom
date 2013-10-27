@@ -941,3 +941,12 @@ function mollom_update_6207() {
   return $ret;
 }
 
+/**
+ * Remove obsolete 'mollom_moderation_redirect' setting.
+ */
+function mollom_update_6208() {
+  $ret = array();
+  variable_del('mollom_moderation_redirect');
+  return $ret;
+}
+

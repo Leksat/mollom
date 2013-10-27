@@ -777,17 +777,6 @@ function mollom_admin_settings(&$form_state) {
     )),
   );
 
-  $form['mollom_moderation_redirect'] = array(
-    '#type' => 'checkbox',
-    '#title' => t('Redirect <a href="@local-moderation-url">local moderation pages</a> to the <a href="@moderation-url">@moderation-product</a>', array(
-      '@local-moderation-url' => url('admin/content/comment'),
-      '@moderation-url' => 'https://mollom.com/moderation',
-      '@moderation-product' => 'Mollom Content Moderation Platform',
-    )),
-    '#return_value' => 1,
-    '#default_value' => variable_get('mollom_moderation_redirect', 0),
-  );
-
   $form['mollom_privacy_link'] = array(
     '#type' => 'checkbox',
     '#title' => t("Link to Mollom's privacy policy on forms protected by textual analysis"),
