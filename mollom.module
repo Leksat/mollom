@@ -2418,8 +2418,11 @@ function mollom_log_write() {
   if (empty($log)) {
     return;
   }
-  list($message, $arguments) = _mollom_format_log($log);
-  watchdog('mollom', $message, $arguments, $log['severity']);
+  // Only log if severity if it meets configured minimum severity.
+  if ($log['severity'] <= variable_get('mollom_log_minimum_severity', WATCHDOG_WARNING)) {
+    list($message, $arguments) = _mollom_format_log($log);
+    watchdog('mollom', $message, $arguments, $log['severity']);
+  }
 }
 
 /**

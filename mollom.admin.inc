@@ -796,6 +796,15 @@ function mollom_admin_settings(&$form_state) {
     '#description' => t('Submitting "ham", "unsure", or "spam" on a protected form will trigger the corresponding behavior. Image CAPTCHAs will only respond to "correct" and audio CAPTCHAs only respond to "demo". This option should be disabled in production environments.'),
   );
 
+  $form['mollom_log_minimum_severity'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Only log warnings and errors'),
+    '#return_value' => WATCHDOG_WARNING,
+    '#default_value' => variable_get('mollom_log_minimum_severity', WATCHDOG_WARNING),
+    '#description' => t('Disable to see all Mollom interactions in log messages.'),
+  );
+  $form['#submit'][] = 'mollom_admin_settings_submit';
+
   return system_settings_form($form);
 }
 
@@ -813,6 +822,17 @@ function mollom_admin_settings_validate_key($element, &$form_state) {
         '!title' => $element['#title'],
       )));
     }
+  }
+}
+
+/**
+ * Form submission handler for global settings form.
+ */
+function mollom_admin_settings_submit($form, &$form_state) {
+  // If the minimum log severity checkbox was disabled (no input), convert
+  // 0 into WATCHDOG_DEBUG.
+  if (!isset($form['#post']['mollom_log_minimum_severity'])) {
+    $form_state['values']['mollom_log_minimum_severity'] = WATCHDOG_DEBUG;
   }
 }
 
