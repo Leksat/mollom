@@ -2587,6 +2587,40 @@ class MollomFormConfigurationTestCase extends MollomWebTestCase {
   }
 
   /**
+   * Tests invalid (stale) form configurations.
+   */
+  function testInvalidForms() {
+    $forms = array(
+      'nonexisting' => 'nonexisting_form',
+      'user' => 'user_nonexisting_form',
+      'node' => 'nonexisting_node_form',
+      'comment' => 'comment_node_nonexisting_form',
+    );
+    $mode = 0;
+    foreach ($forms as $module => $form_id) {
+      $mollom_form = mollom_form_info($form_id, $module, array());
+      $mollom_form['mode'] = $mode++;
+      mollom_form_save($mollom_form);
+    }
+
+    // Just visiting the form administration page is sufficient; it will throw
+    // fatal errors, warnings, and notices.
+    $this->drupalLogin($this->admin_user);
+    $this->drupalGet('admin/settings/mollom');
+
+    // Ensure that unprotecting the forms does not throw any notices either.
+    foreach ($forms as $form_id) {
+      $this->assertNoLinkByHref('admin/settings/mollom/manage/' . $form_id);
+      $this->assertLinkByHref('admin/settings/mollom/unprotect/' . $form_id);
+      $this->drupalPost('admin/settings/mollom/unprotect/' . $form_id, array(), t('Confirm'));
+      $this->assertNoLinkByHref('admin/settings/mollom/unprotect/' . $form_id);
+    }
+    // Confirm deletion.
+    $count = db_result(db_query('SELECT 1 FROM {mollom_form}'));
+    $this->assertFalse($count, 'No forms found.');
+  }
+
+  /**
    * Tests programmatically, conditionally disabling Mollom.
    */
   function testFormAlter() {

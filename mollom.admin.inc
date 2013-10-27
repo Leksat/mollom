@@ -26,27 +26,24 @@ function mollom_admin_form_list() {
   );
   $result = db_query("SELECT form_id FROM {mollom_form}");
   $forms = array();
-  $modules = array();
+  $module_info = array();
   while ($form_id = db_result($result)) {
     $forms[$form_id] = mollom_form_load($form_id);
-
     // Load module information.
     $module = $forms[$form_id]['module'];
-    if (!isset($modules[$module])) {
+    if (!isset($module_info[$module])) {
       // Default to the module's machine name in case the query below does not
       // lead to a result (which is possible, because D6 does not inform modules
       // about uninstalled modules).
-      $modules[$module] = $module;
-      $module_info = db_result(db_query("SELECT info FROM {system} WHERE type = 'module' AND name = '%s'", $module));
-      if ($module_info) {
-        $module_info = unserialize($module_info);
-        $modules[$module] = t($module_info['name']);
+      $module_info[$module]['name'] = $module;
+      $system_info = db_result(db_query("SELECT info FROM {system} WHERE type = 'module' AND name = '%s'", $module));
+      if ($system_info) {
+        $module_info[$module] = unserialize($system_info);
       }
     }
-
     $forms[$form_id]['title'] = t('!module: !form-title', array(
       '!form-title' => $forms[$form_id]['title'],
-      '!module' => $modules[$module],
+      '!module' => t($module_info[$module]['name']),
     ));
   }
 
@@ -55,21 +52,38 @@ function mollom_admin_form_list() {
 
   $rows = array();
   foreach ($forms as $form_id => $mollom_form) {
+    $row_attributes = array();
     $row = array();
     $row[] = $mollom_form['title'];
-    if ($mollom_form['mode'] == MOLLOM_MODE_ANALYSIS) {
-      // @todo Output unsure mode in summary listing.
-      $row[] = t('!protection-mode (@discard)', array(
-        '!protection-mode' => $modes[$mollom_form['mode']],
-        '@discard' => $mollom_form['discard'] ? t('discard') : t('retain'),
-      ));
+    if (isset($modes[$mollom_form['mode']])) {
+      if ($mollom_form['mode'] == MOLLOM_MODE_ANALYSIS) {
+        // @todo Output unsure mode in summary listing.
+        $row[] = t('!protection-mode (@discard)', array(
+          '!protection-mode' => $modes[$mollom_form['mode']],
+          '@discard' => $mollom_form['discard'] ? t('discard') : t('retain'),
+        ));
+      }
+      else {
+        $row[] = $modes[$mollom_form['mode']];
+      }
     }
     else {
-      $row[] = $modes[$mollom_form['mode']];
+      $row[] = t('- orphan -');
     }
-    $row[] = l(t('Configure'), 'admin/settings/mollom/manage/' . $form_id);
+    if (empty($mollom_form['orphan'])) {
+      $row[] = l(t('Configure'), 'admin/settings/mollom/manage/' . $form_id);
+    }
+    else {
+      $row[] = '';
+      $row_attributes['class'] = 'error';
+      drupal_set_message(t("%module module's %form_id form no longer exists.", array(
+        '%form_id' => $form_id,
+        '%module' => isset($module_info[$mollom_form['module']]['name']) ? t($module_info[$mollom_form['module']]['name']) : $mollom_form['module'],
+      )), 'warning');
+    }
     $row[] = l(t('Unprotect'), 'admin/settings/mollom/unprotect/' . $form_id);
-    $rows[] = $row;
+
+    $rows[] = $row_attributes + array('data' => $row);
   }
 
   // Add a row to add a form.
