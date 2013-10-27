@@ -595,15 +595,6 @@ function mollom_form_alter(&$form, &$form_state, $form_id) {
   if (defined('MAINTENANCE_MODE')) {
     return;
   }
-  // Verify global Mollom configuration status.
-  // If API keys have been configured, then the form has to be processed,
-  // regardless of whether API keys could be verified; otherwise, the fallback
-  // mode would not be triggered.
-  $status = _mollom_status();
-  if ($status !== TRUE && !$status['keys']) {
-    return;
-  }
-
   // Retrieve a list of all protected forms once.
   $forms = mollom_form_cache();
 
@@ -622,6 +613,20 @@ function mollom_form_alter(&$form, &$form_state, $form_id) {
           return;
         }
       }
+      // Verify global Mollom configuration status.
+      // Only do this if the form is actually protected and if the current user
+      // is not privileged to bypass the Mollom protection. Otherwise, if e.g.
+      // the Testing API is down, then every hook_form_alter() for every single
+      // form on the page would potentially cause a (two) API keys verification
+      // requests (in case caches are disabled).
+      // If API keys have been configured, then the form has to be processed,
+      // regardless of whether API keys could be verified; otherwise, the
+      // fallback mode would not be triggered.
+      $status = _mollom_status();
+      if ($status !== TRUE && !$status['keys']) {
+        return;
+      }
+
       // Compute the weight of the CAPTCHA so we can position it in the form.
       // #type 'actions' is new in D7, but contributed modules use the concept
       // in D6 already. We therefore expect the key without #type.
