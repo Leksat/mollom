@@ -3425,7 +3425,6 @@ class MollomDataTestCase extends MollomWebTestCase {
     );
     $form_state = array('values' => $values, 'buttons' => array());
     $data = mollom_form_get_values($form_state, $fields, $form_info['mapping']);
-    $this->assertMollomWatchdogMessages(WATCHDOG_WARNING);
     $this->assertFalse($data, 'Invalid UTF-8 detected.');
 
     // Verify that invalid XML characters are detected.
@@ -3434,7 +3433,6 @@ class MollomDataTestCase extends MollomWebTestCase {
     );
     $form_state = array('values' => $values, 'buttons' => array());
     $data = mollom_form_get_values($form_state, $fields, $form_info['mapping']);
-    $this->assertMollomWatchdogMessages(WATCHDOG_WARNING);
     $this->assertFalse($data, 'Invalid XML characters detected.');
   }
 

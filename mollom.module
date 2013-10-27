@@ -1223,7 +1223,7 @@ function mollom_form_get_values(&$form_state, $fields, $mapping) {
       'message' => 'Invalid !type in form values',
       'arguments' => array('!type' => $invalid_utf8 ? 'UTF-8' : 'XML characters'),
       'Data:' => $data,
-    ), WATCHDOG_WARNING);
+    ));
     $data = FALSE;
   }
 
