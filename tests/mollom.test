@@ -2007,7 +2007,7 @@ class MollomBlacklistTestCase extends MollomWebTestCase {
     $term = drupal_strtolower(preg_replace('/[^a-zA-Z]/', '', $this->randomName()));
     $entry = $mollom->saveBlacklistEntry(array(
       'value' => $term,
-      'context' => 'everything',
+      'context' => 'allFields',
       'reason' => 'spam',
       'match' => 'contains',
     ));
@@ -2043,7 +2043,7 @@ class MollomBlacklistTestCase extends MollomWebTestCase {
     $entry = $mollom->saveBlacklistEntry(array(
       'id' => $entry['id'],
       'value' => $term,
-      'context' => 'everything',
+      'context' => 'allFields',
       'reason' => 'spam',
       'match' => 'exact',
     ));
