@@ -602,8 +602,11 @@ function mollom_form_alter(&$form, &$form_state, $form_id) {
     return;
   }
   // Verify global Mollom configuration status.
+  // If API keys have been configured, then the form has to be processed,
+  // regardless of whether API keys could be verified; otherwise, the fallback
+  // mode would not be triggered.
   $status = _mollom_status();
-  if ($status !== TRUE) {
+  if ($status !== TRUE && !$status['keys']) {
     return;
   }
 
@@ -1373,8 +1376,7 @@ function _mollom_get_openid($account) {
  *   TRUE if the module is considered operable, or an associative array
  *   describing the current status of the module:
  *   - keys: Boolean whether Mollom API keys have been configured.
- *   - keys valid: TRUE if Mollom API keys are valid, or the error code as
- *     returned by Mollom servers.
+ *   - response: The response error code of the API verification request.
  *
  * @see mollom_init()
  * @see mollom_admin_settings()
@@ -1404,40 +1406,39 @@ function _mollom_status($force = FALSE) {
   $mollom = mollom();
   $status = array(
     'keys' => FALSE,
-    'keys valid' => FALSE,
+    'response' => NULL,
   );
   $public_key = $mollom->loadConfiguration('publicKey');
   $private_key = $mollom->loadConfiguration('privateKey');
   $status['keys'] = (!empty($public_key) && !empty($private_key));
 
   if ($status['keys']) {
-    $status['keys valid'] = $mollom->verifyKeys();
+    $status['response'] = $mollom->verifyKeys();
 
-    if ($status['keys valid'] === TRUE) {
+    if ($status['response'] === TRUE) {
       $status = TRUE;
       mollom_log(array(
         'message' => 'API keys are valid.',
       ), WATCHDOG_INFO);
     }
-    elseif ($status['keys valid'] === Mollom::REQUEST_ERROR) {
-      mollom_log(array(
-        'message' => 'Invalid client configuration.',
-      ), WATCHDOG_ERROR);
-    }
-    elseif ($status['keys valid'] === Mollom::AUTH_ERROR) {
+    elseif ($status['response'] === Mollom::AUTH_ERROR) {
       mollom_log(array(
         'message' => 'Invalid API keys.',
       ), WATCHDOG_ERROR);
     }
-    elseif ($status['keys valid'] === Mollom::NETWORK_ERROR) {
+    elseif ($status['response'] === Mollom::REQUEST_ERROR) {
       mollom_log(array(
-        'message' => 'Unable to connect to verify API keys.',
+        'message' => 'Invalid client configuration.',
       ), WATCHDOG_ERROR);
     }
     else {
+      // A NETWORK_ERROR and other possible responses may be caused by the
+      // client-side environment, but also by Mollom service downtimes. Try to
+      // recover as soon as possible.
+      $expire_invalid = 900; // 15 minutes
       mollom_log(array(
         'message' => 'API keys could not be verified.',
-      ), WATCHDOG_WARNING);
+      ), WATCHDOG_ERROR);
     }
   }
   cache_set($cid, $status, 'cache', $time + ($status === TRUE ? $expire_valid : $expire_invalid));
@@ -1865,6 +1866,9 @@ function mollom_process_mollom_form_state($element, $input, &$form_state) {
  *   reference.
  * @param $form_state
  *   The current state of the form. Passed by reference.
+ *
+ * @return bool
+ *   TRUE if a CAPTCHA was added, FALSE if not.
  */
 function mollom_form_add_captcha(&$element, &$form_state) {
   // Prevent the page cache from storing a form containing a CAPTCHA element.
@@ -1885,12 +1889,14 @@ function mollom_form_add_captcha(&$element, &$form_state) {
     // Ensure that the latest CAPTCHA ID is output as value.
     $element['captchaId']['#value'] = $form_state['mollom']['response']['captcha']['id'];
     $form_state['values']['mollom']['captchaId'] = $form_state['mollom']['response']['captcha']['id'];
+    return TRUE;
   }
   // Otherwise, we have a communication or configuration error.
   else {
     $element['captcha']['#access'] = FALSE;
     // Trigger fallback mode.
     _mollom_fallback();
+    return FALSE;
   }
 }
 
@@ -2013,14 +2019,15 @@ function mollom_validate_analysis($form_copy, &$form_state) {
           $form_state['mollom']['passed_captcha'] = FALSE;
 
           // Retrieve a new CAPTCHA and throw an error.
-          mollom_form_add_captcha($form['mollom'], $form_state);
-          $form['mollom']['captcha']['#access'] = TRUE;
+          if (mollom_form_add_captcha($form['mollom'], $form_state)) {
+            $form['mollom']['captcha']['#access'] = TRUE;
 
-          if (!empty($form_state['temporary']['mollom']['had_captcha'])) {
-            form_set_error('mollom][captcha', t('The word verification was not completed correctly. Please complete this new word verification and try again.') . ' ' . _mollom_format_message_falsepositive($form_state, $data));
-          }
-          else {
-            form_set_error('mollom][captcha', t('To complete this form, please complete the word verification below.'));
+            if (!empty($form_state['temporary']['mollom']['had_captcha'])) {
+              form_set_error('mollom][captcha', t('The word verification was not completed correctly. Please complete this new word verification and try again.') . ' ' . _mollom_format_message_falsepositive($form_state, $data));
+            }
+            else {
+              form_set_error('mollom][captcha', t('To complete this form, please complete the word verification below.'));
+            }
           }
         }
         mollom_log(array(
@@ -2080,8 +2087,9 @@ function mollom_validate_captcha($form_copy, &$form_state) {
     }
     // If there is no CAPTCHA ID yet, retrieve one and throw an error.
     if (empty($form_state['values']['mollom']['captchaId'])) {
-      mollom_form_add_captcha($form['mollom'], $form_state);
-      form_set_error('mollom][captcha', t('To complete this form, please complete the word verification below.'));
+      if (mollom_form_add_captcha($form['mollom'], $form_state)) {
+        form_set_error('mollom][captcha', t('To complete this form, please complete the word verification below.'));
+      }
       return;
     }
   }

@@ -1038,6 +1038,7 @@ class MollomTestingModeTestCase extends MollomWebTestCase {
 
     // Protect mollom_test_form.
     $this->setProtectionUI('mollom_test_form', MOLLOM_MODE_ANALYSIS);
+    variable_set('mollom_fallback', MOLLOM_FALLBACK_ACCEPT);
 
     // Setup production API keys. They must be retained.
     $publicKey = 'the-invalid-mollom-api-key-value';
@@ -1059,7 +1060,8 @@ class MollomTestingModeTestCase extends MollomWebTestCase {
       'title' => $this->randomString(),
       'body' => 'spam',
     );
-    $this->drupalPost('mollom-test/form', $edit, 'Submit');
+    $this->drupalGet('mollom-test/form');
+    $this->drupalPost(NULL, $edit, 'Submit', array('watchdog' => WATCHDOG_EMERG));
     $this->assertText('Successful form submission.');
 
     // Enable testing mode.
@@ -1847,10 +1849,9 @@ class MollomFallbackModeTestCase extends MollomWebTestCase {
    * Tests that form submissions are blocked when Mollom servers are unreachable.
    */
   function testBlock() {
-    // Enable Mollom for the request password form.
-    $this->drupalLogin($this->admin_user);
-    $this->setProtectionUI('user_pass', MOLLOM_MODE_CAPTCHA);
-    $this->drupalLogout();
+    $this->setProtection('user_pass', MOLLOM_MODE_CAPTCHA);
+    $this->setProtection('comment_form');
+    $node = $this->drupalCreateNode(array('body' => 'node body', 'type' => 'story'));
 
     // Set the fallback strategy to 'blocking mode'.
     variable_set('mollom_fallback', MOLLOM_FALLBACK_BLOCK);
@@ -1858,10 +1859,12 @@ class MollomFallbackModeTestCase extends MollomWebTestCase {
     // Make all requests to Mollom fail.
     variable_set('mollom_class', 'MollomDrupalTestInvalid');
 
-    // Check the password request form.
+    // Check the CAPTCHA-only protected form.
     $this->drupalGet('user/password', array('watchdog' => WATCHDOG_EMERG));
-    $this->assertNoCaptchaField();
     $this->assertText($this->fallback_message);
+    $this->assertNoCaptchaField();
+    $this->assertNoText('CAPTCHA');
+    $this->assertNoText('word verification');
 
     // Verify that the form cannot be submitted.
     $edit = array(
@@ -1869,16 +1872,34 @@ class MollomFallbackModeTestCase extends MollomWebTestCase {
     );
     $this->drupalPost(NULL, $edit, t('E-mail new password'), array('watchdog' => WATCHDOG_EMERG));
     $this->assertNoText(t('Further instructions have been sent to your e-mail address.'));
+    $this->assertNoText('CAPTCHA');
+    $this->assertNoText('word verification');
+
+    // Check the text analysis protected form.
+    $this->web_user = $this->drupalCreateUser();
+    $this->drupalLogin($this->web_user);
+    $this->drupalGet('comment/reply/' . $node->nid);
+    $this->assertNoText($this->fallback_message);
+    $this->assertText('privacy policy');
+
+    // Verify that the form cannot be submitted.
+    $edit = array(
+      'comment' => 'ham',
+    );
+    $this->drupalPost(NULL, $edit, t('Preview'), array('watchdog' => WATCHDOG_EMERG));
+    $this->assertText($this->fallback_message);
+    $this->assertNoCaptchaField();
+    $this->assertNoText('CAPTCHA');
+    $this->assertNoText('word verification');
   }
 
   /**
    * Tests that form submissions are accepted when Mollom servers are unreachable.
    */
   function testAccept() {
-    // Enable Mollom for the request password form.
-    $this->drupalLogin($this->admin_user);
-    $this->setProtectionUI('user_pass', MOLLOM_MODE_CAPTCHA);
-    $this->drupalLogout();
+    $this->setProtection('user_pass', MOLLOM_MODE_CAPTCHA);
+    $this->setProtection('comment_form');
+    $node = $this->drupalCreateNode(array('body' => 'node body', 'type' => 'story'));
 
     // Set the fallback strategy to 'accept mode'.
     variable_set('mollom_fallback', MOLLOM_FALLBACK_ACCEPT);
@@ -1886,19 +1907,51 @@ class MollomFallbackModeTestCase extends MollomWebTestCase {
     // Make all requests to Mollom fail.
     variable_set('mollom_class', 'MollomDrupalTestInvalid');
 
-    // Check the password request form.
+    // Check the CAPTCHA-only protected form.
     $this->drupalGet('user/password', array('watchdog' => WATCHDOG_EMERG));
-    $this->assertNoCaptchaField();
     $this->assertNoText($this->fallback_message);
+    $this->assertNoCaptchaField();
+    $this->assertNoText('CAPTCHA');
+    $this->assertNoText('word verification');
+
+    // Verify that the form can be submitted.
+    $edit = array(
+      'name' => $this->admin_user->name,
+    );
+    $this->drupalPost(NULL, $edit, t('E-mail new password'), array('watchdog' => WATCHDOG_EMERG));
+    $this->assertText(t('Further instructions have been sent to your e-mail address.'));
+    $this->assertNoText($this->fallback_message);
+    $this->assertNoText('CAPTCHA');
+    $this->assertNoText('word verification');
+
+    // Check the text analysis protected form.
+    $this->web_user = $this->drupalCreateUser();
+    $this->drupalLogin($this->web_user);
+    $this->drupalGet('comment/reply/' . $node->nid);
+    $this->assertNoText($this->fallback_message);
+    $this->assertText('privacy policy');
+
+    // Verify that the form can be submitted.
+    $edit = array(
+      'comment' => 'ham',
+    );
+    $this->drupalPost(NULL, $edit, t('Preview'), array('watchdog' => WATCHDOG_EMERG));
+    $this->assertNoText($this->fallback_message);
+    $this->assertNoCaptchaField();
+    $this->assertNoText('CAPTCHA');
+    $this->assertNoText('word verification');
+    $this->drupalPost(NULL, array(), t('Save'), array('watchdog' => WATCHDOG_EMERG));
+    $this->assertNoText($this->fallback_message);
+    $this->assertNoCaptchaField();
+    $this->assertNoText('CAPTCHA');
+    $this->assertNoText('word verification');
   }
 
   /**
    * Tests that form submissions are accepted when only last request attempt to Mollom servers succeeds.
    */
   function testFailover() {
-    $this->drupalLogin($this->admin_user);
-    $this->setProtectionUI('user_pass', MOLLOM_MODE_CAPTCHA);
-    $this->drupalLogout();
+    $this->setProtection('user_pass', MOLLOM_MODE_CAPTCHA);
 
     // Set the fallback strategy to 'blocking mode', so that if the failover
     // mechanism does not work, we would expect to get a warning.

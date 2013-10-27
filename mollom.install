@@ -58,26 +58,26 @@ function mollom_requirements($phase = 'runtime', $check = TRUE) {
       ));
     }
     // Bad request: Invalid client system time: Too large offset from UTC.
-    elseif ($status['keys valid'] === Mollom::REQUEST_ERROR) {
+    elseif ($status['response'] === Mollom::REQUEST_ERROR) {
       $requirements['mollom']['value'] = t('Client error');
       $requirements['mollom']['description'] = t('The server time of this site is incorrect. The time of the operating system is not synchronized with the Coordinated Universal Time (UTC), which prevents a successful authentication with Mollom. The maximum allowed offset is @minutes minutes. Please consult your hosting provider or server operator to correct the server time.', array(
         '@minutes' => Mollom::TIME_OFFSET_MAX / 60,
       ));
     }
     // Invalid API keys.
-    elseif ($status['keys valid'] === Mollom::AUTH_ERROR) {
+    elseif ($status['response'] === Mollom::AUTH_ERROR) {
       $requirements['mollom']['value'] = t('Invalid');
       $requirements['mollom']['description'] = t('The configured Mollom API keys are invalid. !admin-message', array(
         '!admin-message' => $admin_message,
       ));
     }
     // Communication error.
-    elseif ($status['keys valid'] === Mollom::NETWORK_ERROR) {
+    elseif ($status['response'] === Mollom::NETWORK_ERROR) {
       $requirements['mollom']['value'] = t('Network error');
       $requirements['mollom']['description'] = t('The Mollom servers could not be contacted. Please make sure that your web server can make outgoing HTTP requests.');
     }
     // Server error.
-    elseif ($status['keys valid'] === Mollom::RESPONSE_ERROR) {
+    elseif ($status['response'] === Mollom::RESPONSE_ERROR) {
       $requirements['mollom']['value'] = t('Service error');
       $requirements['mollom']['description'] = t('The Mollom API keys could not be verified. Please try again later.');
     }
