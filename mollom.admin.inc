@@ -488,12 +488,15 @@ function mollom_admin_blacklist_form(&$form_state, $type = 'spam') {
 
   // Translate internal reason values for rendering and select list in form.
   $contexts = array(
-    'allFields' => t('All fields'),
-    'links' => t('Links'),
+    'allFields' => t('- All fields -'),
+    'author' => t('- All author fields -'),
     'authorName' => t('Author name'),
     'authorMail' => t('Author e-mail'),
-    'authorIp' => t('IP address'),
-    'authorId' => t('User ID'),
+    'authorIp' => t('Author IP'),
+    'authorId' => t('Author User ID'),
+    'post' => t('- All post fields -'),
+    'postTitle' => t('Post title'),
+    'links' => t('Links'),
   );
   $matches = array(
     'contains' => t('contains'),
@@ -512,7 +515,7 @@ function mollom_admin_blacklist_form(&$form_state, $type = 'spam') {
       // #class property is internally used by
       // theme_mollom_admin_blacklist_form().
       $row['context'] = array(
-        '#value' => check_plain($contexts[$entry['context']]),
+        '#value' => check_plain(isset($contexts[$entry['context']]) ? $contexts[$entry['context']] : $entry['context']),
         '#class' => 'mollom-blacklist-context value-' . check_plain($entry['context']),
       );
       $row['match'] = array(
