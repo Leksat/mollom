@@ -51,7 +51,13 @@ function mollom_help($path, $arg) {
   }
 
   if ($path == 'admin/settings/mollom/blacklist') {
-    return t('Mollom automatically blocks unwanted content and learns from all participating sites to improve its filters. On top of automatic filtering, you can define a custom blacklist.');
+    $output = '<p>';
+    $output .= t('Mollom automatically blocks unwanted content and learns from all participating sites to improve its filters. On top of automatic filtering, you can define a custom blacklist.');
+    $output .= '</p>';
+    $output .= '<p>';
+    $output .= t('Use an "exact" match for short, single words that could be contained within another word.');
+    $output .= '</p>';
+    return $output;
   }
 
   if ($path == 'admin/help#mollom') {
@@ -91,6 +97,16 @@ function mollom_help($path, $arg) {
     $output .= '<p>';
     $output .= t("All blacklist entries are applied to a context: the entire submitted post, or only links in the post. When limiting the context to links, both the link URL and the link text is taken into account.");
     $output .= '</p>';
+    $output .= '<p>';
+    $output .= t('Each blacklist entry defines how it matches:');
+    $output .= '</p>';
+    $output .= '<ul>';
+    $output .= '<li>';
+    $output .= t('Use "contains" matching to find a term within any other string.');
+    $output .= '</li><li>';
+    $output .= t('Use "exact" matching for terms made up of short, single words that could be contained within a larger permissible word.');
+    $output .= '</li>';
+    $output .= '</ul>';
     $output .= '<p>';
     $output .= t("If a blacklist entry contains multiple words, various combinations will be matched. For example, when adding \"<code>replica&nbsp;watches</code>\" limited to links, the following links will be blocked:");
     $output .= '</p>';
