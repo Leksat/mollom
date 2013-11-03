@@ -38,7 +38,7 @@ function getMollomCaptcha() {
 
   // Retrieve a new CAPTCHA.
   $.ajax({
-    url: Drupal.settings.basePath + path,
+    url: Drupal.settings.basePath + Drupal.settings.mollomPathPrefix + path,
     type: 'POST',
     dataType: 'json',
     success: function (data) {

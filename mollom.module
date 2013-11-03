@@ -1711,6 +1711,15 @@ function mollom_process_mollom($element, $input, &$form_state, &$complete_form) 
 
   // Add the JavaScript.
   drupal_add_js(drupal_get_path('module', 'mollom') . '/mollom.js');
+  // D7 backport: Provide the language-specific path prefix, if any.
+  // @see drupal_add_js()
+  // Note: D6 uses array_merge_recursive() for JS settings of all modules; the
+  // setting must be namespaced to prevent the value from being converted into
+  // an array in case multiple modules have backported this gem.
+  url('', array('prefix' => &$prefix));
+  drupal_add_js(array(
+    'mollomPathPrefix' => empty($prefix) ? '' : $prefix,
+  ), 'setting');
 
   // Add the Mollom session data elements.
   // These elements resemble the {mollom} database schema. The form validation
