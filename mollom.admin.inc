@@ -195,6 +195,7 @@ function mollom_admin_configure_form(&$form_state, $mollom_form = NULL) {
     case 'configure':
       drupal_set_title(t('Configure %form-title protection', array('%form-title' => $mollom_form['title'])));
       $form['#after_build'][] = 'mollom_admin_configure_form_after_build';
+      $recommended = t('recommended');
 
       $form['mollom']['form_id'] = array(
         '#type' => 'value',
@@ -202,8 +203,11 @@ function mollom_admin_configure_form(&$form_state, $mollom_form = NULL) {
       );
 
       $modes = array();
-      $modes[MOLLOM_MODE_ANALYSIS] = t('Text analysis');
-      $modes[MOLLOM_MODE_CAPTCHA] = t('CAPTCHA');
+      $modes[MOLLOM_MODE_ANALYSIS] = t('!option <em>(!recommended)</em>', array(
+        '!option' => t('Text analysis'),
+        '!recommended' => $recommended,
+      ));
+      $modes[MOLLOM_MODE_CAPTCHA] = t('CAPTCHA only');
 
       $form['mollom']['mode'] = array(
         '#type' => 'radios',
@@ -291,8 +295,11 @@ function mollom_admin_configure_form(&$form_state, $mollom_form = NULL) {
         '#type' => 'radios',
         '#title' => t('Text analysis strictness'),
         '#options' => array(
+          'normal' => t('!option <em>(!recommended)</em>', array(
+            '!option' => t('Normal'),
+            '!recommended' => $recommended,
+          )),
           'strict' => t('Strict: Posts are more likely classified as spam'),
-          'normal' => t('Normal'),
           'relaxed' => t('Relaxed: Posts are more likely classified as ham'),
         ),
         '#default_value' => $mollom_form['strictness'],
@@ -305,7 +312,10 @@ function mollom_admin_configure_form(&$form_state, $mollom_form = NULL) {
         '#title' => t('When text analysis is unsure'),
         '#default_value' => $mollom_form['unsure'],
         '#options' => array(
-          'captcha' => t('Show a CAPTCHA'),
+          'captcha' => t('!option <em>(!recommended)</em>', array(
+            '!option' => t('Show a CAPTCHA'),
+            '!recommended' => $recommended,
+          )),
           'moderate' => t('Retain the post for manual moderation'),
           'binary' => t('Accept the post'),
         ),
@@ -321,8 +331,11 @@ function mollom_admin_configure_form(&$form_state, $mollom_form = NULL) {
         '#title' => t('When text analysis identifies spam'),
         '#default_value' => $mollom_form['discard'],
         '#options' => array(
+          1 => t('!option <em>(!recommended)</em>', array(
+            '!option' => t('Discard the post'),
+            '!recommended' => $recommended,
+          )),
           0 => t('Retain the post for manual moderation'),
-          1 => t('Discard the post'),
         ),
         '#required' => $mollom_form['mode'] == MOLLOM_MODE_ANALYSIS,
         // Only possible for forms supporting moderation of unpublished posts.
@@ -374,7 +387,9 @@ function mollom_admin_configure_form(&$form_state, $mollom_form = NULL) {
  * #after_build callback for mollom_admin_configure_form().
  */
 function mollom_admin_configure_form_after_build($form, &$form_state) {
-  $form['mollom']['mode'][MOLLOM_MODE_CAPTCHA]['#description'] = t('Only choose CAPTCHA if text analysis is not suitable. Page caching is disabled on all pages containing CAPTCHA-only protected forms.');
+  $form['mollom']['mode'][MOLLOM_MODE_ANALYSIS]['#description'] = t('Mollom will analyze the post and will only show a CAPTCHA when it is unsure.');
+  $form['mollom']['mode'][MOLLOM_MODE_CAPTCHA]['#description'] = t('A CAPTCHA will be shown for every post. Only choose this if there are too few text fields to analyze.');
+  $form['mollom']['mode'][MOLLOM_MODE_CAPTCHA]['#description'] .= '<br />' . t('Note: Page caching is disabled on all pages containing a CAPTCHA-only protected form.');
 
   // Conditionally make text analysis form elements required.
   // Accounts for different add and edit form builds and rebuilds.
