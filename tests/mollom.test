@@ -126,6 +126,9 @@ class MollomWebTestCase extends DrupalWebTestCase {
     // Disable testing mode warnings.
     variable_set('mollom_testing_mode_omit_warning', TRUE);
 
+    // Log all messages.
+    variable_set('mollom_log_minimum_severity', WATCHDOG_DEBUG);
+
     // If not explicitly disabled by a test, setup and validate testing keys,
     // and create a default admin user.
     if (empty($this->disableDefaultSetup)) {

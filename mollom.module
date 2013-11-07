@@ -2475,8 +2475,9 @@ function mollom_log_write() {
   if (empty($log)) {
     return;
   }
-  // Only log if severity if it meets configured minimum severity.
-  if ($log['severity'] <= variable_get('mollom_log_minimum_severity', WATCHDOG_WARNING)) {
+  // Only log if severity if it meets configured minimum severity, or if testing
+  // mode is enabled.
+  if (variable_get('mollom_testing_mode', 0) || $log['severity'] <= variable_get('mollom_log_minimum_severity', WATCHDOG_WARNING)) {
     list($message, $arguments) = _mollom_format_log($log);
     watchdog('mollom', $message, $arguments, $log['severity']);
   }
