@@ -3364,12 +3364,19 @@ class MollomDataTestCase extends MollomWebTestCase {
         'child' => 'Beer',
       ),
       'field_checked' => array(
-        0 => array('value' => 'Check first'),
-        1 => array('value' => 'Check second'),
+        'und' => array(
+          0 => array('value' => ''),
+          1 => array('summary' => 'Check summary', 'value' => 'Check first', 'whatever' => 'whatever'),
+          2 => array('value' => 'Check second'),
+          3 => array('nested_empty' => array()),
+          4 => array('nested_weird' => array('')),
+        ),
       ),
       'field_unchecked' => array(
-        0 => array('value' => 'Ignore first'),
-        1 => array('value' => 'Ignore second'),
+        'und' => array(
+          0 => array('value' => 'Ignore first'),
+          1 => array('value' => 'Ignore second'),
+        ),
       ),
       'name' => 'Drupaler',
       'mail' => 'drupaler@example.com',
@@ -3382,10 +3389,11 @@ class MollomDataTestCase extends MollomWebTestCase {
     $body = array(
       $values['message'],
       $values['parent']['child'],
-      $values['field_checked'][0]['value'],
-      $values['field_checked'][1]['value'],
+      $values['field_checked']['und'][1]['summary'],
+      $values['field_checked']['und'][1]['value'],
+      $values['field_checked']['und'][2]['value'],
     );
-    $this->assertSame('postBody', $data['postBody'], implode(" \n", $body));
+    $this->assertSame('postBody', $data['postBody'], implode("\n", $body));
     $this->assertSame('authorId', $data['authorId'], NULL);
     $this->assertSame('authorCreated', $data['authorCreated'], NULL);
     $this->assertSame('authorName', $data['authorName'], $values['name']);
@@ -3423,7 +3431,7 @@ class MollomDataTestCase extends MollomWebTestCase {
       $values['field_checked'][0]['value'],
       $values['field_checked'][1]['value'],
     );
-    $this->assertSame('postBody', $data['postBody'], implode(" \n", $body));
+    $this->assertSame('postBody', $data['postBody'], implode("\n", $body));
     $this->assertSame('authorId', $data['authorId'], NULL);
     $this->assertSame('authorCreated', $data['authorCreated'], NULL);
     $this->assertSame('authorName', $data['authorName'], $values['name']);
@@ -3494,7 +3502,7 @@ class MollomDataTestCase extends MollomWebTestCase {
    */
   function testAnalysis() {
     $this->drupalLogin($this->admin_user);
-    $this->setProtectionUI('comment_form');
+    $this->setProtection('comment_form');
 
     // Make comment preview optional.
     $edit = array(
