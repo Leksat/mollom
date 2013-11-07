@@ -3471,6 +3471,18 @@ class MollomDataTestCase extends MollomWebTestCase {
     $form_state = array('values' => $values, 'buttons' => array());
     $data = mollom_form_get_values($form_state, $fields, $form_info['mapping']);
     $this->assertFalse($data, 'Invalid UTF-8 detected.');
+    $this->assertMollomWatchdogMessages();
+
+    // Verify that invalid UTF-8 is detected in the CAPTCHA solution element.
+    $values = array(
+      'mollom' => array(
+        'captcha' => "Foo \xC0 bar",
+      ),
+    );
+    $form_state = array('values' => $values, 'buttons' => array());
+    $data = mollom_form_get_values($form_state, $fields, $form_info['mapping']);
+    $this->assertFalse($data, 'Invalid UTF-8 detected in CAPTCHA solution.');
+    $this->assertMollomWatchdogMessages();
 
     // Verify that invalid XML characters are detected.
     $values = array(
@@ -3479,6 +3491,7 @@ class MollomDataTestCase extends MollomWebTestCase {
     $form_state = array('values' => $values, 'buttons' => array());
     $data = mollom_form_get_values($form_state, $fields, $form_info['mapping']);
     $this->assertFalse($data, 'Invalid XML characters detected.');
+    $this->assertMollomWatchdogMessages();
   }
 
   /**

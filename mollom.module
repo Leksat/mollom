@@ -1237,7 +1237,9 @@ function mollom_form_get_values(&$form_state, $fields, $mapping) {
   // any value.
   $invalid_utf8 = FALSE;
   $invalid_xml = FALSE;
-  foreach ($data as $key => $value) {
+  // Include the CAPTCHA solution user input in the UTF-8 validation.
+  $solution = isset($form_values['mollom']['captcha']) ? array('solution' => $form_values['mollom']['captcha']) : array();
+  foreach ($data + $solution as $key => $value) {
     // Check for invalid UTF-8 byte sequences first.
     if (!drupal_validate_utf8($value)) {
       $invalid_utf8 = TRUE;
