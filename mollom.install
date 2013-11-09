@@ -30,7 +30,7 @@ function mollom_requirements($phase = 'runtime', $check = TRUE) {
     $requirements['mollom'] = array(
       'title' => t('Mollom API keys'),
       'value' => t('Valid (public key: @publicKey)', array(
-        '@publicKey' => mollom()->loadConfiguration('publicKey'),
+        '@publicKey' => variable_get('mollom_public_key', ''),
       )),
     );
     // Immediately return if everything is in order.
@@ -50,8 +50,15 @@ function mollom_requirements($phase = 'runtime', $check = TRUE) {
       ));
     }
     // Generate an appropriate error message:
+    // If testing mode is enabled, then the Testing API is most likely down,
+    // since the testing client implementation automatically tries to recover
+    // from stale/outdated API keys.
+    if (variable_get('mollom_testing_mode', 0)) {
+      $requirements['mollom']['value'] = t('Testing API not available');
+      $requirements['mollom']['description'] = t('The Mollom Testing API is not available currently.');
+    }
     // Missing API keys.
-    if (!$status['keys']) {
+    elseif (!$status['keys']) {
       $requirements['mollom']['value'] = t('Not configured');
       $requirements['mollom']['description'] = t('The Mollom API keys are not configured yet. !admin-message', array(
         '!admin-message' => $admin_message,

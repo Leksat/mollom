@@ -328,10 +328,9 @@ class MollomWebTestCase extends DrupalWebTestCase {
   /**
    * Setup Mollom API keys for testing.
    *
-   * @param bool $force
-   *   (optional) Whether to enforce creation of new API keys. New keys are only
-   *   created if MollomWebTestCase::$createKeys or respectively the
-   *   'mollom_testing_create_keys' variable is set to TRUE. Defaults to FALSE.
+   * New keys are only created if MollomWebTestCase::$createKeys or respectively
+   * the 'mollom_testing_create_keys' variable is set to TRUE.
+   *
    * @param bool $once
    *   (optional) Whether to disable the 'mollom_testing_create_keys' variable
    *   after the first call (and thus omit API key verifications on every page
@@ -341,16 +340,14 @@ class MollomWebTestCase extends DrupalWebTestCase {
    * @see MollomDrupalTest::__construct()
    * @see MollomDrupalTest::createKeys()
    */
-  protected function setKeys($force = FALSE, $once = FALSE) {
+  protected function setKeys($once = FALSE) {
     // Instantiate a Mollom client class.
     // Depending on MollomWebTestCase::$createKeys and ultimately the
     // 'mollom_testing_create_keys' variable, MollomDrupalTest::__construct()
     // will automatically setup testing API keys.
     $this->getClient();
 
-    if ($force) {
-      $this->mollom->createKeys();
-    }
+    $this->mollom->createKeys();
 
     // Make API keys available to test methods.
     if (!empty($this->mollom->publicKey)) {
@@ -1051,7 +1048,9 @@ class MollomTestingModeTestCase extends MollomWebTestCase {
       'mollom_private_key' => $privateKey,
     );
     $this->drupalGet('admin/settings/mollom/settings');
+    $this->assertText('The Mollom API keys are not configured yet.');
     $this->drupalPost(NULL, $edit, t('Save configuration'), array('watchdog' => WATCHDOG_EMERG));
+    $this->assertNoText('The Mollom API keys are not configured yet.');
     $this->assertText(t('The configuration options have been saved.'));
     $this->assertText('The configured Mollom API keys are invalid.');
 
@@ -1073,8 +1072,10 @@ class MollomTestingModeTestCase extends MollomWebTestCase {
       'mollom_testing_mode' => 1,
     );
     $this->drupalGet('admin/settings/mollom/settings', array('watchdog' => WATCHDOG_EMERG));
+    $this->assertText('The configured Mollom API keys are invalid.');
     $this->drupalPost(NULL, $edit, t('Save configuration'));
-    $this->assertText(t('Mollom servers verified your keys. The services are operating correctly.'));
+    $this->assertNoText('The Mollom API keys are not configured yet.');
+    $this->assertNoText('The configured Mollom API keys are invalid.');
     $this->assertText(t('Mollom testing mode is still enabled. !admin-message', array('!admin-message' => '')));
 
     $this->drupalLogout();
@@ -1095,14 +1096,14 @@ class MollomTestingModeTestCase extends MollomWebTestCase {
     // Disable testing mode.
     $this->drupalLogin($this->admin_user);
     $this->drupalGet('admin/settings/mollom/settings');
-    $this->assertText(t('Mollom testing mode is still enabled. !admin-message', array('!admin-message' => '')));
+    $this->assertText('Mollom testing mode is still enabled.');
     $edit = array(
       'mollom_testing_mode' => FALSE,
     );
     $this->drupalPost(NULL, $edit, t('Save configuration'), array('watchdog' => WATCHDOG_EMERG));
     $this->assertText(t('The configuration options have been saved.'));
     $this->assertText('The configured Mollom API keys are invalid.');
-    $this->assertNoText(t('Mollom testing mode is still enabled. !admin-message', array('!admin-message' => '')));
+    $this->assertNoText('Mollom testing mode is still enabled.');
 
     // Verify that production API keys still exist.
     $this->assertFieldByName('mollom_public_key', $publicKey);
@@ -1114,6 +1115,8 @@ class MollomTestingModeTestCase extends MollomWebTestCase {
  * Tests module installation and global status handling.
  */
 class MollomInstallationTestCase extends MollomWebTestCase {
+  protected $mollomClass = 'MollomDrupalTestLocal';
+  protected $disableDefaultSetup = TRUE;
   protected $createKeys = FALSE;
 
   public static function getInfo() {
@@ -1125,7 +1128,6 @@ class MollomInstallationTestCase extends MollomWebTestCase {
   }
 
   function setUp() {
-    $this->disableDefaultSetup = TRUE;
     parent::setUp(array('mollom_test'));
 
     $this->admin_user = $this->drupalCreateUser(array(
@@ -1211,6 +1213,8 @@ class MollomInstallationTestCase extends MollomWebTestCase {
     // Verify presence of 'network error' message.
     $this->drupalGet('admin/settings/mollom/settings', array('watchdog' => WATCHDOG_EMERG));
     $this->assertText(t('The Mollom servers could not be contacted. Please make sure that your web server can make outgoing HTTP requests.'));
+    $this->assertNoText('The Mollom API keys are not configured yet.');
+    $this->assertNoText('The configured Mollom API keys are invalid.');
 
     // Verify requirements error about network error.
     $this->drupalGet('admin/reports/status', array('watchdog' => WATCHDOG_EMERG));
@@ -1224,6 +1228,7 @@ class MollomInstallationTestCase extends MollomWebTestCase {
 
     // Verify that valid keys work.
     $this->drupalGet('admin/settings/mollom/settings', array('watchdog' => WATCHDOG_EMERG));
+    $this->assertFieldByName('mollom_public_key', 'the-invalid-mollom-api-key-value');
     $edit = array(
       'mollom_public_key' => $this->mollom->publicKey,
       'mollom_private_key' => $this->mollom->privateKey,
@@ -1686,6 +1691,7 @@ class MollomResponseLocalTestCase extends MollomResponseTestCase {
 }
 
 class MollomAccessTestCase extends MollomWebTestCase {
+  protected $mollomClass = 'MollomDrupalTestLocal';
   protected $createKeys = FALSE;
 
   public static function getInfo() {
@@ -1844,7 +1850,7 @@ class MollomFallbackModeTestCase extends MollomWebTestCase {
     parent::setUp();
 
     // Setup valid testing API keys.
-    $this->setKeys(TRUE);
+    $this->setKeys();
     $this->assertValidKeys();
   }
 
@@ -3865,7 +3871,7 @@ class MollomAnalysisTestCase extends MollomWebTestCase {
 
   function setUp() {
     parent::setUp(array('mollom', 'mollom_test'));
-    $this->setKeys(TRUE, TRUE);
+    $this->setKeys(TRUE);
     $this->assertValidKeys();
 
     $this->setProtection('mollom_test_form', MOLLOM_MODE_ANALYSIS);
@@ -4471,7 +4477,7 @@ class MollomCaptchaTestCase extends MollomWebTestCase {
 
   function setUp() {
     parent::setUp(array('mollom', 'mollom_test'));
-    $this->setKeys(TRUE, TRUE);
+    $this->setKeys(TRUE);
     $this->assertValidKeys();
 
     $this->setProtection('mollom_test_form', MOLLOM_MODE_CAPTCHA);

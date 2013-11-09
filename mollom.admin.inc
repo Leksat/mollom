@@ -752,7 +752,7 @@ function mollom_admin_settings(&$form_state) {
     $status = _mollom_status();
     // If there is any configuration error, then mollom_init() will have output
     // it already.
-    if ($status === TRUE) {
+    if ($status === TRUE && !variable_get('mollom_testing_mode', 0)) {
       drupal_set_message(t('Mollom servers verified your keys. The services are operating correctly.'));
     }
   }
@@ -770,28 +770,19 @@ function mollom_admin_settings(&$form_state) {
   );
   // Keys are not #required to allow to install this module and configure it
   // later.
-  $mollom = mollom();
   $form['access-keys']['mollom_public_key'] = array(
     '#type' => 'textfield',
     '#title' => t('Public key'),
-    '#default_value' => $mollom->loadConfiguration('publicKey'),
+    '#default_value' => variable_get('mollom_public_key', NULL),
     '#element_validate' => array('mollom_admin_settings_validate_key'),
     '#description' => t('Used to uniquely identify this site.'),
-    // Expose this input element as 'mollom_public_key', but ensure
-    // system_settings_form_submit() saves it into the class-specific variable.
-    '#name' => 'mollom_public_key',
-    '#parents' => array($mollom->configuration_map['publicKey']),
   );
   $form['access-keys']['mollom_private_key'] = array(
     '#type' => 'textfield',
     '#title' => t('Private key'),
-    '#default_value' => $mollom->loadConfiguration('privateKey'),
+    '#default_value' => variable_get('mollom_private_key', NULL),
     '#element_validate' => array('mollom_admin_settings_validate_key'),
     '#description' => t('Used to prevent someone else from hijacking your requests. Similar to a password, it should never be shared with anyone.'),
-    // Expose this input element as 'mollom_private_key', but ensure
-    // system_settings_form_submit() saves it into the class-specific variable.
-    '#name' => 'mollom_private_key',
-    '#parents' => array($mollom->configuration_map['privateKey']),
   );
 
   $form['mollom_fallback'] = array(
