@@ -957,3 +957,14 @@ function mollom_update_6208() {
   return $ret;
 }
 
+/**
+ * Disable minimum log severity threshold for existing sites.
+ */
+function mollom_update_6209() {
+  $ret = array();
+  if (variable_get('mollom_log_minimum_severity', NULL) === NULL) {
+    variable_set('mollom_log_minimum_severity', WATCHDOG_INFO);
+  }
+  return $ret;
+}
+
