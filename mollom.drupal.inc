@@ -245,8 +245,19 @@ class MollomDrupalTest extends MollomDrupal {
     }
     catch (MollomException $e) {
       $is_auth_error = $e->getCode() == self::AUTH_ERROR || ($e->getCode() == 404 && strpos($path, 'site') === 0);
+      $current_public_key = $this->publicKey;
       if ($this->createKeys && $is_auth_error && $this->createKeys()) {
         $this->saveKeys();
+        // Avoid to needlessly hit the previous/invalid public key again.
+        // Mollom::handleRequest() will sign the new request correctly.
+        // If it was empty, Mollom::handleRequest() returned an AUTH_ERROR
+        // without issuing a request.
+        if ($path == 'site/') {
+          $path = 'site/' . $this->publicKey;
+        }
+        elseif (!empty($current_public_key)) {
+          $path = str_replace($current_public_key, $this->publicKey, $path);
+        }
         $response = parent::handleRequest($method, $server, $path, $data, $expected);
       }
       else {

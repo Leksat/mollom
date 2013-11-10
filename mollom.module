@@ -1427,7 +1427,7 @@ function _mollom_get_openid($account) {
  * @see mollom_requirements()
  */
 function _mollom_status($force = FALSE) {
-  static $status = array();
+  static $static_cache = array();
   $testing_mode = (int) variable_get('mollom_testing_mode', 0);
   $status = &$static_cache[$testing_mode];
 
