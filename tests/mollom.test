@@ -113,6 +113,7 @@ class MollomWebTestCase extends DrupalWebTestCase {
     if (empty($this->disableDefaultSetup)) {
       $modules[] = 'mollom';
     }
+    // Database logging is unconditionally required to assert watchdog messages.
     $modules[] = 'dblog';
     parent::setUp($modules);
 
@@ -124,6 +125,8 @@ class MollomWebTestCase extends DrupalWebTestCase {
     variable_set('mollom_testing_create_keys', $this->createKeys);
 
     // Disable testing mode warnings.
+    // drupal_set_message() starts a session, which disables page caching, and
+    // in turn, page/form cache related tests would not behave correctly.
     variable_set('mollom_testing_mode_omit_warning', TRUE);
 
     // Log all messages.
