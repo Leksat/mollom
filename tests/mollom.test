@@ -1352,7 +1352,7 @@ class MollomLanguageDetectionTestCase extends MollomWebTestCase {
 
     foreach ($strings as $language => $text) {
       $result = mollom('mollom.detectLanguage', array('text' => $text));
-      $this->assertEqual($result[0]['language'], $language, t('A language code was specified and they match.'));
+      $this->assertEqual($result[0]['language'], $language, t('A language code for ' . $language . ' was specified as ' . $result[0]['language'] . ' and they match.'));
       $this->assertTrue($result[0]['confidence'] > 0, t('A confidence value was specified and it is greater than 0.'));
     }
   }
