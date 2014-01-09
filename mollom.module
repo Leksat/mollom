@@ -1143,6 +1143,10 @@ function mollom_form_get_values(&$form_state, $fields, $mapping) {
       $value = isset($value[$key]) ? $value[$key] : NULL;
     }
     if (isset($value)) {
+      if (is_array($value)) {
+        $value = _mollom_flatten_form_values($value);
+        $value = implode(' ', $value);
+      }
       $mapping[$property] = $value;
     }
   }
