@@ -283,6 +283,16 @@ function mollom_menu() {
     'type' => MENU_CALLBACK,
   );
 
+  // Report as inappropriate
+  $items['mollom/flag/%/%/%/%'] = array(
+    'page callback' => 'mollom_flag',
+    'page arguments' => array(2, 3, 4, 5),
+    'access callback' => '_mollom_flag_access',
+    'access arguments' => array(3, 4),
+    'type' => MENU_CALLBACK,
+    'file' => 'mollom.flag.inc',
+  );
+
   return $items;
 }
 
@@ -363,6 +373,7 @@ function mollom_perm() {
     'administer mollom',
     'bypass mollom protection',
     'access mollom statistics',
+    'report to mollom'
   );
 }
 
@@ -405,6 +416,24 @@ function mollom_data_load($entity, $id) {
 }
 
 /**
+ * Loads the Mollom data records from the database for a specific entity type.
+ *
+ * @param $entity
+ *   The entity type to retrieve data for.
+ *
+ * @returns
+ *   The matching Mollom data as an array keyed by entity id.
+ */
+function mollom_entity_type_load($type) {
+  $results = db_query("SELECT * FROM {mollom} WHERE entity = '%s'", array($type));
+  $entities = array();
+  while ($row = db_fetch_object($results)) {
+    $entities[$row->id] = $row;
+  }
+  return $entities;
+}
+
+/**
  * Save Mollom validation data to the database.
  *
  * Based on the specified entity type and id, this function stores the
@@ -431,6 +460,11 @@ function mollom_data_load($entity, $id) {
  *     0 and 1.0.
  *   - languages: An array containing language codes the content might be
  *     written in.
+ *   - flags_spam: Total count of spam feedback reports.
+ *   - flags_ham: Total count of ham feedback reports.
+ *   - flags_profanity: Total count of profanity feedback reports.
+ *   - flags_quality: Total count of low quality feedback reports.
+ *   - flags_unwanted: Total count of unwanted feedback reports.
  */
 function mollom_data_save($data) {
   $data->changed = time();
@@ -473,7 +507,7 @@ function mollom_data_moderate($entity, $id) {
   }
 
   // Report the session to Mollom.
-  _mollom_send_feedback($data, 'approve');
+  _mollom_send_feedback($data, 'approve', 'moderate', 'mollom_data_moderate');
 
   // Mark the session data as moderated.
   $data->moderate = 0;
@@ -590,7 +624,7 @@ function mollom_data_report_multiple($entity, array $ids, $feedback) {
     $data = mollom_data_load($entity, $id);
     // Send feedback, if we have session data.
     if (!empty($data->contentId) || !empty($data->captchaId)) {
-      $result = _mollom_send_feedback($data, $feedback);
+      $result = _mollom_send_feedback($data, $feedback, 'moderate', 'mollom_data_report_multiple');
       $return = $return && $result;
     }
   }
@@ -610,6 +644,11 @@ function mollom_form_alter(&$form, &$form_state, $form_id) {
   // Skip installation and update forms.
   if (defined('MAINTENANCE_MODE')) {
     return;
+  }
+  // Check for node form edit.
+  if (isset($form['type']) && isset($form['#node']) && $form['type']['#value'] . '_node_form' == $form_id) {
+    module_load_include('inc', 'mollom', 'mollom.flag');
+    mollom_flag_node_form_alter($form, $form_state, $form_id);
   }
   // Retrieve a list of all protected forms once.
   $forms = mollom_form_cache();
@@ -2666,8 +2705,15 @@ function _mollom_format_string($string, array $args = array()) {
  * @param $reason
  *   The feedback to send, one of 'spam', 'profanity', 'quality', 'unwanted',
  *   'approve'.
+ * @param $type
+ *   The type of feedback, one of 'moderate' or 'flag'.
+ * @param $source
+ *   An optional single word string identifier for the user interface source.
+ *   This is tracked along with the feedback to provide a more complete picture
+ *   of how feedback is used and submitted on the site.
  */
-function _mollom_send_feedback($data, $reason = 'spam') {
+function _mollom_send_feedback($data, $reason = 'spam', $type = 'moderate', $source = NULL) {
+  global $user;
   $params = array();
   if (!empty($data->captchaId)) {
     $params['captchaId'] = $data->captchaId;
@@ -2686,14 +2732,30 @@ function _mollom_send_feedback($data, $reason = 'spam') {
   }
   $params += array(
     'reason' => $reason,
+    'type' => $type,
+    'authorIp' => ip_address(),
   );
+  if (!empty($source)) {
+    $params['source'] = $source;
+  }
+  if ($user->uid > 0) {
+    $params['authorId'] = $user->uid;
+    // Passing the user rather than account object because only the uid property
+    // is used by _mollom_get_openid.
+    $authorOpenId = _mollom_get_openid($user);
+    if (!empty($authorOpenId)) {
+      $params['authorOpenId'] = $authorOpenId;
+    }
+  }
   $result = mollom()->sendFeedback($params);
   mollom_log(array(
-    'message' => 'Reported %feedback for @resource %id.',
+    'message' => 'Reported %feedback for @resource %id from %source - %type.',
     'arguments' => array(
+      '%type' => $type,
       '%feedback' => $reason,
       '@resource' => $resource,
       '%id' => $id,
+      '%source' => $source,
     ),
   ));
   return $result;
@@ -3429,6 +3491,7 @@ function node_mollom_form_list() {
       'report access' => array('administer nodes'),
       // D6: node_delete() and node_delete_confirm() check node_access().
       'entity delete callback' => '_mollom_node_delete',
+      'entity report access callback' => 'node_mollom_entity_report_access',
     );
   }
   return $forms;
@@ -3480,6 +3543,26 @@ function node_mollom_form_info($form_id) {
   }
 
   return $form_info;
+}
+
+/**
+ * Entity report access callback for nodes.
+ * This enables the flag as inapporpriate feature for nodes.
+ *
+ * @param $node
+ *   Optional node object to check access to a specific node.
+ */
+function node_mollom_entity_report_access($node = NULL) {
+  // Remove the following line to enable flag as inappropriate for nodes.
+  return FALSE;
+
+  if (!empty($node) && isset($node->nid)) {
+    return node_access('view', $node->nid);
+  }
+  else {
+    // Generally turned on when this function is enabled as a callback.
+    return TRUE;
+  }
 }
 
 /**
@@ -3539,16 +3622,19 @@ function node_mollom_form_moderation(&$form, &$form_state) {
  */
 function mollom_form_node_admin_content_alter(&$form, &$form_state) {
   // @see node_admin_content()
-  if (!(isset($form_state['values']['operation']) && $form_state['values']['operation'] == 'delete')) {
-    module_load_include('inc', 'mollom', 'mollom.admin');
-    $form['admin']['options']['operation']['#options']['mollom-unpublish'] = t('Report to Mollom and unpublish');
-    $form['admin']['options']['operation']['#options']['mollom-delete'] = t('Report to Mollom and delete');
-    $form['#validate'][] = 'mollom_node_admin_overview_submit';
+  if (isset($form_state['values']['operation']) && $form_state['values']['operation'] == 'delete') {
+    mollom_data_delete_form_alter($form, $form_state);
+    // Report before deletion.
+    array_unshift($form['#submit'], 'mollom_form_node_multiple_delete_confirm_submit');
     return;
   }
-  mollom_data_delete_form_alter($form, $form_state);
-  // Report before deletion.
-  array_unshift($form['#submit'], 'mollom_form_node_multiple_delete_confirm_submit');
+  module_load_include('inc', 'mollom', 'mollom.admin');
+  $form['admin']['options']['operation']['#options']['mollom-unpublish'] = t('Report to Mollom and unpublish');
+  $form['admin']['options']['operation']['#options']['mollom-delete'] = t('Report to Mollom and delete');
+  $form['#validate'][] = 'mollom_node_admin_overview_submit';
+
+  module_load_include('inc', 'mollom', 'mollom.flag');
+  _mollom_table_add_flag_counts('node', $form['admin'], $form['admin']['nodes']['#options']);
 }
 
 /**
@@ -3586,6 +3672,7 @@ function comment_mollom_form_list() {
       'name' => 'comment.admin',
     ),
     'report access' => array('administer comments'),
+    'entity report access callback' => 'comment_mollom_entity_report_access',
   );
   return $forms;
 }
@@ -3617,6 +3704,24 @@ function comment_mollom_form_info($form_id) {
 }
 
 /**
+ * Entity report access callback for comments.
+ *
+ * @param $comment
+ *   Optional entity object to check access to a specific comment.
+ */
+function comment_mollom_entity_report_access($comment = NULL) {
+  if (!user_access('access comments')) {
+    return FALSE;
+  }
+  if (!empty($comment->nid)) {
+    return node_access('view', node_load($comment->nid));
+  }
+  // Because there is no specific comment to test against we only use the
+  // basic access commments permission.
+  return TRUE;
+}
+
+/**
  * Implements hook_form_FORMID_alter().
  *
  * When a registered user posts a comment or when a comment administrator edits
@@ -3627,11 +3732,16 @@ function comment_mollom_form_info($form_id) {
  * @see mollom_comment_form_validate()
  *
  * @todo Remove in D7.
+ *
+ * Also add the flag as inappropriate flag counts in the administative view.
  */
 function mollom_form_comment_form_alter(&$form, &$form_state) {
   if (isset($form['author']) || isset($form['admin']['author'])) {
     $form['#validate'][] = 'mollom_comment_form_validate';
   }
+  // Add flag as inappropriate flag counts.
+  module_load_include('inc', 'mollom', 'mollom.flag');
+  mollom_flag_comment_form_alter($form, $form_state);
 }
 
 /**
@@ -3728,6 +3838,8 @@ function mollom_form_comment_multiple_delete_confirm_submit($form, &$form_state)
  * Hook into the mass comment administration page and add some operations to
  * communicate ham/spam to the XML-RPC server.
  *
+ * Display the counts of flag as inappropriate flags within comment list.
+ *
  * @see mollom_comment_admin_overview_submit()
  */
 function mollom_form_comment_admin_overview_alter(&$form, $form_state) {
@@ -3735,6 +3847,9 @@ function mollom_form_comment_admin_overview_alter(&$form, $form_state) {
   $form['options']['operation']['#options']['mollom-unpublish'] = t('Report to Mollom and unpublish');
   $form['options']['operation']['#options']['mollom-delete'] = t('Report to Mollom and delete');
   $form['#submit'][] = 'mollom_comment_admin_overview_submit';
+
+  module_load_include('inc', 'mollom', 'mollom.flag');
+  _mollom_table_add_flag_counts('comment', $form, $form['comments']['#options']);
 }
 
 /**
@@ -3942,4 +4057,235 @@ function profile_mollom_form_info_alter(&$form_info, $form_id) {
 
 /**
  * @} End of "name mollom_profile".
+ */
+
+
+/**
+ * @name mollom_flag Flag as inappropriate
+ */
+
+/**
+ * Access function to determine if flag as inappropriate is available for the
+ * current object and user.
+ *
+ * @param $type
+ *   The type of object; one of 'node' or 'comment'
+ * @param $object
+ *   Either the id of the object or a class representing the object.
+ */
+function _mollom_flag_access($type, $object) {
+  if (!_mollom_access('report to mollom')) {
+    return FALSE;
+  }
+  if (!is_object($object)) {
+    if ($type === 'comment') {
+      $object = _comment_load($object);
+    }
+    else {
+      $object = node_load($object);
+    }
+  }
+  return mollom_flag_entity_type_access($type, $object);
+}
+
+/**
+ * Helper access function to determine if "report to Mollom" is available
+ * and activated for a specific entity type.
+ *
+ * @param $type
+ *   The entity type to check, one of 'node' or 'comment'.
+ * @param $object
+ *   An optional specific object to check.
+ * @return boolean
+ *   True if access is granted, false if denied.
+ */
+function mollom_flag_entity_type_access($type, $object = NULL) {
+  // Find what forms to check.
+  $check_forms = array();
+  if ($type === 'comment') {
+    $check_forms[] = 'comment_form';
+  }
+  else {
+    if (!empty($object)) {
+      $check_forms[] = $object->type . '_node_form';
+    }
+    else {
+      $node_types = node_get_types('names');
+      foreach ($node_types as $machine_name => $name) {
+        $check_forms[] = $machine_name . '_node_form';
+      }
+    }
+  }
+  // Check if any of the forms are protected and granted access.
+  $forms = mollom_form_cache();
+  $form_info = mollom_form_list();
+  foreach ($check_forms as $form_id) {
+    // Make sure the form is protected.
+    if (!empty($forms['protected'][$form_id])) {
+      // Make sure that flag as inappropriate is accessible for this type.
+      foreach ($form_info as $info) {
+        if (!isset($info['entity']) || $info['entity'] != $type) {
+          continue;
+        }
+        if (isset($info['entity report access callback'])) {
+          $function = $info['entity report access callback'];
+          if ($function($object)) {
+            return TRUE;
+          }
+        }
+      }
+    }
+  }
+  return FALSE;
+}
+
+/**
+ * Implements hook_link().
+ */
+function mollom_link($type, $object, $teaser) {
+  if (!_mollom_flag_access($type, $object)) {
+    return FALSE;
+  }
+  $source = 'mollom_link_' . $type;
+  if ($type == 'comment') {
+    $id = $object->cid;
+  } else if ($type == 'node') {
+    $id = $object->nid;
+  }
+  $path = drupal_get_path('module', 'mollom');
+  drupal_add_css("$path/mollom.flag.position.css");
+  drupal_add_css("$path/mollom.flag.css");
+  drupal_add_js("$path/mollom.flag.js");
+  $links = array(
+    'mollom-flag' => array(
+      'title' => t('report'),
+      'href' => "mollom/flag/nojs/$type/$id/$source",
+      'html' => TRUE,
+      'attributes' => array('id' => "mollom_$type$id", 'class' => 'mollom-flag'),
+    ),
+  );
+  return $links;
+}
+
+/**
+ * Implements hook_theme_registry_alter().
+ */
+function mollom_theme_registry_alter(&$theme_registry) {
+  if (!empty($theme_registry['comment_admin_overview'])) {
+    $theme_registry['comment_admin_overview']['function'] = 'mollom_theme_comment_admin_overview';
+  }
+  if (!empty($theme_registry['node_admin_nodes'])) {
+    $theme_registry['node_admin_nodes']['function'] = 'mollom_theme_node_admin_nodes';
+  }
+}
+
+/**
+ * Override theme_comment_admin_overview().
+ *
+ * Adds the flagged column to the table.
+ */
+function mollom_theme_comment_admin_overview($form) {
+  if (isset($form['flagged'])) {
+    $form['header']['#value']['flagged'] = array(
+      'data' => t('Flagged'),
+      'field' => 'flagged',
+    );
+  }
+  $output = drupal_render($form['options']);
+  if (isset($form['subject']) && is_array($form['subject'])) {
+    foreach (element_children($form['subject']) as $key) {
+      $row = array();
+      $row[] = drupal_render($form['comments'][$key]);
+      $row[] = drupal_render($form['subject'][$key]);
+      $row[] = drupal_render($form['username'][$key]);
+      $row[] = drupal_render($form['node_title'][$key]);
+      $row[] = drupal_render($form['timestamp'][$key]);
+      $row[] = drupal_render($form['operations'][$key]);
+      if (isset($form['flagged'])) {
+        $row[] = drupal_render($form['flagged'][$key]);
+      }
+      $rows[] = $row;
+    }
+  }
+  else {
+    $rows[] = array(array(
+      'data' => t('No comments available.'),
+      'colspan' => '6',
+    ));
+  }
+
+  $output .= theme('table', $form['header']['#value'], $rows);
+  if ($form['pager']['#value']) {
+    $output .= drupal_render($form['pager']);
+  }
+
+  $output .= drupal_render($form);
+
+  return $output;
+}
+
+/**
+ * Overrides theme_node_admin_nodes().
+ */
+function mollom_theme_node_admin_nodes($form) {
+  // If there are rows in this form, then $form['title'] contains a list of
+  // the title form elements.
+  $has_posts = isset($form['title']) && is_array($form['title']);
+  $select_header = $has_posts ? theme('table_select_header_cell') : '';
+  $header = array(
+    $select_header,
+    t('Title'),
+    t('Type'),
+    t('Author'),
+    t('Status'),
+  );
+  if (isset($form['language'])) {
+    $header[] = t('Language');
+  }
+  $header[] = t('Operations');
+  if (isset($form['flagged'])) {
+    $header[] = t('Flagged');
+  }
+
+  $output = '';
+
+  $output .= drupal_render($form['options']);
+  if ($has_posts) {
+    foreach (element_children($form['title']) as $key) {
+      $row = array();
+      $row[] = drupal_render($form['nodes'][$key]);
+      $row[] = drupal_render($form['title'][$key]);
+      $row[] = drupal_render($form['name'][$key]);
+      $row[] = drupal_render($form['username'][$key]);
+      $row[] = drupal_render($form['status'][$key]);
+      if (isset($form['language'])) {
+        $row[] = drupal_render($form['language'][$key]);
+      }
+      $row[] = drupal_render($form['operations'][$key]);
+      if (isset($form['flagged'])) {
+        $row[] = drupal_render($form['flagged'][$key]);
+      }
+      $rows[] = $row;
+    }
+
+  }
+  else {
+    $rows[] = array(array(
+      'data' => t('No posts available.'),
+      'colspan' => '6',
+    ));
+  }
+
+  $output .= theme('table', $header, $rows);
+  if ($form['pager']['#value']) {
+    $output .= drupal_render($form['pager']);
+  }
+
+  $output .= drupal_render($form);
+
+  return $output;
+}
+
+/**
+ * @} End of "name mollom_flag".
  */

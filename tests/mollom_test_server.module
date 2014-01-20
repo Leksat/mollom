@@ -510,8 +510,14 @@ function mollom_test_server_rest_send_feedback() {
   $storage[] = $data;
   variable_set('mollom_test_server_feedback', $storage);
 
-  $result = in_array($data['reason'], array('spam', 'profanity', 'quality', 'unwanted', 'approve', 'delete'));
-  return $result ? TRUE : 400;
+  // Default value assumed in the API for feedback type is "moderate".
+  if (empty($data['type'])) {
+    $data['type'] = 'moderate';
+  }
+
+  $reason_result = in_array($data['reason'], array('spam', 'profanity', 'quality', 'unwanted', 'approve', 'delete'));
+  $feedback_result = in_array($data['type'], array('flag', 'moderate'));
+  return $reason_result && $feedback_result ? TRUE : 400;
 }
 
 /**

@@ -115,7 +115,7 @@ class MollomWebTestCase extends DrupalWebTestCase {
     }
     // Database logging is unconditionally required to assert watchdog messages.
     $modules[] = 'dblog';
-    parent::setUp($modules);
+    call_user_func_array(array('parent', 'setUp'), $modules);
 
     // Save the Mollom client implementation to use for running the tests.
     variable_set('mollom_class', $this->mollomClass);
@@ -994,6 +994,27 @@ class MollomWebTestCase extends DrupalWebTestCase {
     return $mid;
   }
 
+  /**
+   * Get the URL for a link by link text.
+   * Will return the first link found with this link text by default, or a later
+   * one if an index is given.  Match is case sensitive with normalized space.
+   * The label is translated label.
+   *
+   * @param $label
+   *   Text between the anchor tags.
+   * @param $index
+   *   Link position counting from zero.
+   * @return
+   *   Url on success, or FALSE if not found.
+   */
+  protected function getLink($label, $index = 0) {
+    $urls = $this->xpath('//a[text()="' . $label . '"]');
+
+    if (isset($urls[$index])) {
+      return $this->getAbsoluteUrl($urls[$index]['href']);
+    }
+    return FALSE;
+  }
 }
 
 /**
@@ -4253,12 +4274,6 @@ class MollomAnalysisOptionsTestCase extends MollomWebTestCase {
    */
   function testRetainUnsure() {
     $this->drupalLogin($this->admin_user);
-    // Verify that mollom_basic_elements_test_form cannot be configured to put
-    // posts into moderation queue.
-    $this->setProtectionUI('mollom_basic_elements_test_form');
-    $this->drupalGet('admin/settings/mollom/manage/mollom_basic_elements_test_form');
-    $this->assertNoFieldByName('mollom[unsure]');
-
     // Configure mollom_test_form to retain unsure posts.
     $this->setProtectionUI('mollom_test_form', MOLLOM_MODE_ANALYSIS, NULL, array(
       'mollom[unsure]' => 'moderate',
@@ -5459,5 +5474,152 @@ class MollomModerationEntityTestCase extends MollomModerationBaseTestCase {
     $this->assertFalse(user_load($account->uid));
     $record = $this->getServerRecord();
     $this->assertSame('stored', $record['stored'], 0);
+  }
+}
+
+/**
+ * Tests flag as inappropriate feature.
+ */
+class MollomFlagAsInappropriateTestCase extends MollomWebTestCase {
+
+  public static function getInfo() {
+    return array(
+      'name' => 'Flag as Inappropriate',
+      'description' => 'Tests flag as inappropriate feature.',
+      'group' => 'Mollom',
+    );
+  }
+
+  function setUp() {
+    parent::setUp(array('comment', 'mollom'));
+    $this->setKeys();
+    $this->assertValidKeys();
+
+    $this->admin_user = $this->drupalCreateUser(array(
+      'administer mollom',
+      'administer comments',
+      'access comments',
+    ));
+
+    $this->web_user = $this->drupalCreateUser(array(
+      'access comments',
+      'post comments',
+      'post comments without approval',
+    ));
+
+    $this->drupalCreateContentType(array('type' => 'article', 'name' => 'Article'));
+    variable_set('comment_preview_article', COMMENT_PREVIEW_OPTIONAL);
+    variable_set('comment_form_location_article', COMMENT_FORM_BELOW);
+    $this->userRoleGrantPermissions(DRUPAL_AUTHENTICATED_RID, array('create article content', 'view own unpublished content', 'access content'));
+
+    $this->drupalLogin($this->admin_user);
+    $this->setProtectionUI('comment_form');
+    $this->node = $this->drupalCreateNode(array('type' => 'article'));
+
+  }
+
+  /**
+   * Test access to flag as inappropriate link based on permissions.
+   */
+  function testFlagAsInappropriate() {
+    // Create a comment.
+    $this->drupalLogin($this->web_user);
+    $this->drupalGet('comment/reply/' . $this->node->nid);
+    $this->drupalPost(NULL, array('comment' => 'ham'), t('Save'));
+
+    // Verify that the comment display has no report link.
+    $this->assertNoLink(t('Report'));
+    // Add permissions for flag as inappropriate and verify that report link shows.
+    $this->userRoleGrantPermissions(DRUPAL_AUTHENTICATED_RID, array('report to mollom'));
+
+    // Verify that the report link is now available.
+    $nid = $this->node->nid;
+    $this->drupalGet("node/$nid");
+    $this->assertLink(t('report'));
+    $report_link = $this->getLink(t('report'));
+    if ($report_link) {
+      $parsed = parse_url($report_link);
+      // Handle clean URLs disabled.
+      if (!empty($parsed['query'])) {
+        parse_str($parsed['query'],$query_string);
+        if (!empty($query_string['q'])) {
+          $parts = explode('/', $query_string['q']);
+        }
+      }
+      // Clean URLs.
+      if (!isset($parts)) {
+        $parts = explode('/', $parsed['path']);
+      }
+      $source = array_pop($parts);
+      $id = array_pop($parts);
+      $entity = array_pop($parts);
+      // Verify the parsed URL matches the parts expected.
+      $this->assertSame('Entity from ' . $report_link, 'comment', $entity);
+    }
+
+    // Follow the link to report the content.
+    $reasons_shown = array('spam', 'profanity', 'unwanted');
+    $this->clickLink(t('report'));
+    $this->assertText(t('Why are you reporting this content?'));
+    foreach($reasons_shown as $reason) {
+      $this->assertField('reason', $reason);
+    }
+    $this->assertNoField('feedback_type', 'flag');
+    $reason = $reasons_shown[array_rand($reasons_shown)];
+
+    // Verify that the flag count was updated locally.
+    $original = $this->getFlagCount($entity, $id, $reason);
+    $this->drupalPost(NULL, array('reason' => $reason), t('Submit report'));
+    $this->assertText(t('Thank you for your feedback.'));
+    $this->assertFlagCount($entity, $id, $reason, $original+1);
+  }
+
+  /**
+   * Return the number of flags for a given entity of a specific type.
+   *
+   * @param $entity
+   *   The type of entity to check.
+   * @param $id
+   *   The id of the entity to check.
+   * @param $reason
+   *   The type of reason to retrieve, spam, profanity, unwanted, quality.
+   */
+  private function getFlagCount($entity, $id, $reason) {
+    $data = $this->assertMollomData($entity, $id);
+    $prop = "flags_$reason";
+    if (isset($data->$prop)) {
+      return $data->$prop;
+    } else {
+      return -1;
+    }
+  }
+
+  /**
+   * Test that the number of flags of a particular reason on an entity match
+   * an expected value.
+   *
+   * @param $entity
+   *   The type of entity to check.
+   * @param $id
+   *   The id of the entity to check.
+   * @param $reason
+   *   The type of reason to retrieve, spam, profanity, unwanted, quality.
+   * @param $expected
+   *   An integer with the expected number of flags.
+   * @param $message
+   *   An optional string with the message to be used in the assertion.
+   */
+  protected function assertFlagCount($entity, $id, $reason, $expected, $message = '') {
+    $actual = $this->getFlagCount($entity, $id, $reason);
+    if (!$message) {
+      $message = t('Entity @entity @id has @actual flags for @reason, expected @expected.', array(
+        '@entity' => $entity,
+        '@id' => $id,
+        '@actual' => $actual,
+        '@reason' => $reason,
+        '@expected' => $expected,
+      ));
+    }
+    $this->assertEqual($actual, $expected, $message);
   }
 }
