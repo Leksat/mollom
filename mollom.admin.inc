@@ -759,10 +759,10 @@ function mollom_admin_settings(&$form_state) {
 
   $form['access-keys'] = array(
     '#type' => 'fieldset',
-    '#title' => t('Access keys'),
-    '#description' => t('To use Mollom, you need a public and private key. To obtain Mollom API keys, <a href="@mollom-login-url">register and login on mollom.com</a>, create a subscription for your site, and copy the API keys from your <a href="@mollom-manager-url">site manager</a> into the fields below.', array(
-      '@mollom-login-url' => 'https://mollom.com/user',
-      '@mollom-manager-url' => 'https://mollom.com/site-manager',
+    '#title' => t('Mollom API keys'),
+    '#description' => t('To obtain API keys, <a href="@signup-url">sign up</a> or log in to your <a href="@site-manager-url">Site manager</a>, register this site, and copy the keys into the fields below.', array(
+      '@signup-url' => 'https://mollom.com/pricing',
+      '@site-manager-url' => 'https://mollom.com/site-manager',
     )),
     '#collapsible' => TRUE,
     // Only show key configuration fields if they are not configured or invalid.
@@ -782,50 +782,97 @@ function mollom_admin_settings(&$form_state) {
     '#title' => t('Private key'),
     '#default_value' => variable_get('mollom_private_key', NULL),
     '#element_validate' => array('mollom_admin_settings_validate_key'),
-    '#description' => t('Used to prevent someone else from hijacking your requests. Similar to a password, it should never be shared with anyone.'),
+    '#description' => t('Used for authentication. Similar to a password, the private key should not be shared with anyone.'),
   );
 
   $form['mollom_fallback'] = array(
     '#type' => 'radios',
-    '#title' => t('When Mollom is down or unreachable'),
-    // Default to treating everything as inappropriate.
-    '#default_value' => variable_get('mollom_fallback', MOLLOM_FALLBACK_BLOCK),
+    '#title' => t('When the Mollom service is unavailable'),
+    '#default_value' => variable_get('mollom_fallback', MOLLOM_FALLBACK_ACCEPT),
     '#options' => array(
-      MOLLOM_FALLBACK_BLOCK => t('Block all form submissions'),
       MOLLOM_FALLBACK_ACCEPT => t('Accept all form submissions'),
+      MOLLOM_FALLBACK_BLOCK => t('Block all form submissions'),
     ),
-    '#description' => t('In case Mollom services are unreachable, no text analysis can be performed and no CAPTCHAs can be generated. Customers on <a href="@pricing-url">paid plans</a> have access to <a href="@sla-url">Mollom\'s high-availability backend infrastructure</a>, not available to free users, reducing potential downtime.', array(
+    '#description' => t('Mollom offers a <a href="@pricing-url">high-availability</a> infrastructure for users on paid plans to reduce potential downtime.', array(
       '@pricing-url' => 'https://mollom.com/pricing',
-      '@sla-url' => 'https://mollom.com/standard-service-level-agreement',
     )),
   );
 
   $form['mollom_privacy_link'] = array(
     '#type' => 'checkbox',
-    '#title' => t("Link to Mollom's privacy policy on forms protected by textual analysis"),
+    '#title' => t("Show a link to Mollom's privacy policy"),
     '#return_value' => 1,
     '#default_value' => variable_get('mollom_privacy_link', 1),
-    '#description' => t('Displays a link to the recommended <a href="@privacy-policy-url">privacy policy on mollom.com</a> on all forms that are protected via <a href="@help-url">textual analysis</a>. When disabling this option, you are required to inform visitors about data privacy through other means, as stated in the <a href="@terms-of-service-url">terms of service</a>.', array(
-      '@privacy-policy-url' => 'https://mollom.com/web-service-privacy-policy',
-      '@help-url' => url('admin/help/mollom'),
-      '@terms-of-service-url' => 'https://mollom.com/terms-of-service',
-    )),
+    '#description' => t('Only applies to forms protected with text analysis. When disabling this option, you should inform visitors about the privacy of their data through other means.'),
   );
 
   $form['mollom_testing_mode'] = array(
     '#type' => 'checkbox',
     '#title' => t('Enable testing mode'),
     '#default_value' => variable_get('mollom_testing_mode', 0),
-    '#description' => t('Submitting "ham", "unsure", or "spam" on a protected form will trigger the corresponding behavior. Image CAPTCHAs will only respond to "correct" and audio CAPTCHAs only respond to "demo". This option should be disabled in production environments.'),
+    '#description' => t('Submitting "ham", "unsure", or "spam" triggers the corresponding behavior; image CAPTCHAs only respond to "correct" and audio CAPTCHAs only respond to "demo". Do not enable this option if this site is publicly accessible.'),
+  );
+
+  $form['mollom_advanced'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Advanced configuration'),
+    '#collapsible' => TRUE,
+    '#collapsed' => TRUE,
   );
 
   $min_severity = variable_get('mollom_log_minimum_severity', WATCHDOG_WARNING);
-  $form['mollom_log_minimum_severity'] = array(
+  $form['mollom_advanced']['mollom_log_minimum_severity'] = array(
+    '#type' => 'radios',
+    '#title' => t('Mollom logging level warning'),
+    '#options' => array(
+      WATCHDOG_WARNING => t('Only log warnings and errors'),
+      WATCHDOG_DEBUG => t('Log all Mollom messages'),
+    ),
+    '#default_value' => variable_get('mollom_log_minimum_severity', WATCHDOG_WARNING),
+  );
+  $form['mollom_advanced']['mollom_audio_captcha_enabled'] = array(
+    '#title' => t('Enable audio CAPTCHAs.'),
+    '#description' => t('Allows users to switch to an audio verification using the <a href="!faq-url">NATO alphabet</a>.  This may not be appropriate for non-English language sites.', array(
+      '!faq-url' => 'https://mollom.com/faq/mollom-audible-captcha-language',
+    )),
+    '#default_value' => variable_get('mollom_audio_captcha_enabled', 1),
+  );
+  $form['mollom_advanced']['mollom_connection_timeout'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Time-out when attempting to contact Mollom servers.'),
+    '#description' => t('This is the length of time that a call to Mollom will wait before timing out.'),
+    '#default_value' => variable_get('mollom_connection_timeout', 3),
+    '#size' => 5,
+    '#field_suffix' => t('seconds'),
+    '#required' => TRUE,
+  );
+  $form['mollom_advanced']['mollom_fba_enabled'] = array(
     '#type' => 'checkbox',
-    '#title' => t('Only log warnings and errors'),
-    '#return_value' => WATCHDOG_WARNING,
-    '#default_value' => $min_severity <= WATCHDOG_WARNING ? WATCHDOG_WARNING : 0,
-    '#description' => t('Disable to see all Mollom interactions in log messages.'),
+    '#title' => t('Enable form behavior analysis.'),
+    '#description' => t('This will place a small tracking image from Mollom on each form protected by textural analysis to help Mollom determine if the form is filled out by a bot.  <a href="!fba-url">Learn more</a>.', array(
+      '!fba-url' => 'https://mollom.com/faq/form-behavior-analysis',
+    )),
+    '#default_value' => variable_get('mollom_fba_enabled', 1),
+  );
+  // Available entity types are those entities that have a report access
+  // callback defined.  This is limited by type even though multiple forms
+  // can be for the same entity type.
+  $forms = mollom_form_list();
+  $options = array();
+  foreach($forms as $info) {
+    if (!empty($info['entity']) && !empty($info['entity report access callback'])) {
+      $options[] = $info['entity'];
+    }
+  };
+  sort($options);
+  $form['mollom_advanced']['mollom_fai_entity_types'] = array(
+    '#type' => 'checkboxes',
+    '#title' => t('Allow users to  "Flag as Inappropriate" for the following:'),
+    '#description' => t('"Flag as inappropriate" will only appear on protected forms for users who have permission to the content type and have the permission to "Report to Mollom".  <a href="!fai-url">Learn more</a>.', array(
+      '!fai-url' => 'https://mollom.com/faq/flag-as-inappropriate',
+    )),
+    '#options' => drupal_map_assoc($options),
+    '#default_value' => variable_get('mollom_fai_entity_types', array('comment')),
   );
   $form['#submit'][] = 'mollom_admin_settings_submit';
 

@@ -3553,9 +3553,6 @@ function node_mollom_form_info($form_id) {
  *   Optional node object to check access to a specific node.
  */
 function node_mollom_entity_report_access($node = NULL) {
-  // Remove the following line to enable flag as inappropriate for nodes.
-  return FALSE;
-
   if (!empty($node) && isset($node->nid)) {
     return node_access('view', $node->nid);
   }
@@ -4100,6 +4097,12 @@ function _mollom_flag_access($type, $object) {
  *   True if access is granted, false if denied.
  */
 function mollom_flag_entity_type_access($type, $object = NULL) {
+  // Check to see if flag as inappropriate is enabled for this entity type.
+  $allowed = variable_get('mollom_fai_entity_types', array('comment' => 1));
+  if (empty($allowed[$type])) {
+    return;
+  }
+
   // Find what forms to check.
   $check_forms = array();
   if ($type === 'comment') {

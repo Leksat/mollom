@@ -9,6 +9,17 @@
  * Drupal Mollom client implementation.
  */
 class MollomDrupal extends Mollom {
+
+  /**
+   * Overrides the connection timeout based on module configuration.
+   *
+   * @see Mollom::__construct().
+   */
+  public function __construct() {
+    parent::__construct();
+    $this->requestTimeout = variable_get('mollom_connection_timeout', 3);
+  }
+
   /**
    * Mapping of configuration names to Drupal variables.
    *
@@ -178,11 +189,6 @@ class MollomDrupalTest extends MollomDrupal {
   public $server = 'dev.mollom.com';
 
   /**
-   * Overrides Mollom:$requestTimeout.
-   */
-  public $requestTimeout = 10.0;
-
-  /**
    * Flag indicating whether to verify and automatically create testing API keys upon class instantiation.
    *
    * @var bool
@@ -234,6 +240,9 @@ class MollomDrupalTest extends MollomDrupal {
     if (!isset($this->createKeys)) {
       $this->createKeys = (bool) variable_get('mollom_testing_create_keys', TRUE);
     }
+
+    // Testing can require additional time.
+    $this->requestTimeout = variable_get('mollom_connection_timeout', 3) + 10;
   }
 
   /**
@@ -331,11 +340,6 @@ class MollomDrupalTest extends MollomDrupal {
 class MollomDrupalTestLocal extends MollomDrupalTest {
 
   /**
-   * Overrides Mollom:$requestTimeout.
-   */
-  public $requestTimeout = 10.0;
-
-  /**
    * Overrides MollomDrupalTest::__construct().
    */
   function __construct() {
@@ -405,11 +409,6 @@ class MollomDrupalTestInvalid extends MollomDrupalTest {
    * Overrides Mollom::$server.
    */
   public $server = 'fake-host';
-
-  /**
-   * Overrides Mollom:$requestTimeout.
-   */
-  public $requestTimeout = 10.0;
 
   /**
    * Overrides MollomDrupalTest::$createKeys.
