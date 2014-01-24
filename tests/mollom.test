@@ -558,6 +558,22 @@ class MollomWebTestCase extends DrupalWebTestCase {
   }
 
   /**
+   * Assert that tracking image has been included on the current page.
+   */
+  protected function assertTrackingImage() {
+    $image = $this->xpath('//img[contains(@class, "mollom-fba")]');
+    $this->assert(!empty($image), 'Form behavior analysis tracking image found.');
+  }
+
+  /**
+   * Assert that tracking image is not found on the current page.
+   */
+  protected function assertNoTrackingImage() {
+    $image = $this->xpath('//img[contains(@class, "mollom-fba")]');
+    $this->assert(empty($image), 'Form behavior analysis tracking image not found.');
+  }
+
+  /**
    * Assert that the privacy policy link is found on the current page.
    */
   protected function assertPrivacyLink() {
@@ -3650,6 +3666,79 @@ class MollomDataTestCase extends MollomWebTestCase {
     // Verify that no data was submitted to Mollom.
     $data = $this->getServerRecord();
     $this->assertFalse($data, t('Administrative form submission was not validated by Mollom.'));
+  }
+
+  /**
+   * Tests that protected forms contain form behavior analysis and its value is recorded.
+   */
+  function testFormBehaviorAnalysis() {
+    // Enable protection for mollom_test_form.
+    $this->drupalLogin($this->admin_user);
+    $this->setProtectionUI('mollom_test_form');
+    $this->drupalLogout();
+
+    // Test form behavior analysis when enabled.
+    variable_set('mollom_fba', 1);
+
+    // Verify that the tracking image is output.
+    $this->drupalGet('mollom-test/form');
+    $this->assertTrackingImage();
+
+    // Generate a CAPTCHA.
+    $edit = array(
+      'title' => 'unsure',
+      'body' => 'unsure',
+      'mollom[fba]' => 'FBA-VALUE',
+    );
+    $this->drupalPost(NULL, $edit, 'Submit');
+
+    // Verify that the tracking image value was sent to mollom.checkContent.
+    $data = $this->getServerRecord();
+    $this->assertSame('trackingImageId', $data['trackingImageId'], $edit['mollom[fba]']);
+
+    // The image should not be re-displayed on the CAPTCHA page and value is
+    // no longer tracked.
+    $this->assertNoTrackingImage();
+
+    // Complete the verification.
+    $this->postCorrectCaptcha(NULL, array(), 'Submit', 'Successful form submission.');
+
+    // Verify that the tracking image value was not sent to mollom.checkContent.
+    $data = $this->getServerRecord();
+    $this->assertTrue(empty($data['trackingImageId']));
+
+    // Verify that a blank tracking image is sent as -1.
+    $this->drupalGet('mollom-test/form');
+
+    $edit = array(
+      'title' => 'ham',
+      'body' => 'ham',
+      'mollom[fba]' => '',
+    );
+    $this->drupalPost(NULL, $edit, 'Submit');
+
+    // Verify that the tracking image empty indicator was sent to mollom.checkContent.
+    $data = $this->getServerRecord();
+    $this->assertSame('trackingImageId', $data['trackingImageId'], '-1');
+
+    // Disable form behavior analysis.
+    variable_set('mollom_fba', 0);
+
+    // Verify that the tracking image is not output.
+    $this->drupalGet('mollom-test/form');
+    $this->assertNoTrackingImage();
+    $this->assertNoFieldByName('mollom[fba]');
+
+    // Post the content.
+    $edit = array(
+      'title' => 'ham',
+      'body' => 'ham',
+    );
+    $this->drupalPost(NULL, $edit, 'Submit');
+
+    // Verify that there is no tracking image value sent to mollom.checkContent.
+    $data = $this->getServerRecord();
+    $this->assertTrue(empty($data['trackingImageId']));
   }
 
   /**

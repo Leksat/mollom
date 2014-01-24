@@ -1665,6 +1665,7 @@ function mollom_elements() {
         'mollom_process_mollom',
       ),
       '#pre_render' => array('mollom_pre_render_mollom'),
+      '#after_build' => array('mollom_after_build_mollom'),
     ),
   );
 }
@@ -1920,6 +1921,13 @@ function mollom_process_mollom($element, $input, &$form_state, &$complete_form) 
     $element['#complete form'] = &$complete_form;
   }
 
+  // Add the form behavior analysis web tracking beacon field holder if enabled.
+  if (variable_get('mollom_fba', 1) && $form_state['mollom']['require_analysis']) {
+    $element['fba'] = array(
+      '#type' => 'hidden',
+    );
+  }
+
   // Make Mollom form and session information available to entirely different
   // functions.
   // @see mollom_mail_alter()
@@ -1953,6 +1961,31 @@ function mollom_process_mollom_form_state($element, $input, &$form_state) {
       }
     }
   }
+  return $element;
+}
+
+/**
+ * Adds form behavior analysis tracking image.
+ *
+ * This is an after_build callback handler for the mollom field type.
+ * If form behavior analysis is enabled, a special tracking image is requested
+ * from the Mollom servers using a generated tracking ID.
+ * The image should be displayed and the tracking ID saved to pass to
+ * mollom.checkContent.
+ * The tracking image should only be shown the first time a textual analysis
+ * form is displayed and not on subsequent CAPTCHA displays or previews.
+ */
+function mollom_after_build_mollom(&$element, &$form_state) {
+  // Add the form behavior analysis web tracking beacon field holder if enabled.
+  if (isset($element['fba']) && empty($element['fba']['#value'])) {
+    // Generate the tracking image id for form behavior analysis.
+    $mollom = mollom();
+    $tracking = $mollom->getTrackingImage();
+
+    $element['fba']['#value'] = $tracking['tracking_id'];
+    $element['fba']['#prefix'] = theme('image', $tracking['tracking_url'], '', '', array('class' => 'mollom-fba'), FALSE);
+  }
+
   return $element;
 }
 
@@ -2030,6 +2063,15 @@ function mollom_validate_analysis($form_copy, &$form_state) {
   }
   if (in_array('spam', $data['checks']) && $form_state['mollom']['unsure'] == 'binary') {
     $data['unsure'] = 0;
+  }
+  // Only pass the tracking id if this is the first textual evaluation.
+  if (isset($form_state['values']['mollom']['fba']) && empty($data['id'])) {
+    if (empty($form_state['values']['mollom']['fba'])) {
+      $data['trackingImageId'] = -1;
+    }
+    else {
+      $data['trackingImageId'] = $form_state['values']['mollom']['fba'];
+    }
   }
   $result = mollom()->checkContent($data);
 

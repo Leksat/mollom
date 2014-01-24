@@ -1146,6 +1146,8 @@ abstract class Mollom {
    *   - contextTitle: The title of the parent/context content of the stored
    *     content; e.g., the title of the article or forum thread a comment is
    *     posted on (not the parent comment that was replied to).
+   *   - trackingImageId: An optional string identifier used to request an
+   *     image beacon.  This is used for form behavior analysis.
    *
    * @return mixed
    *   On success, an associative array representing the full content record,
@@ -1406,6 +1408,29 @@ abstract class Mollom {
     $path = 'blacklist/' . rawurlencode($publicKey) . '/' . rawurlencode($entryId) . '/delete';
     $result = $this->query('POST', $path);
     return $this->lastResponseCode === TRUE;
+  }
+
+  /**
+   * Generates a URL to a tracking image.
+   *
+   * This image can be used by form behavior analysis to analyze the
+   * humanity of the content author.
+   *
+   * @return array
+   *   An associative array of tracking information generated.
+   *   - tracking_url: the url to the tracking image (without any http protocol)
+   *   - tracking_id: the tracking id generated
+   */
+  public function getTrackingImage() {
+    $public_key = $this->publicKey;
+    $ts = time();
+    $tracking_id = hash_hmac('sha1', $public_key . $ts, $this->privateKey);
+
+    $result = array(
+      'tracking_url' => '//' . $this->server . '/v1/tracking/' . urlencode($tracking_id) . '.png?public_key=' . $public_key . "&timestamp=" . $ts,
+      'tracking_id' => $tracking_id,
+    );
+    return $result;
   }
 }
 

@@ -8,3 +8,10 @@
 #simpletest-result-form table td pre {
   white-space: pre-wrap;
 }
+
+/* Forces the form behavior analysis tracking image to take less space. */
+img.mollom-fba {
+  display: block;
+  width: 1px;
+  height: 1px;
+}
