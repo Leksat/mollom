@@ -28,6 +28,7 @@ class MollomDrupal extends Mollom {
   public $configuration_map = array(
     'publicKey' => 'mollom_public_key',
     'privateKey' => 'mollom_private_key',
+    'expectedLanguages' => 'mollom_languages_expected',
   );
 
   /**
@@ -405,10 +406,6 @@ class MollomDrupalTestLocal extends MollomDrupalTest {
  * Drupal Mollom client implementation using an invalid server.
  */
 class MollomDrupalTestInvalid extends MollomDrupalTest {
-  /**
-   * Overrides Mollom::$server.
-   */
-  public $server = 'fake-host';
 
   /**
    * Overrides MollomDrupalTest::$createKeys.
@@ -418,6 +415,17 @@ class MollomDrupalTestInvalid extends MollomDrupalTest {
   public $createKeys = FALSE;
 
   private $currentAttempt = 0;
+
+  private $originalServer;
+
+  /**
+   * Overrides MollomDrupalTest::__construct().
+   */
+  function __construct() {
+    $this->originalServer = $this->server;
+    $this->server = 'fake-host';
+    parent::__construct();
+  }
 
   /**
    * Overrides Mollom::query().
@@ -440,7 +448,7 @@ class MollomDrupalTestInvalid extends MollomDrupalTest {
     if (variable_get('mollom_testing_server_failover', FALSE) && $this->currentAttempt == $this->requestMaxAttempts) {
       // Prior to PHP 5.3, there is no late static binding, so there is no way
       // to access the original value of MollomDrupalTest::$server.
-      $server = strtr($server, array($this->server => 'dev.mollom.com'));
+      $server = strtr($server, array($this->server => $this->originalServer));
     }
     return parent::handleRequest($method, $server, $path, $data, $expected);
   }

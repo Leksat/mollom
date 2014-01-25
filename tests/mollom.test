@@ -373,7 +373,7 @@ class MollomWebTestCase extends DrupalWebTestCase {
   protected function assertValidKeys() {
     $status = _mollom_status(TRUE);
     $this->assertMollomWatchdogMessages();
-    $this->assertIdentical($status, TRUE, t('Mollom servers can be contacted and testing API keys are valid.'));
+    $this->assertIdentical($status['isVerified'], TRUE, t('Mollom servers can be contacted and testing API keys are valid.'));
   }
 
   /**
@@ -1080,12 +1080,14 @@ class MollomTestingModeTestCase extends MollomWebTestCase {
     $this->setProtectionUI('mollom_test_form', MOLLOM_MODE_ANALYSIS);
     variable_set('mollom_fallback', MOLLOM_FALLBACK_ACCEPT);
 
-    // Setup production API keys. They must be retained.
+    // Setup production API keys and expected languages. They must be retained.
     $publicKey = 'the-invalid-mollom-api-key-value';
     $privateKey = 'the-invalid-mollom-api-key-value';
+    $expectedLanguages = array('en');
     $edit = array(
       'mollom_public_key' => $publicKey,
       'mollom_private_key' => $privateKey,
+      'mollom_languages_expected[]' => $expectedLanguages,
     );
     $this->drupalGet('admin/settings/mollom/settings');
     $this->assertText('The Mollom API keys are not configured yet.');
@@ -1117,6 +1119,10 @@ class MollomTestingModeTestCase extends MollomWebTestCase {
     $this->assertNoText('The Mollom API keys are not configured yet.');
     $this->assertNoText('The configured Mollom API keys are invalid.');
     $this->assertText(t('Mollom testing mode is still enabled. !admin-message', array('!admin-message' => '')));
+    // Verify that expected languages were retained.
+    foreach($expectedLanguages as $lang) {
+      $this->assertFieldById('mollom_languages_expected', $lang);
+    }
 
     $this->drupalLogout();
 
@@ -1148,6 +1154,9 @@ class MollomTestingModeTestCase extends MollomWebTestCase {
     // Verify that production API keys still exist.
     $this->assertFieldByName('mollom_public_key', $publicKey);
     $this->assertFieldByName('mollom_private_key', $privateKey);
+    foreach($expectedLanguages as $lang) {
+      $this->assertFieldById('mollom_languages_expected', $lang);
+    }
   }
 }
 
@@ -5604,7 +5613,6 @@ class MollomFlagAsInappropriateTestCase extends MollomWebTestCase {
     $this->drupalLogin($this->admin_user);
     $this->setProtectionUI('comment_form');
     $this->node = $this->drupalCreateNode(array('type' => 'article'));
-
   }
 
   /**
@@ -5710,5 +5718,86 @@ class MollomFlagAsInappropriateTestCase extends MollomWebTestCase {
       ));
     }
     $this->assertEqual($actual, $expected, $message);
+  }
+}
+
+/**
+ * Tests expected language configuration synchronization with remote server.
+ */
+class MollomExpectedLanguageTestCase extends MollomWebTestCase {
+  // Re-route all communications to the test site.
+  protected $mollomClass = 'MollomDrupalTestLocal';
+
+  public static function getInfo() {
+    return array(
+      'name' => 'Expected languages',
+      'description' => 'Tests remote synchronization of expected languages.',
+      'group' => 'Mollom',
+    );
+  }
+
+  function setUp() {
+    parent::setUp(array('mollom','mollom_test'));
+
+    $this->admin_user = $this->drupalCreateUser(array(
+      'access administration pages',
+      'administer mollom',
+    ));
+  }
+
+  /**
+   * Tests synchronization of expected languages.
+   */
+  function testExpectedLanguages() {
+    // update expected languages to value "a".
+    // test that value "a" is saved locally and remotely.
+    // remotely update languages to value "b".
+    // load configuration page and test that value "b" is shown.
+    // submit page and verify that "b" is still maintained.
+    // submit page with value "c" and verify tha tit is saved locally and remotely.
+    $this->getClient();
+    $languages = array('en'); // Drupal 6 cannot assert against multiple selects well.
+
+    $edit = array();
+
+    // Update the expected languages.
+    $this->drupalLogin($this->admin_user);
+    $this->drupalGet('admin/settings/mollom/settings');
+    $edit['mollom_languages_expected[]'] = $languages;
+    $this->drupalPost(NULL, $edit, t('Save configuration'));
+    // Make sure the local changes were saved and displayed
+    foreach($languages as $lang) {
+      $this->assertFieldById('mollom_languages_expected', $lang);
+    }
+    // Make sure the local changes were synchronized remotely.
+    $site = $this->mollom->getSite();
+    $remoteLanguages = $site['expectedLanguages'];
+    sort($languages);
+    if (is_array($remoteLanguages)) {
+      sort($remoteLanguages);
+      $this->assertEqual($languages, $remoteLanguages, 'Local language changes updated remotely.');
+    }
+    else {
+      $this->assertEqual($languages[0],$remoteLanguages, 'Local language changes updated remotely.');
+    }
+    // Update the remote languages.
+    $languages = array('es');
+    $this->mollom->updateSite(array('expectedLanguages' => $languages));
+    $site = $this->mollom->getSite();
+    $remoteLanguages = $site['expectedLanguages'];
+    sort($languages);
+    if (is_array($remoteLanguages)) {
+      sort($remoteLanguages);
+      $this->assertEqual($languages, $remoteLanguages, 'Remote languages updated.');
+    }
+    else {
+      $this->assertEqual($languages[0], $remoteLanguages, 'Remote languages updated.');
+    }
+
+    // Verify that the new remote languages overwrite the local languages shown.
+    $this->drupalGet('admin/settings/mollom/settings');
+    foreach($languages as $lang) {
+      $this->assertFieldById('mollom_languages_expected', $lang);
+    }
   }
 }

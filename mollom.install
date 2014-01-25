@@ -34,7 +34,7 @@ function mollom_requirements($phase = 'runtime', $check = TRUE) {
       )),
     );
     // Immediately return if everything is in order.
-    if ($status === TRUE) {
+    if ($status['isVerified']) {
       return $requirements;
     }
     // If not, something is wrong; prepare the requirements entry and set
@@ -58,7 +58,7 @@ function mollom_requirements($phase = 'runtime', $check = TRUE) {
       $requirements['mollom']['description'] = t('The Mollom Testing API is not available currently.');
     }
     // Missing API keys.
-    elseif (!$status['keys']) {
+    elseif (!$status['isConfigured']) {
       $requirements['mollom']['value'] = t('Not configured');
       $requirements['mollom']['description'] = t('The Mollom API keys are not configured yet. !admin-message', array(
         '!admin-message' => $admin_message,

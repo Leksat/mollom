@@ -242,10 +242,10 @@ function mollom_test_server_rest_add_xml(DOMDocument $doc, DOMNode $parent, $dat
  * Returns whether the OAuth request signature is valid.
  */
 function mollom_test_server_rest_validate_auth() {
+
   $data = mollom_test_server_rest_get_parameters();
   $header = mollom_test_server_rest_get_auth_header();
   $sites = variable_get('mollom_test_server_site', array());
-
   // Validate the timestamp.
   $client_time = $header['oauth_timestamp'];
   $time = time();
@@ -332,8 +332,8 @@ function mollom_test_server_rest_site($publicKey = NULL, $delete = FALSE) {
       $data += array(
         'url' => '',
         'email' => '',
-        'languages' => array(),
-        'subscriptionType' => 0, // Mollom Free.
+        'expectedLanguages' => array(),
+        'subscriptionType' => '',
         // Client version info is not defined by default.
       );
       $sites[$publicKey] = $data;
