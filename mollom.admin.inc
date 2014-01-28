@@ -928,6 +928,7 @@ function mollom_admin_settings(&$form_state) {
     '#default_value' => variable_get('mollom_log_minimum_severity', WATCHDOG_WARNING),
   );
   $form['mollom_advanced']['mollom_audio_captcha_enabled'] = array(
+    '#type' => 'checkbox',
     '#title' => t('Enable audio CAPTCHAs.'),
     '#description' => t('Allows users to switch to an audio verification using the <a href="!faq-url">NATO alphabet</a>.  This may not be appropriate for non-English language sites.', array(
       '!faq-url' => 'https://mollom.com/faq/mollom-audible-captcha-language',

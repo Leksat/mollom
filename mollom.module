@@ -1702,6 +1702,7 @@ function mollom_elements() {
  * Implements hook_theme().
  */
 function mollom_theme() {
+  $base_path = base_path() . drupal_get_path('module', 'mollom');
   return array(
     'mollom' => array(
       'arguments' => array('element' => NULL),
@@ -1710,6 +1711,21 @@ function mollom_theme() {
       'arguments' => array('form' => NULL),
       'file' => 'mollom.admin.inc',
     ),
+    'mollom_captcha_audio' => array(
+      'arguments' => array(
+        'captcha_url' => NULL,
+        'flash_fallback_player' => $base_path . '/mollom-captcha-player.swf',
+      ),
+      'template' => 'mollom.captcha.audio',
+    ),
+    'mollom_captcha_image' => array(
+      'arguments' => array(
+        'captcha_url' => NULL,
+        'audio_enabled' => TRUE,
+      ),
+      'template' => 'mollom.captcha.image',
+    ),
+
   );
 }
 
@@ -1858,10 +1874,9 @@ function mollom_process_mollom($element, $input, &$form_state, &$complete_form) 
   // assigned as Boolean #solved = TRUE element property when solved correctly.
   $element['captcha'] = array(
     '#type' => 'textfield',
-    '#title' => t('Word verification'),
+    '#title' => t('verification'),
     '#size' => 10,
     '#default_value' => '',
-    '#description' => t("Type the characters you see in the picture above; if you can't read them, submit the form and a new image will be generated. Not case sensitive."),
   );
   // Disable browser autocompletion, unless testing mode is enabled, in which
   // case autocompletion for 'correct' and 'incorrect' is handy.
@@ -2044,6 +2059,8 @@ function mollom_form_add_captcha(&$element, &$form_state) {
   if (!empty($captcha)) {
     $element['captcha']['#access'] = TRUE;
     $element['captcha']['#field_prefix'] = $captcha;
+    $element['captcha']['#attributes'] = array('title' => t('Enter the characters from the verification above.'));
+    _mollom_attach_captcha_script($element['captcha']);
 
     // Ensure that the latest CAPTCHA ID is output as value.
     $element['captchaId']['#value'] = $form_state['mollom']['response']['captcha']['id'];
@@ -2057,6 +2074,78 @@ function mollom_form_add_captcha(&$element, &$form_state) {
     _mollom_fallback();
     return FALSE;
   }
+}
+
+/**
+ * Attach SWFObject script to render element when available.
+ *
+ * @param $element
+ *   A render element to attach the script to.
+ *
+ * @return bool
+ *   True if the library can be found, false otherwise.
+ */
+function _mollom_attach_captcha_script(&$element = NULL) {
+  static $libraries;
+  if (empty($libraries['swfobject'])) {
+    $lib = array(
+      'found' => FALSE,
+    );
+
+    // Try to load via libraries module if enabled.
+    if (module_exists('libraries')) {
+      if (($library = libraries_detect('swfoject')) && !empty($library['installed'])) {
+        $lib = array(
+          'found' => TRUE,
+          'libraries' => TRUE,
+        );
+      }
+    }
+    if (!$lib['found']) {
+      // Check for SWFObject in standard library locations.
+      global $profile;
+      if (!isset($profile)) {
+        $profile = variable_get('install_profile', 'default');
+      }
+      $config = conf_path();
+      $search = array();
+      $search[] = 'libraries';
+      if (file_exists("profiles/$profile/libraries")) {
+        $search[] = "profiles/$profile/libraries";
+      }
+      $search[] = 'site/all/libraries';
+      if (file_exists("$config/libraries")) {
+        $search[] = "$config/libraries";
+      }
+      foreach ($search as $dir) {
+        if (is_dir($dir) && (
+            file_exists("$dir/swfobject.js") || file_exists("$dir/swfobject/swfobject.js")
+          )) {
+          $lib = array(
+            'found' => TRUE,
+            'libraries' => FALSE,
+            'path' => file_exists("$dir/swfobject.js") ? "$dir/swfobject.js" : "$dir/swfobject/swfobject.js",
+          );
+          break;
+        }
+      }
+    }
+    $libraries['swfobject'] = $lib;
+  }
+  if ($libraries['swfobject']['found']) {
+    if (isset($element)) {
+      if ($libraries['swfobject']['libraries']) {
+        $element['#attached']['libraries_load'][] = array('swfobject');
+      }
+      else {
+        $element['#attached'] = array(
+          'js' => array($libraries['swfobject']['path']),
+        );
+      }
+    }
+    return TRUE;
+  }
+  return FALSE;
 }
 
 /**
@@ -2937,37 +3026,14 @@ function mollom_get_captcha(&$form_state) {
     return '';
   }
 
-  // @todo Convert these to actual theme functions?
-  $output = '';
-  switch ($form_state['mollom']['captcha_type']) {
-    case 'audio':
-      $source = url(base_path() . drupal_get_path('module', 'mollom') . '/mollom-captcha-player.swf', array(
-        'query' => array('url' => $url),
-        'external' => TRUE,
-      ));
-      $output = '<object classid="clsid:d27cdb6e-ae6d-11cf-96b8-444553540000" codebase="//download.macromedia.com/pub/shockwave/cabs/flash/swflash.cab#version=9,0,0,0" width="110" height="50">';
-      $output .= '<param name="allowFullScreen" value="false" />';
-      $output .= '<param name="movie" value="' . $source . '" />';
-      $output .= '<param name="loop" value="false" />';
-      $output .= '<param name="menu" value="false" />';
-      $output .= '<param name="quality" value="high" />';
-      $output .= '<param name="wmode" value="transparent" />';
-      $output .= '<param name="bgcolor" value="#ffffff" />';
-      $output .= '<embed src="' . $source . '" loop="false" menu="false" quality="high" wmode="transparent" bgcolor="#ffffff" width="110" height="50" align="baseline" allowScriptAccess="sameDomain" allowFullScreen="false" type="application/x-shockwave-flash" pluginspage="http://www.adobe.com/go/getflashplayer_de" />';
-      $output .= '</object>';
-
-      $output = '<span class="mollom-captcha-content mollom-audio-captcha">' . $output . '</span>';
-      $output .= ' (<a href="#" class="mollom-switch-captcha mollom-image-captcha">' . t('verify using image') . '</a>)';
-      break;
-
-    case 'image':
-      $captcha = theme('image', $url, t('Type the characters you see in this picture.'), '', NULL, FALSE);
-      $output = '<span class="mollom-captcha-content mollom-image-captcha">' . $captcha . '</span>';
-      $output .= ' (<a href="#" class="mollom-switch-captcha mollom-audio-captcha">' . t('verify using audio') . '</a>)';
-      break;
+  // Theme CAPTCHA output and return.
+  $audio_enabled = variable_get('mollom_audio_captcha_enabled', 1);
+  if ($audio_enabled && $form_state['mollom']['captcha_type'] == 'audio') {
+    return theme('mollom_captcha_audio', $url);
   }
-
-  return $output;
+  else {
+    return theme('mollom_captcha_image', $url, $audio_enabled);
+  }
 }
 
 /**

@@ -4739,6 +4739,20 @@ class MollomCaptchaTestCase extends MollomWebTestCase {
     // D6 can encode, but not decode its own JSON, so only check for captchaId.
     $this->assertText('captchaId');
   }
+
+  /**
+   * Tests the CAPTCHA audio enable/disable functionality.
+   */
+  function subTestCAPTCHAAudioEnable() {
+    // Default should be enabled audio.
+    $this->drupalGet('mollom-test/form');
+    $this->assertLink(t('Switch to audio verification'));
+
+    // Verify that CAPTCHA cannot be switched when audio is disabled.
+    variable_set('mollom_audio_captcha_enabled', 0);
+    $this->drupalGet('mollom-test/form');
+    $this->assertNoLink(t('Switch to audio verification'));
+  }
 }
 
 /**

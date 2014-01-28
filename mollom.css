@@ -15,3 +15,13 @@ img.mollom-fba {
   width: 1px;
   height: 1px;
 }
+
+/* Allow CAPTCHA rendering to take full form width. */
+.form-item-mollom-captcha label[for="edit-mollom-captcha"] {
+    float: none;
+}
+
+/* Accessibilty focus helper for audio CAPTCHA. */
+.mollom_captcha_flash_player:focus{
+    border: yellow 2px solid;
+}
