@@ -3403,6 +3403,7 @@ class MollomDataTestCase extends MollomWebTestCase {
         'post_title' => 'subject',
         'author_name' => 'name',
         'author_mail' => 'mail',
+        'author_openid' => 'author][openid',
       ),
     );
     // Fields configured via Mollom admin UI based on $form_info['elements'].
@@ -3420,6 +3421,9 @@ class MollomDataTestCase extends MollomWebTestCase {
       'message' => 'Bar',
       'parent' => array(
         'child' => 'Beer',
+      ),
+      'author' => array(
+        'openid' => 'Vodka',
       ),
       'field_checked' => array(
         'und' => array(
@@ -3457,7 +3461,7 @@ class MollomDataTestCase extends MollomWebTestCase {
     $this->assertSame('authorName', $data['authorName'], $values['name']);
     $this->assertSame('authorMail', $data['authorMail'], $values['mail']);
     $this->assertSame('authorUrl', $data['authorUrl'], NULL);
-    $this->assertSame('authorOpenid', $data['authorOpenid'], NULL);
+    $this->assertSame('authorOpenid', $data['authorOpenid'], $values['author']['openid']);
     $this->assertSame('authorIp', $data['authorIp'], ip_address());
 
     // Verify submitted form values for an anonymous user whose name happens to
@@ -3467,6 +3471,9 @@ class MollomDataTestCase extends MollomWebTestCase {
       'message' => 'Bar',
       'parent' => array(
         'child' => 'Beer',
+      ),
+      'author' => array(
+        'openid' => 'Vodka'
       ),
       'field_checked' => array(
         0 => array('value' => 'Check first'),
@@ -3495,10 +3502,10 @@ class MollomDataTestCase extends MollomWebTestCase {
     $this->assertSame('authorName', $data['authorName'], $values['name']);
     $this->assertSame('authorMail', $data['authorMail'], NULL);
     $this->assertSame('authorUrl', $data['authorUrl'], NULL);
-    $this->assertSame('authorOpenid', $data['authorOpenid'], NULL);
+    $this->assertSame('authorOpenid', $data['authorOpenid'], $values['author']['openid']);
     $this->assertSame('authorIp', $data['authorIp'], ip_address());
 
-    // Verify submitted form values for an registered user.
+    // Verify submitted form values for a registered user.
     $user = $this->admin_user;
     $values = array(
       'subject' => 'Foo',
