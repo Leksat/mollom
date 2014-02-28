@@ -2093,8 +2093,9 @@ function _mollom_attach_captcha_script(&$element = NULL) {
     );
 
     // Try to load via libraries module if enabled.
+    // Drupal 6 only has access to v1 of the libraries module.
     if (module_exists('libraries')) {
-      if (($library = libraries_detect('swfoject')) && !empty($library['installed'])) {
+      if ($library = libraries_get_path('swfoject')) {
         $lib = array(
           'found' => TRUE,
           'libraries' => TRUE,
