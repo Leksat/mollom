@@ -4283,7 +4283,7 @@ function mollom_flag_entity_type_access($type, $object = NULL) {
 /**
  * Implements hook_link().
  */
-function mollom_link($type, $object, $teaser) {
+function mollom_link($type, $object, $teaser = FALSE) {
   if (!_mollom_flag_access($type, $object)) {
     return FALSE;
   }
