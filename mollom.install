@@ -1055,3 +1055,18 @@ function mollom_update_6210() {
   }
   return $ret;
 }
+
+/**
+ * Set default variable values for advanced administration features.
+ *
+ * Note that some of these may have already been set in previous versions.
+ */
+function mollom_update_6211() {
+  variable_set('mollom_log_minimum_severity', variable_get('mollom_log_minimum_severity', WATCHDOG_WARNING));
+  variable_set('mollom_audio_captcha_enabled', variable_get('mollom_audio_captcha_enabled', 1));
+  variable_set('mollom_connection_timeout', variable_get('mollom_connection_timeout', 3));
+  variable_set('mollom_fba_enabled', variable_get('mollom_fba_enabled', 0));
+  variable_set('mollom_fai_entity_types', variable_get('mollom_fai_entity_types', array('comment')));
+  variable_set('mollom_fai_dialog', variable_get('mollom_fai_dialog', 'mollom'));
+  return array();
+}
