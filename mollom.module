@@ -271,7 +271,7 @@ function mollom_menu() {
 
   // Report as inappropriate
   $items['mollom/flag/%/%/%/%'] = array(
-    'page callback' => 'mollom_flag',
+    'page callback' => '_mollom_flag',
     'page arguments' => array(2, 3, 4, 5),
     'access callback' => '_mollom_flag_access',
     'access arguments' => array(3, 4),

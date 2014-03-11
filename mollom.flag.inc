@@ -65,7 +65,7 @@ function _mollom_flag_entity_count($entity, $id) {
  * @param $source
  *   The optional internal source to be submitted along with feedback.
  */
-function mollom_flag($type, $entity, $id, $source = NULL) {
+function _mollom_flag($type, $entity, $id, $source = NULL) {
   $detail = FALSE;
   if ($type === 'nojs' || $_SERVER['REQUEST_METHOD'] !== 'POST') {
     $detail = TRUE;
