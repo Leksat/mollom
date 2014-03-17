@@ -4285,7 +4285,7 @@ function mollom_flag_entity_type_access($type, $object = NULL) {
  */
 function mollom_link($type, $object, $teaser = FALSE) {
   if (!_mollom_flag_access($type, $object)) {
-    return FALSE;
+    return array();
   }
   $source = 'mollom_link_' . $type;
   if ($type == 'comment') {
