@@ -3183,22 +3183,20 @@ function mollom_mollom_data_insert($data) {
   if (empty($data->contentId)) {
     return;
   }
-  // Exclude data for form submissions not resulting in a locally stored entity.
-  // These usually map to mails and similar things, but not in content that can
-  // be moderated.
-  if ($data->entity == 'mollom_content' || $data->entity == 'mollom_captcha') {
-    return;
-  }
-  // Skip forms for which Mollom moderation integration is not enabled.
-  $mollom_form = mollom_form_load($data->form_id);
-  if (empty($mollom_form['moderation'])) {
-    return;
-  }
 
-  // Mark the content as stored.
+  // Indicate that this content session is comlete.
   $params['id'] = $data->contentId;
-  $params['stored'] = 1;
+  $params['finalized'] = 1;
 
+  // Mark the content as stored for moderation-enabled content.
+  $mollom_form = mollom_form_load($data->form_id);
+  if (!empty($mollom_form['moderation'])) {
+    $params['stored'] = 1;
+  }
+
+
+  // Get additional information for submissions that result in a locally
+  // stored entity.
   $options = array();
   $options['absolute'] = TRUE;
 

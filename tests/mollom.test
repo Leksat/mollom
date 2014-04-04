@@ -3897,6 +3897,9 @@ class MollomDataTestCase extends MollomWebTestCase {
  * Verify that Mollom data can be created, read, updated, and deleted.
  */
 class MollomDataCRUDTestCase extends MollomWebTestCase {
+
+  protected $mollomClass = 'MollomDrupalTestLocal';
+
   public static function getInfo() {
     return array(
       'name' => 'Data CRUD',
