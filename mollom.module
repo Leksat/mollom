@@ -305,8 +305,8 @@ function _mollom_access($permission = FALSE) {
  * primarily used for mails, messages, and posts, which pertain to forms
  * protected by Mollom that do no result in stored entities after submission.
  * For example, Contact module's contact form. They can be reported by anyone
- * having the link. $id is expected to be either a {mollom}.contentId or
- * {mollom}.captchaId respectively.
+ * having the link. $id is expected to be either a {mollom}.content_id or
+ * {mollom}.captcha_id respectively.
  *
  * @see mollom_mail_add_report_link()
  *
@@ -378,13 +378,56 @@ function mollom_cron() {
 }
 
 /**
+ * Helper function to convert database column names to variable names.
+ *
+ * Database column names are separated by underscore, while some variable names
+ * are camelcased for backwards compatibility.
+ *
+ * @param stdClass $db_result
+ *   The database result object to convert.
+ * @param bool $reverse
+ *   True if the conversion should be run in reverse, from variable names to
+ *   database names.
+ * @return stdClass
+ *   The updated object with converted field names.
+ */
+function _mollom_convert_db_names($db_result, $reverse = FALSE) {
+  if (!is_object($db_result)) {
+    return $db_result;
+  }
+  $replace = array(
+    'content_id' => 'contentId',
+    'captcha_id' => 'captchaId',
+    'spam_score' => 'spamScore',
+    'spam_classification' => 'spamClassification',
+    'quality_score' => 'qualityScore',
+    'profanity_score' => 'profanityScore',
+  );
+  if ($reverse) {
+    $replace = array_flip($replace);
+  }
+  // Don't update the original data object but return a new converted one.
+  $clone = new stdClass();
+  foreach($db_result as $prop => $value) {
+    if (array_key_exists($prop, $replace)) {
+      $clone->{$replace[$prop]} = $value;
+    }
+    else {
+      $clone->{$prop} = $value;
+    }
+  }
+  return $clone;
+}
+
+/**
  * Load a Mollom data record by contentId.
  *
  * @param $contentId
  *   The contentId to retrieve data for.
  */
 function mollom_content_load($contentId) {
-  return db_fetch_object(db_query_range("SELECT * FROM {mollom} WHERE contentId = '%s'", array($contentId), 0, 1));
+  $data = db_fetch_object(db_query_range("SELECT * FROM {mollom} WHERE content_id = '%s'", array($contentId), 0, 1));
+  return _mollom_convert_db_names($data);
 }
 
 /**
@@ -396,7 +439,8 @@ function mollom_content_load($contentId) {
  *   The entity id to retrieve data for.
  */
 function mollom_data_load($entity, $id) {
-  return db_fetch_object(db_query_range("SELECT * FROM {mollom} WHERE entity = '%s' AND id = '%s'", array($entity, $id), 0, 1));
+  $data = db_fetch_object(db_query_range("SELECT * FROM {mollom} WHERE entity = '%s' AND id = '%s'", array($entity, $id), 0, 1));
+  return _mollom_convert_db_names($data);
 }
 
 /**
@@ -412,7 +456,7 @@ function mollom_entity_type_load($type) {
   $results = db_query("SELECT * FROM {mollom} WHERE entity = '%s'", array($type));
   $entities = array();
   while ($row = db_fetch_object($results)) {
-    $entities[$row->id] = $row;
+    $entities[$row->id] = _mollom_convert_db_names($row);
   }
   return $entities;
 }
@@ -462,9 +506,13 @@ function mollom_data_save($data) {
     $data->languages = implode(',', $languages);
   }
 
-  $update = db_result(db_query_range("SELECT 'id' FROM {mollom} WHERE entity = '%s' AND id = '%s'", $data->entity, $data->id, 0, 1));
-  drupal_write_record('mollom', $data, $update ? array('entity', $update) : array());
+  // Convert mixed case variable names to lower-case _ separated database names.
+  $converted = _mollom_convert_db_names($data, TRUE);
 
+  $update = db_result(db_query_range("SELECT 'id' FROM {mollom} WHERE entity = '%s' AND id = '%s'", $data->entity, $data->id, 0, 1));
+  drupal_write_record('mollom', $converted, $update ? array('entity', $update) : array());
+
+  // Pass unconverted data to other modules for backwards compatibility.
   if (!$update) {
     module_invoke_all('mollom_data_insert', $data);
   }
@@ -3078,7 +3126,8 @@ function mollom_mail_add_report_link(array &$message, array $mollom) {
       $data = mollom_content_load($mollom['response']['content']['id']);
     }
     elseif (!empty($mollom['response']['captcha']['id'])) {
-      $data = db_fetch_object(db_query_range("SELECT * FROM {mollom} WHERE captchaId = '%s'", array($mollom['response']['captcha']['id']), 0, 1));
+      $db_data = db_fetch_object(db_query_range("SELECT * FROM {mollom} WHERE captcha_id = '%s'", array($mollom['response']['captcha']['id']), 0, 1));
+      $data = _mollom_convert_db_names($db_data);
     }
     if (!$data) {
       // @todo Mollom session data should have been saved earlier already;
