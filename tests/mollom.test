@@ -3694,7 +3694,7 @@ class MollomDataTestCase extends MollomWebTestCase {
     $this->drupalLogout();
 
     // Test form behavior analysis when enabled.
-    variable_set('mollom_fba', 1);
+    variable_set('mollom_fba_enabled', 1);
 
     // Verify that the tracking image is output.
     $this->drupalGet('mollom-test/form');
@@ -3738,7 +3738,7 @@ class MollomDataTestCase extends MollomWebTestCase {
     $this->assertSame('trackingImageId', $data['trackingImageId'], '-1');
 
     // Disable form behavior analysis.
-    variable_set('mollom_fba', 0);
+    variable_set('mollom_fba_enabled', 0);
 
     // Verify that the tracking image is not output.
     $this->drupalGet('mollom-test/form');

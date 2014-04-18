@@ -1965,7 +1965,7 @@ function mollom_process_mollom($element, $input, &$form_state, &$complete_form) 
   }
 
   // Add the form behavior analysis web tracking beacon field holder if enabled.
-  if (variable_get('mollom_fba', 0) && $form_state['mollom']['require_analysis']) {
+  if (variable_get('mollom_fba_enabled', 0) && $form_state['mollom']['require_analysis']) {
     $element['fba'] = array(
       '#type' => 'hidden',
     );
