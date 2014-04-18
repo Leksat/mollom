@@ -1,5 +1,6 @@
 (function ($) {
 
+Drupal.mollom = Drupal.mollom || {};
 /**
  * Open links to Mollom.com in a new window.
  *
@@ -15,23 +16,32 @@ Drupal.behaviors.mollomTarget = function (context) {
  * Attach click event handlers for CAPTCHA links.
  */
 Drupal.behaviors.mollomCaptcha = function (context) {
-  $('a.mollom-switch-captcha', context).click(getMollomCaptcha);
+  $('a.mollom-switch-captcha', context).click(function (e) {
+    var $mollomForm = $(this).parents('form');
+    var newCaptchaType = $(this).hasClass('mollom-audio-captcha') ? 'audio' : 'image';
+    Drupal.mollom.getMollomCaptcha(newCaptchaType, $mollomForm);
+  });
+  $('a.mollom-refresh-captcha', context).click(function(e) {
+    var $mollomForm = $(this).parents('form');
+    var currentCaptchaType = $(this).hasClass('mollom-refresh-audio') ? 'audio' : 'image';
+    Drupal.mollom.getMollomCaptcha(currentCaptchaType, $mollomForm);
+  })
 };
 
 /**
  * Fetch a Mollom CAPTCHA and output the image or audio into the form.
+ *
+ * @param captchaType
+ *   The type of CAPTCHA to retrieve; one of "audio" or "image".
+ * @param context
+ *   The form context for its retrieval.
  */
-function getMollomCaptcha() {
-  // Get the current requested CAPTCHA type from the clicked link.
-  var newCaptchaType = $(this).hasClass('mollom-audio-captcha') ? 'audio' : 'image';
-
-  var context = $(this).parents('form');
-
+Drupal.mollom.getMollomCaptcha = function (captchaType, context) {
   // Extract the form build ID and Mollom content ID from the form.
   var formBuildId = $('input[name="mollom[mollom_build_id]"]', context).val();
   var mollomContentId = $('input.mollom-content-id', context).val();
 
-  var path = 'mollom/captcha/' + newCaptchaType + '/' + formBuildId;
+  var path = 'mollom/captcha/' + captchaType + '/' + formBuildId;
   if (mollomContentId) {
     path += '/' + mollomContentId;
   }
@@ -52,7 +62,7 @@ function getMollomCaptcha() {
       // Add an onclick-event handler for the new link.
       Drupal.attachBehaviors(context);
       // Focus on the CAPTCHA input.
-      if (newCaptchaType == 'image') {
+      if (captchaType == 'image') {
           $('input[name="mollom[captcha]"]', context).focus();
       } else {
         // Focus on audio player.
