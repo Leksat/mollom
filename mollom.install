@@ -347,6 +347,7 @@ function mollom_install() {
 function mollom_uninstall() {
   db_query("DELETE FROM {variable} WHERE name LIKE 'mollom_%'");
   drupal_uninstall_schema('mollom');
+  cache_clear_all('mollom', 'cache', TRUE);
 }
 
 /**
