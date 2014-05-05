@@ -625,7 +625,7 @@ function mollom_data_delete_form_submit($form, &$form_state) {
   $id = $data['postId'];
 
   if (!empty($form_state['values']['mollom']['feedback'])) {
-    if (mollom_data_report($entity, $id, $form_state['values']['mollom']['feedback'])) {
+    if (mollom_data_report($entity, $id, $form_state['values']['mollom']['feedback'], 'moderate', 'mollom_data_delete_form_submit')) {
       drupal_set_message(t('The content was successfully reported as inappropriate.'));
     }
   }
@@ -641,9 +641,17 @@ function mollom_data_delete_form_submit($form, &$form_state) {
  *   The entity type to send feedback for.
  * @param $id
  *   The entity id to send feedback for.
+ * @param $feedback
+ *   The feedback reason for reporting content.
+ * @param $type
+ *   The type of feedback, one of 'moderate' or 'flag'.
+ * @param $source
+ *   An optional single word string identifier for the user interface source.
+ *   This is tracked along with the feedback to provide a more complete picture
+ *   of how feedback is used and submitted on the site.
  */
-function mollom_data_report($entity, $id, $feedback) {
-  return mollom_data_report_multiple($entity, array($id), $feedback);
+function mollom_data_report($entity, $id, $feedback, $type = 'moderate', $source = 'mollom_data_report') {
+  return mollom_data_report_multiple($entity, array($id), $feedback, $type, $source);
 }
 
 /**
@@ -653,15 +661,23 @@ function mollom_data_report($entity, $id, $feedback) {
  *   The entity type to send feedback for.
  * @param $ids
  *   An array of entity ids to send feedback for.
+ * @param $feedback
+ *   The feedback reason for reporting content.
+ * @param $type
+ *   The type of feedback, one of 'moderate' or 'flag'.
+ * @param $source
+ *   An optional single word string identifier for the user interface source.
+ *   This is tracked along with the feedback to provide a more complete picture
+ *   of how feedback is used and submitted on the site.
  */
-function mollom_data_report_multiple($entity, array $ids, $feedback) {
+function mollom_data_report_multiple($entity, array $ids, $feedback, $type = 'moderate', $source = 'mollom_data_report_multiple') {
   $return = TRUE;
   foreach ($ids as $id) {
     // Load the Mollom session data.
     $data = mollom_data_load($entity, $id);
     // Send feedback, if we have session data.
     if (!empty($data->contentId) || !empty($data->captchaId)) {
-      $result = _mollom_send_feedback($data, $feedback, 'moderate', 'mollom_data_report_multiple');
+      $result = _mollom_send_feedback($data, $feedback, $type, $source);
       $return = $return && $result;
     }
   }
@@ -4245,6 +4261,179 @@ function profile_mollom_form_info_alter(&$form_info, $form_id) {
  * @} End of "name mollom_profile".
  */
 
+/**
+ * @name mollom_action Actions module integration for Mollom.
+ * @{
+ */
+
+/**
+ * Implements hook_action_info().
+ */
+function mollom_action_info() {
+  return array(
+    // Unpublish comment action.
+    'mollom_action_unpublish_comment' => array(
+      'description' => t('Report comment to Mollom as spam and unpublish'),
+      'type' => 'comment',
+      'configurable' => FALSE,
+      'triggers' => array(
+        'comment_insert',
+        'comment_update',
+      ),
+      'aggregate' => TRUE,
+    ),
+    // Unpublish node action.
+    'mollom_action_unpublish_node' => array(
+      'description' => t('Report node to Mollom as spam and unpublish'),
+      'type' => 'node',
+      'configurable' => FALSE,
+      'triggers' => array(
+        'node_insert',
+        'node_update',
+      ),
+      'aggregate' => TRUE,
+    ),
+  );
+}
+
+/**
+ * Action callback to report a comment to mollom and unpublish.
+ */
+function mollom_action_unpublish_comment($comments, $context = array()) {
+  _mollom_action_unpublish('comment', $comments);
+}
+
+/**
+ * Action callback to report a node to mollom and unpublish.
+ */
+function mollom_action_unpublish_node($nodes, $context = array()) {
+  _mollom_action_unpublish('node', $nodes);
+}
+
+/**
+ * Unpublish content and report to Mollom as spam.
+ *
+ * @param $entity_type
+ *   The type of entity; one of "comment" or "node".
+ * @param $entities
+ *   An array of entities to perform the action upon.
+ */
+function _mollom_action_unpublish($entity_type, $entities) {
+  // Make sure this is a supported entity type.
+  if (!in_array($entity_type, array('node', 'comment'))) {
+    watchdog('Mollom', 'Called unpublish action for an unsupported entity type: @type', array('@type' => $entity_type), WATCHDOG_ERROR);
+    return;
+  }
+
+  // Determine the entities for which moderation is allowed.
+  list($allowed, $nids, $cids) = _mollom_actions_access_callbacks($entity_type, $entities);
+
+  // Send feedback to Mollom.
+  $ids = $entity_type === 'comment' ? $cids : $nids;
+  mollom_data_report_multiple($entity_type, $ids, 'spam', 'moderate', "mollom_action_unpublish_{$entity_type}");
+
+  if ($entity_type === 'comment') {
+    // Unpublish the comment.
+    db_query('UPDATE {comments} set status = %d WHERE cid IN (' . db_placeholders($cids) . ')', array_merge((array) COMMENT_NOT_PUBLISHED, $cids));
+
+    foreach ($nids as $nid) {
+      _comment_update_node_statistics($nid);
+    }
+  }
+  else if ($entity_type === 'node') {
+    // Unpublish the node.
+    db_query('UPDATE {node} set status = 0 WHERE nid IN (' . db_placeholders($nids) . ')', $nids);
+  }
+}
+
+/**
+ * Gets all callbacks and checks permissions for entities.
+ *
+ * @param $entity_type
+ *   The type of entity to check.
+ * @param $entities
+ *   An array of entities to check.
+ *
+ * @return array
+ *   An indexed array of allowed entities
+ *   - 0 An array of allowed entities objects
+ *   - 1 An array of node ids
+ *   - 2 An array of comment ids (if entity_type is comment).
+ */
+function _mollom_actions_access_callbacks($entity_type, $entities) {
+  $cids = array();
+  $nids = array();
+
+  // Retrieve any relevant callback for comments
+  $report_access_callbacks = array();
+  $access_permissions = array();
+  $entity_access_callbacks = array();
+
+  $allowed = array();
+  foreach (mollom_form_list() as $form_id => $info) {
+    if (!isset($info['entity']) || $info['entity'] != $entity_type) {
+      continue;
+    }
+    // If there is a 'report access callback' add it to the list.
+    if (isset($info['report access callback'])
+      && function_exists($info['report access callback'])
+      && !in_array($info['report access callback'], $report_access_callbacks)) {
+      $report_access_callbacks[] = $info['report access callback'];
+    }
+    // Otherwise add any access permissions.
+    else if (isset($info['report access']) && !in_array($info['report access'], $access_permissions)) {
+      $access_permissions[] = $info['report access'];
+    }
+    // Check for entity report access callbacks.
+    if (isset($info['entity report access callback'])
+      && function_exists($info['entity report access callback'])
+      && !in_array($info['entity report access callback'], $entity_access_callbacks)) {
+      $entity_access_callbacks[] = $info['entity report access callback'];
+    }
+  }
+
+  // Check access for this comment.
+  foreach ($entities as $entity) {
+    if ($entity_type === 'comment') {
+      $entity_id = $entity->cid;
+      $cids[$entity->cid] = $entity->cid;
+      $nids[$entity->nid] = $entity->nid;
+    }
+    else if ($entity_type === 'node') {
+      $entity_id = $entity->nid;
+      $nids[$entity->nid] = $entity->nid;
+    }
+
+    // Check reporting callbacks.
+    foreach($report_access_callbacks as $callback) {
+      if (!$callback($entity_type, $entity_id)) {
+        break;
+      }
+    }
+
+    // Check reporting user permissions.
+    foreach($access_permissions as $permission) {
+      if (!user_access($permission)) {
+        break;
+      }
+    }
+
+    // Check entity reporting callbacks.
+    foreach($report_access_callbacks as $callback) {
+      if (!$callback($entity)) {
+        break;
+      }
+    }
+
+    // If still here, then user has access to report this entity.
+    $allowed[] = $entity;
+  }
+  return array($allowed, $nids, $cids);
+}
+
+/**
+ * @} End of "name mollom_action".
+ */
 
 /**
  * @name mollom_flag Flag as inappropriate
