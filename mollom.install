@@ -1075,7 +1075,7 @@ function mollom_update_6211() {
 /**
  * Change all mixedCase database columns and indexes to underscore separated.
  */
-function mollom_udpate_6212() {
+function mollom_update_6212() {
   $ret = array();
   db_drop_index($ret, 'mollom', 'contentId');
   db_drop_index($ret, 'mollom', 'captchaId');
@@ -1128,4 +1128,5 @@ function mollom_udpate_6212() {
   }
   db_add_index($ret, 'mollom', 'content_id', array('content_id'));
   db_add_index($ret, 'mollom', 'captcha_id', array('captcha_id'));
+  return $ret;
 }
