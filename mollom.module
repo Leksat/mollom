@@ -1228,6 +1228,11 @@ function mollom_form_get_values(&$form_state, $fields, $mapping) {
   // which have been turned into $exclude_fields above. All fields that were
   // already used for 'post_body' no longer exist in $exclude_fields.
   foreach ($exclude_fields as $field => $property) {
+    // If the postTitle field was not included in the enabled fields, then don't
+    // set it's mapping here.
+    if ($property === 'post_title' && !in_array($field, $fields)) {
+      continue;
+    }
     // Nested elements use a key of 'parent][child', so we need to recurse.
     $parents = explode('][', $field);
     $value = $form_values;
@@ -1252,7 +1257,7 @@ function mollom_form_get_values(&$form_state, $fields, $mapping) {
   if (!empty($mapping['post_id'])) {
     $data['postId'] = $mapping['post_id'];
   }
-  // Post title.
+  // Post title if included in enabled fields for the form.
   if (!empty($mapping['post_title'])) {
     $data['postTitle'] = $mapping['post_title'];
   }

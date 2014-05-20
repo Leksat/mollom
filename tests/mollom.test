@@ -2436,6 +2436,25 @@ class MollomFormConfigurationTestCase extends MollomWebTestCase {
       }
     }
 
+    // Remove the title field from those that were enabled.
+    $mollom_form['enabled_fields'] = array('body', 'exclude', 'parent][child', 'field');
+    mollom_form_save($mollom_form);
+
+    // Try a submit of the form.
+    $this->drupalLogout();
+    $edit = array(
+      'title' => 'unsure',
+      'body' => 'unsure',
+    );
+    $this->drupalPost('mollom-test/form', $edit, 'Submit');
+    $this->assertText($this->unsure_message);
+
+    $data = $this->getServerRecord();
+    $this->assertTrue(empty($data['postTitle']), 'Post title was not passed to Mollom.');
+
+    // Add the title back.
+    $this->drupalLogin($this->admin_user);
+    $mollom_form['enabled_fields'][] = 'title';
     // Add a field to the stored configuration that existed previously.
     $mollom_form['enabled_fields'][] = 'orphan_field';
     mollom_form_save($mollom_form);
