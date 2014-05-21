@@ -1,0 +1,16 @@
+keys:
+  public: ''
+  private: ''
+fallback: 1
+languages_expected: []
+testing_mode: false
+privacy_link: true
+log_level: 4
+connection_timeout_seconds: 3
+captcha:
+  audio:
+    enabled: true
+fba:
+  enabled: false
+flag:
+  enabled: false

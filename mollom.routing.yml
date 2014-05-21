@@ -1,0 +1,6 @@
+mollom.config:
+  path: '/admin/config/content/mollom'
+  defaults:
+    _form: '\Drupal\mollom\Form\ConfigureSettingsForm'
+  requirements:
+    _permission: 'administer mollom'

@@ -1,0 +1,228 @@
+<?php
+/**
+ * Drupal-specific implementation of the Mollom PHP library.
+ */
+
+namespace Drupal\mollom\API;
+
+use Drupal\Core\Config\Config;
+use Drupal\Core\Http\Client as HttpClient;
+use Drupal\Core\Language\LanguageManager;
+use Drupal\mollom\Utility\Logger;
+use Mollom\Client as MollomClient;
+
+
+class DrupalClient extends MollomClient {
+
+  /**
+   * The settings configuration.
+   *
+   * @var \Drupal\Core\Config\Config
+   */
+  public $config;
+
+  /**
+   * The HTTP client.
+   */
+  public $client;
+
+  /**
+   * Mapping of configuration names to Drupal variables.
+   *
+   * @var array
+   *
+   * @see Mollom::loadConfiguration()
+   */
+  protected $configuration_map;
+
+  /**
+   * Overrides the connection timeout based on module configuration.
+   *
+   * @param \Drupal\Core\Config\ConfigFactoryInterface $config_factory
+   *   The factory for configuration objects.
+   *
+   * @see Mollom::__construct().
+   */
+  public function __construct() {
+    $this->config = \Drupal::config('mollom.settings');
+    $this->requestTimeout = $this->config->get('connection_timeout_seconds');
+    $this->client = \Drupal::httpClient();
+    $this->configuration_map = array(
+      'publicKey' => 'keys.public',
+      'privateKey' => 'keys.private',
+      'expectedLanguages' => 'languages_expected',
+    );
+    parent::__construct();
+  }
+
+  /**
+   * Implements Mollom::loadConfiguration().
+   */
+  public function loadConfiguration($name) {
+    $name = $this->configuration_map[$name];
+    return $this->config->get($name);
+  }
+
+  /**
+   * Implements Mollom::saveConfiguration().
+   */
+  public function saveConfiguration($name, $value) {
+    $name = $this->configuration_map[$name];
+    $this->config->set($name, $value)->save();
+  }
+
+  /**
+   * Implements Mollom::deleteConfiguration().
+   */
+  public function deleteConfiguration($name) {
+    $name = $this->configuration_map[$name];
+    $this->config->clear($name)->save();
+  }
+
+  /**
+   * Implements Mollom::getClientInformation().
+   */
+  public function getClientInformation() {
+    // Retrieve Drupal distribution and installation profile information.
+    $profile = drupal_get_profile();
+    $profile_info = system_get_info('module', $profile) + array(
+      'distribution_name' => 'Drupal',
+      'version' => \Drupal::VERSION,
+    );
+
+    // Retrieve Mollom module information.
+    $mollom_info = system_get_info('module', 'mollom');
+    if (empty($mollom_info['version'])) {
+      // Manually build a module version string for repository checkouts.
+      $mollom_info['version'] = \Drupal::CORE_COMPATIBILITY . '-2.x-dev';
+    }
+
+    $data = array(
+      'platformName' => $profile_info['distribution_name'],
+      'platformVersion' => $profile_info['version'],
+      'clientName' => $mollom_info['name'],
+      'clientVersion' => $mollom_info['version'],
+    );
+    return $data;
+  }
+
+  /**
+   * Overrides Mollom::writeLog().
+   */
+  function writeLog() {
+    foreach ($this->log as $entry) {
+      $entry['Request: ' . $entry['request']] = !empty($entry['data']) ? $entry['data'] : NULL;
+      unset($entry['request'], $entry['data']);
+
+      $entry['Request headers:'] = $entry['headers'];
+      unset($entry['headers']);
+
+      $entry['Response: ' . $entry['response_code'] . ' ' . $entry['response_message'] . ' (' . number_format($entry['response_time'], 3) . 's)'] = $entry['response'];
+      unset($entry['response'], $entry['response_code'], $entry['response_message'], $entry['response_time']);
+
+      // The client class contains the logic for recovering from certain errors,
+      // and log messages are only written after that happened. Therefore, we
+      // can normalize the severity of all log entries to the overall success or
+      // failure of the attempted request.
+      // @see Mollom::query()
+      Logger::addMessage($entry, $this->lastResponseCode === TRUE ? NULL : WATCHDOG_ERROR);
+    }
+
+    // After writing log messages, empty the log.
+    $this->purgeLog();
+  }
+
+  /**
+   * Implements Mollom::request().
+   */
+  protected function request($method, $server, $path, $query = NULL, array $headers = array()) {
+    $options = array(
+      'headers' => $headers,
+      'timeout' => $this->requestTimeout,
+    );
+    if (isset($query)) {
+      if ($method === 'GET') {
+        $path .= '?' . $query;
+      }
+      else {
+        $options['body'] = $query;
+      }
+    }
+    $request = $this->client->createRequest($method, $server . '/' . $path, $options);
+    $response = $this->client->send($request);
+    $response = (object) array(
+      'code' => $response->getStatusCode(),
+      'message' => ($response->getStatusCode() >= 200 && $response->getStatusCode() < 300) ? $response->getReasonPhrase() : NULL,
+      'headers' => $response->getHeaders(),
+      'body' => $response->getBody(TRUE),
+    );
+    return $response;
+  }
+
+  /**
+   * Retrieves GET/HEAD or POST/PUT parameters of an inbound request.
+   *
+   * @return array
+   *   An array containing either GET/HEAD query string parameters or POST/PUT
+   *   post body parameters. Parameter parsing accounts for multiple request
+   *   parameters in non-PHP format; e.g., 'foo=one&foo=bar'.
+   */
+  public static function getServerParameters() {
+    $data = parent::getServerParameters();
+    if ($_SERVER['REQUEST_METHOD'] == 'GET' || $_SERVER['REQUEST_METHOD'] == 'HEAD') {
+      // Remove $_GET['q'].
+      unset($data['q']);
+    }
+    return $data;
+  }
+
+  /**
+   * Helper function to prepare a list of available languages.
+   *
+   * @return array
+   *   An array of languages supported by Mollom with keys as the language code
+   *   and values as the translated display values.
+   */
+  public static function getSupportedLanguages() {
+    $languages = LanguageManager::getStandardLanguageList();
+    $supported = array_flip(self::$LANGUAGES_SUPPORTED);
+    $supported = array_combine(array_keys($supported), array_keys($supported));
+
+    // Define those mappings that differ between Drupal codes and Mollom codes.
+    $mapped = array(
+      'nb' => 'no',
+      'zh-hans' => 'zh-cn',
+      'zh-hant' => 'zh-tw',
+    );
+    foreach($mapped as $drupal_key => $mollom_key) {
+      if (isset($supported[$mollom_key])) {
+        $supported[$drupal_key] = $mollom_key;
+        unset($supported[$mollom_key]);
+      }
+    }
+
+    $options = array();
+    $languages_enabled = language_list();
+    $installed_languages = array();
+
+    // This does assume that all Mollom supported languages are in the predefined
+    // Drupal list.
+    foreach ($languages as $langcode => $language) {
+      $found = FALSE;
+      $simplified_code = strtok($langcode, '-');
+      if (isset($supported[$simplified_code]) && !isset($options[$simplified_code])) {
+        $options[$supported[$simplified_code]] = t($language[0]);
+        $found = TRUE;
+      }
+      else if (isset($supported[$langcode]) && !isset($options[$langcode])) {
+        $options[$supported[$langcode]] = t($language[0]);
+        $found = TRUE;
+      }
+    }
+    // Sort by translated option labels.
+    asort($options);
+    // UX: Sort installed languages first.
+    // @todo array_intersect_key($options, $installed_languages) + $options;
+    return $options;
+  }
+}
