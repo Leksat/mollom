@@ -3531,6 +3531,9 @@ class MollomDataTestCase extends MollomWebTestCase {
   function testFormGetValues() {
     global $user;
 
+    // Load the context node.
+    $node = $this->drupalCreateNode(array('type' => 'page', 'promote' => 1));
+
     // Form registry information.
     $form_info = array(
       'elements' => array(
@@ -3545,6 +3548,7 @@ class MollomDataTestCase extends MollomWebTestCase {
         'author_name' => 'name',
         'author_mail' => 'mail',
         'author_openid' => 'author][openid',
+        'context_id' => 'nid',
       ),
     );
     // Fields configured via Mollom admin UI based on $form_info['elements'].
@@ -3583,10 +3587,12 @@ class MollomDataTestCase extends MollomWebTestCase {
       ),
       'name' => 'Drupaler',
       'mail' => 'drupaler@example.com',
+      'nid' => $node->nid,
     );
     $form_state = array('values' => $values, 'buttons' => array());
+    $form_state['mollom']['context created callback'] = 'node_mollom_context_created';
     $data = mollom_form_get_values($form_state, $fields, $form_info['mapping']);
-    $data += array_fill_keys(array('postTitle', 'postBody', 'authorId', 'authorCreated', 'authorName', 'authorMail', 'authorUrl', 'authorOpenid', 'authorIp'), NULL);
+    $data += array_fill_keys(array('postTitle', 'postBody', 'authorId', 'authorCreated', 'authorName', 'authorMail', 'authorUrl', 'authorOpenid', 'authorIp', 'contextCreated'), NULL);
 
     $this->assertSame('postTitle', $data['postTitle'], $values['subject']);
     $body = array(
@@ -3604,6 +3610,7 @@ class MollomDataTestCase extends MollomWebTestCase {
     $this->assertSame('authorUrl', $data['authorUrl'], NULL);
     $this->assertSame('authorOpenid', $data['authorOpenid'], $values['author']['openid']);
     $this->assertSame('authorIp', $data['authorIp'], ip_address());
+    $this->assertSame('contextCreated', $data['contextCreated'], $node->created);
 
     // Verify submitted form values for an anonymous user whose name happens to
     // match a registered user.
@@ -3625,10 +3632,12 @@ class MollomDataTestCase extends MollomWebTestCase {
         1 => array('value' => 'Ignore second'),
       ),
       'name' => $this->admin_user->name,
+      'nid' => $node->nid,
     );
     $form_state = array('values' => $values, 'buttons' => array());
+    $form_state['mollom']['context created callback'] = 'node_mollom_context_created';
     $data = mollom_form_get_values($form_state, $fields, $form_info['mapping']);
-    $data += array_fill_keys(array('postTitle', 'postBody', 'authorId', 'authorCreated', 'authorName', 'authorMail', 'authorUrl', 'authorOpenid', 'authorIp'), NULL);
+    $data += array_fill_keys(array('postTitle', 'postBody', 'authorId', 'authorCreated', 'authorName', 'authorMail', 'authorUrl', 'authorOpenid', 'authorIp', 'contextCreated'), NULL);
 
     $this->assertSame('postTitle', $data['postTitle'], $values['subject']);
     $body = array(
@@ -3645,6 +3654,7 @@ class MollomDataTestCase extends MollomWebTestCase {
     $this->assertSame('authorUrl', $data['authorUrl'], NULL);
     $this->assertSame('authorOpenid', $data['authorOpenid'], $values['author']['openid']);
     $this->assertSame('authorIp', $data['authorIp'], ip_address());
+    $this->assertSame('contextCreated', $data['contextCreated'], $node->created);
 
     // Verify submitted form values for a registered user.
     $user = $this->admin_user;
@@ -3652,10 +3662,12 @@ class MollomDataTestCase extends MollomWebTestCase {
       'subject' => 'Foo',
       'message' => 'Bar',
       'name' => $this->admin_user->name,
+      'nid' => $node->nid,
     );
     $form_state = array('values' => $values, 'buttons' => array());
+    $form_state['mollom']['context created callback'] = 'node_mollom_context_created';
     $data = mollom_form_get_values($form_state, $fields, $form_info['mapping']);
-    $data += array_fill_keys(array('postTitle', 'postBody', 'authorId', 'authorCreated', 'authorName', 'authorMail', 'authorUrl', 'authorOpenid', 'authorIp'), NULL);
+    $data += array_fill_keys(array('postTitle', 'postBody', 'authorId', 'authorCreated', 'authorName', 'authorMail', 'authorUrl', 'authorOpenid', 'authorIp', 'contextCreated'), NULL);
 
     $this->assertSame('postTitle', $data['postTitle'], $values['subject']);
     $this->assertSame('postBody', $data['postBody'], $values['message']);
@@ -3666,6 +3678,7 @@ class MollomDataTestCase extends MollomWebTestCase {
     $this->assertSame('authorUrl', $data['authorUrl'], NULL);
     $this->assertSame('authorOpenid', $data['authorOpenid'], NULL);
     $this->assertSame('authorIp', $data['authorIp'], ip_address());
+    $this->assertSame('contextCreated', $data['contextCreated'], $node->created);
 
     // Verify that invalid UTF-8 is detected.
     $values = array(
