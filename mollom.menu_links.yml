@@ -1,0 +1,9 @@
+mollom_admin:
+  title: Mollom content moderation
+  route_name: mollom.forms.list
+  parent: system.admin_config_content
+  description: Configure how the Mollom services moderates user-submitted content such as spam and profanity.
+mollom_test:
+  title: Mollom module testing
+  description: This should not appear in the final module and is here as a developer testing tool.
+  route_name: mollom.test

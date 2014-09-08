@@ -149,7 +149,10 @@ class DrupalClient extends MollomClient {
       }
     }
     $request = $this->client->createRequest($method, $server . '/' . $path, $options);
-    $response = $this->client->send($request);
+    try {
+      $response = $this->client->send($request);
+    }
+    Catch( \Exception $e ){ echo $e->getTraceAsString();  }
     $response = (object) array(
       'code' => $response->getStatusCode(),
       'message' => ($response->getStatusCode() >= 200 && $response->getStatusCode() < 300) ? $response->getReasonPhrase() : NULL,

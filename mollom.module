@@ -6,18 +6,6 @@
  */
 
 /**
- * Implements hook_menu().
- */
-function mollom_menu() {
-  $items['admin/config/content/mollom'] = array(
-    'title' => 'Mollom content moderation',
-    'description' => 'Configure how the Mollom service moderates user-submitted content such as spam and profanity.',
-    'route_name' => 'mollom.config',
-  );
-  return $items;
-}
-
-/**
  * Implements hook_permission().
  */
 function mollom_permission() {
@@ -36,3 +24,138 @@ function mollom_permission() {
     )
   );
 }
+
+/**
+ * Helper function to add field form element mappings for fieldable entities.
+ *
+ * May be used by hook_mollom_form_info() implementations to automatically
+ * populate the 'elements' definition with attached text fields on the entity
+ * type's bundle.
+ *
+ * @param array $form_info
+ *   The basic information about the registered form. Taken by reference.
+ * @param string $entity_type
+ *   The entity type; e.g., 'node'.
+ * @param string $bundle
+ *   The entity bundle name; e.g., 'article'.
+ *
+ * @return void
+ *   $form_info is taken by reference and enhanced with any attached field
+ *   mappings; e.g.:
+ *   @code
+ *     $form_info['elements']['field_name][und][0][value'] = 'Field label';
+ *   @endcode
+ */
+function mollom_form_info_add_fields(&$form_info, $entity_type, $bundle) {
+  if (!$entity_info = \Drupal::entityManager()->getDefinition($entity_type)) {
+    return;
+  }
+  $form_info['mapping']['post_id'] = $entity_info['entity keys']['id'];
+
+  if (!empty($entity_info['fieldable'])) {
+    // Add form element mappings for any text fields attached to the bundle.
+    foreach (field_info_instances($entity_type, $bundle) as $field_name => $instance) {
+      $field = \Drupal\field\Field::fieldInfo()->getField($field_name);
+      if (in_array($field['type'], array('text', 'text_long', 'text_with_summary'))) {
+        $form_info['elements'][$field_name] = \Drupal\Component\Utility\String::checkPlain(t($field['label']));
+      }
+    }
+  }
+}
+
+/**
+ * @name mollom_comment Comment module integration for Mollom.
+ * @{
+ */
+
+/**
+ * Implements hook_mollom_form_list().
+ */
+function comment_mollom_form_list() {
+  $forms = array();
+  foreach (\Drupal\node\Entity\NodeType::loadMultiple() as $type) {
+    $form_id = "comment_node_{$type->type}_form";
+    $forms[$form_id] = array(
+      'title' => t('@name comment form', array('@name' => $type->name)),
+      'entity' => 'comment',
+      'bundle' => 'comment_node_' . $type->type,
+      //'delete form' => 'comment_confirm_delete',
+      /*'delete form file' => array(
+        'name' => 'comment.admin',
+      ),*/
+      'report access' => array('administer comments'),
+      //'entity delete multiple callback' => 'comment_delete_multiple',
+      'entity report access callback' => 'comment_mollom_entity_report_access',
+    );
+  }
+  return $forms;
+}
+
+/**
+ * Implements hook_mollom_form_info().
+ */
+function comment_mollom_form_info($form_id) {
+  $form_info = array(
+    'mode' => \Drupal\mollom\ProtectedFormInterface::MOLLOM_MODE_ANALYSIS,
+    'bypass access' => array('administer comments'),
+    'moderation callback' => 'comment_mollom_form_moderation',
+    'elements' => array(
+      'subject' => t('Subject'),
+    ),
+    'mapping' => array(
+      'post_title' => 'subject',
+      'author_name' => 'name',
+      'author_mail' => 'mail',
+      'author_url' => 'homepage',
+    ),
+  );
+  // Retrieve internal type from $form_id.
+  $comment_bundle = drupal_substr($form_id, 0, -5);
+  mollom_form_info_add_fields($form_info, 'comment', $comment_bundle);
+  return $form_info;
+}
+
+/**
+ * Entity report access callback for comments.
+ *
+ * @param $entity
+ *   Optional entity object to check access to a specific entity.
+ */
+function comment_mollom_entity_report_access($entity = NULL) {
+  // All comments can be reported as long as the user has access to view the
+  // node and it's comments.
+  if (!\Drupal::currentUser()->hasPermission('access comments')) {
+    return FALSE;
+  }
+  if (!empty($entity)) {
+    return $entity->getCommentedEntity()->access('view');
+  }
+  return TRUE;
+}
+
+/**
+ * Mollom form moderation callback for comments.
+ */
+function comment_mollom_form_moderation(&$form, &$form_state) {
+  $form_state['values']['status'] = COMMENT_NOT_PUBLISHED;
+}
+
+/**
+ * Implements hook_form_FORMID_alter().
+ */
+function mollom_form_comment_admin_overview_alter(&$form, &$form_state) {
+  module_load_include('inc', 'mollom', 'mollom.flag');
+  _mollom_table_add_flag_counts('comment', $form['comments']['#header'], $form['comments']['#options']);
+}
+
+/**
+ * Implements hook_form_FORMID_alter().
+ */
+function mollom_form_node_form_alter(&$form, &$form_state, $form_id) {
+  module_load_include('inc', 'mollom', 'mollom.flag');
+  mollom_flag_node_form_alter($form, $form_state, $form_id);
+}
+
+/**
+ * @} End of "name mollom_comment".
+ */

@@ -1,6 +1,55 @@
-mollom.config:
-  path: '/admin/config/content/mollom'
+mollom.settings:
+  path: '/admin/config/content/mollom/settings'
   defaults:
     _form: '\Drupal\mollom\Form\ConfigureSettingsForm'
   requirements:
     _permission: 'administer mollom'
+mollom.test:
+  path: '/mollom/test'
+  defaults:
+    _content: 'Drupal\mollom\Controller\TestController::test'
+  requirements:
+    _permission: 'administer mollom'
+
+# Blacklist administration
+mollom.blacklist.list:
+  path: 'admin/config/content/mollom/blacklist'
+  defaults:
+    _content: '\Drupal\mollom\Controller\BlacklistListController::content'
+    _title: 'Mollom blacklist'
+  requirements:
+    _permission: 'administer mollom'
+mollom.blacklist.add:
+  path: 'admin/config/content/mollom/blacklist/add'
+  defaults:
+    _form: '\Drupal\mollom\Form\BlacklistEntryAddForm'
+  requirements:
+    _permission: 'administer mollom'
+mollom.blacklist.edit:
+  path: 'admin/config/content/mollom/blacklist/edit/{entry_id}'
+  defaults:
+    _form: '\Drupal\mollom\Form\BlacklistEntryEditForm'
+  requirements:
+    _permission: 'administer mollom'
+mollom.blacklist.delete:
+  path: 'admin/config/content/mollom/blacklist/delete'
+  defaults:
+    _form: '\Drupal\mollom\Form\BlacklistEntryDeleteForm'
+  requirements:
+    _permission: 'administer mollom'
+
+# Form protection
+mollom.forms.list:
+  path: '/admin/config/content/mollom'
+  defaults:
+    _entity_list: 'mollom_form'
+    _title: 'Mollom content moderation'
+  requirements:
+    _permission: 'administer mollom'
+mollom.form.add:
+  path: '/admin/config/content/mollom/add'
+  defaults:
+    _title: 'Add configuration form'
+    _entity_form: robot.add
+  requirements:
+    _entity_create_access: robot

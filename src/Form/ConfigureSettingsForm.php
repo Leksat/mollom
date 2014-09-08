@@ -34,16 +34,15 @@ class ConfigureSettingsForm extends ConfigFormBase {
     }
 
     $form['keys'] = array(
-      '#type' => 'fieldset',
+      '#type' => 'details',
       '#title' => t('Mollom API keys'),
       '#tree' => TRUE,
       '#description' => t('To obtain API keys, <a href="@signup-url">sign up</a> or log in to your <a href="@site-manager-url">Site manager</a>, register this site, and copy the keys into the fields below.', array(
         '@signup-url' => 'https://mollom.com/pricing',
         '@site-manager-url' => 'https://mollom.com/site-manager',
       )),
-      '#collapsible' => TRUE,
       // Only show key configuration fields if they are not configured or invalid.
-      '#collapsed' => !$status['isVerified'],
+      '#open' => !$status['isVerified'],
     );
     // Keys are not #required to allow to install this module and configure it
     // later.
@@ -103,10 +102,9 @@ class ConfigureSettingsForm extends ConfigFormBase {
     );
 
     $form['advanced'] = array(
-      '#type' => 'fieldset',
+      '#type' => 'details',
       '#title' => t('Advanced configuration'),
-      '#collapsible' => TRUE,
-      '#collapsed' => TRUE,
+      '#open' => FALSE,
     );
     // Lower severity numbers indicate a high severity level.
     $form['advanced']['log_level'] = array(
@@ -145,10 +143,9 @@ class ConfigureSettingsForm extends ConfigFormBase {
       '#default_value' => $config->get('fba.enabled'),
     );
     $form['advanced']['fai'] = array(
-      '#type' => 'fieldset',
+      '#type' => 'details',
       '#title' => t('Flag as inappropriate'),
-      '#collapsible' => TRUE,
-      '#collapsed' => TRUE,
+      '#open' => FALSE,
     );
     $form['advanced']['fai']['fai_enabled'] = array(
       '#type' => 'checkbox',
