@@ -51,15 +51,15 @@ mollom.settings:
   path: 'admin/config/content/mollom/settings'
   defaults:
     _form: '\Drupal\mollom\Form\Settings'
-    _title: 'Settings'
+    _title: 'Mollom settings'
   requirements:
     _permission: 'administer mollom'
 
 mollom.statistics:
   path: 'admin/config/content/mollom/statistics'
   defaults:
-    _form: '\Drupal\mollom\Form\Statistics'
-    _title: 'Statistics'
+    _content: '\Drupal\mollom\Controller\StatisticsController::content'
+    _title: 'Mollom statistics'
   requirements:
     _permission: 'administer mollom'
 

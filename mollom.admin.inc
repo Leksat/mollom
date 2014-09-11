@@ -650,31 +650,3 @@ function mollom_admin_settings_submit($form, &$form_state) {
   // Update Mollom site record with local configuration.
   _mollom_status(TRUE, TRUE);
 }
-
-/**
- * Menu callback; Displays the administrative reports page.
- */
-function mollom_reports_page($form, &$form_state) {
-  $embed_attributes = array(
-    'src' => 'https://mollom.com/statistics.swf?key=' . check_plain(variable_get('mollom_public_key', '')),
-    'quality' => 'high',
-    'width' => '100%',
-    'height' => '430',
-    'name' => 'Mollom',
-    'align' => 'middle',
-    'play' => 'true',
-    'loop' => 'false',
-    'allowScriptAccess' => 'sameDomain',
-    'type' => 'application/x-shockwave-flash',
-    'pluginspage' => 'http://www.adobe.com/go/getflashplayer',
-    'wmode' => 'transparent',
-  );
-  $form['chart'] = array(
-    '#type' => 'item',
-    '#title' => t('Statistics'),
-    '#markup' => '<embed' . drupal_attributes($embed_attributes) . '></embed>',
-  );
-
-  return $form;
-}
-
