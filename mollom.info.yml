@@ -3,4 +3,4 @@ description: Automatically moderates user-submitted content and protects your si
 package: "Spam control"
 type: module
 core: 8.x
-configure: mollom.config
+configure: mollom.settings
