@@ -47,7 +47,7 @@ use Drupal\Core\Config\Entity\ConfigEntityBase;
  * @ConfigEntityType(
  *   id = "mollom_form",
  *   label = @Translation("Mollom Form Configuration"),
- *   controllers = {
+ *   handlers = {
  *     "storage" = "Drupal\Core\Config\Entity\ConfigEntityStorage",
  *     "list_builder" = "Drupal\mollom\Controller\FormListBuilder",
  *     "form" = {
