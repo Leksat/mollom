@@ -8,6 +8,7 @@
 
 namespace Drupal\mollom\Form;
 
+use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Url;
 use Drupal\Core\Entity\EntityForm;
 use \Drupal\Core\Entity\Query\QueryFactory;
@@ -52,7 +53,7 @@ class ProtectedFormFormBase extends EntityForm {
    * @return array
    *   An associative array containing the add/edit form.
    */
-  public function buildForm(array $form, array &$form_state) {
+  public function buildForm(array $form, FormStateInterface $form_state) {
     // Get anything we need form the base class.
     $form = parent::buildForm($form, $form_state);
     $protected_form = $this->entity;
@@ -123,7 +124,7 @@ class ProtectedFormFormBase extends EntityForm {
    * @return array
    *   An array of supported actions for the current entity form.
    */
-  protected function actions(array $form, array &$form_state) {
+  protected function actions(array $form, FormStateInterface $form_state) {
     // Get the basic actins from the base class.
     $actions = parent::actions($form, $form_state);
 
@@ -142,7 +143,7 @@ class ProtectedFormFormBase extends EntityForm {
    * @param array $form_state
    *   An associative array containing the current state of the form.
    */
-  public function validate(array $form, array &$form_state) {
+  public function validate(array $form, FormStateInterface $form_state) {
     parent::validate($form, $form_state);
 
     // Add code here to validate your config entity's form elements.
@@ -154,7 +155,7 @@ class ProtectedFormFormBase extends EntityForm {
    *
    * Saves the protected form.
    */
-  public function save(array $form, array &$form_state) {
+  public function save(array $form, FormStateInterface $form_state) {
     $mollom_form = $this->entity;
 
     // Drupal already populated the form values in the entity object. Each

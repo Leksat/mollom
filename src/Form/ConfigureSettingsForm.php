@@ -6,6 +6,7 @@
 namespace Drupal\mollom\Form;
 
 use Drupal\Core\Form\ConfigFormBase;
+use Drupal\Core\Form\FormStateInterface;
 use Drupal\mollom\API\DrupalClient;
 use Drupal\mollom\API\DrupalClientFactory;
 use Drupal\mollom\API\APIKeys;
@@ -23,7 +24,7 @@ class ConfigureSettingsForm extends ConfigFormBase {
   /**
    * {@inheritdoc}
    */
-  public function buildForm(array $form, array &$form_state) {
+  public function buildForm(array $form, FormStateInterface  $form_state) {
     $config = $this->config('mollom.settings');
 
     $mollom = DrupalClientFactory::getClient();
@@ -217,7 +218,7 @@ class ConfigureSettingsForm extends ConfigFormBase {
    * @param array $form_state
    *   An associative array containing the current state of the form.
    */
-  public function validateForm(array &$form, array &$form_state) {
+  public function validateForm(array &$form, FormStateInterface $form_state) {
     $message = $this->validateKey($form_state['values']['keys']['public']);
     if (!empty($message)) {
       $this->setFormError('keys][public', $form_state, $message);
@@ -251,7 +252,7 @@ class ConfigureSettingsForm extends ConfigFormBase {
   /**
    * Form submission handler for settings.
    */
-  public function submitForm(array &$form, array &$form_state) {
+  public function submitForm(array &$form, FormStateInterface $form_state) {
     $config = $this->config('mollom.settings');
     $config->set('keys.public', $form_state['values']['keys']['public'])
       ->set('keys.private', $form_state['values']['keys']['private'])

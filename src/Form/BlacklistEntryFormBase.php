@@ -7,6 +7,7 @@
 namespace Drupal\mollom\Form;
 
 use Drupal\Core\Form\FormBase;
+use Drupal\Core\Form\FormStateInterface;
 use Drupal\mollom\Storage\BlacklistStorage;
 
 /**
@@ -61,7 +62,7 @@ abstract class BlacklistEntryFormBase extends FormBase {
   /**
    * Overrides Drupal\Core\Form\FormInterface::buildForm().
    */
-  public function buildForm(array $form, array &$form_state, $entry_id = NULL) {
+  public function buildForm(array $form, FormStateInterface $form_state, $entry_id = NULL) {
     $entry = $this->loadByEntryId($entry_id);
 
     $form['reason'] = array(
@@ -113,14 +114,14 @@ abstract class BlacklistEntryFormBase extends FormBase {
   /**
    * Overrides Drupal\Core\Form\FormInterface::validateForm().
    */
-  public function validateForm(array &$form, array &$form_state) {
+  public function validateForm(array &$form, FormStateInterface $form_state) {
     parent::validateForm($form, $form_state);
   }
 
   /**
    * Overrides Drupal\Core\Form\FormInterface::submitForm().
    */
-  public function submitForm(array &$form, array &$form_state) {
+  public function submitForm(array &$form, FormStateInterface $form_state) {
     $entry = array();
     if (isset($form_state['values']['blacklist_entry_id'])) {
       $entry['id'] = $form_state['values']['blacklist_entry_id'];

@@ -6,6 +6,7 @@
  */
 
 namespace Drupal\mollom\Form;
+use Drupal\Core\Form\FormStateInterface;
 
 /**
  * Provides the edit form for a protected form entity.
@@ -18,7 +19,7 @@ class ProtectedFormEditForm extends ProtectedFormFormBase {
    * @return array
    *   An array of supported actions for the current entity form.
    */
-  protected function actions(array $form, array &$form_state) {
+  protected function actions(array $form, FormStateInterface $form_state) {
     $actions = parent::actions($form, $form_state);
     $actions['submit']['#value'] = $this->t('Edit protection');
     return $actions;

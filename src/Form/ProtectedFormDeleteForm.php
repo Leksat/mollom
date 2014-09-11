@@ -8,6 +8,7 @@
 namespace Drupal\mollom\Form;
 
 use Drupal\Core\Entity\EntityConfirmFormBase;
+use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Url;
 
 /**
@@ -72,7 +73,7 @@ class ProtectedFormDeleteForm extends EntityConfirmFormBase {
    * @param array $form_state
    *   An associative array containing the current state of the form.
    */
-  public function submit(array $form, array &$form_state) {
+  public function submit(array $form, FormStateInterface $form_state) {
     // Delete the entity.
     $this->entity->delete();
 
