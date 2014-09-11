@@ -123,13 +123,14 @@ abstract class BlacklistEntryFormBase extends FormBase {
    */
   public function submitForm(array &$form, FormStateInterface $form_state) {
     $entry = array();
-    if (isset($form_state['values']['blacklist_entry_id'])) {
-      $entry['id'] = $form_state['values']['blacklist_entry_id'];
+    $id = $form_state->getValue('blacklist_entry_id', '');
+    if (!empty($id)) {
+      $entry['id'] = $id;
     }
-    $entry['reason'] = $form_state['values']['reason'];
-    $entry['context'] = $form_state['values']['reason'];
-    $entry['matches'] = $form_state['values']['reason'];
-    $entry['value'] = $form_state['values']['reason'];
+    $entry['reason'] = $form_state->getValue('reason', BlacklistStorage::TYPE_SPAM);
+    $entry['context'] = $form_state->getValue('context', BlacklistStorage::CONTEXT_ALL_FIELDS);
+    $entry['matches'] = $form_state->getValue('matches', BlacklistStorage::MATCH_CONTAINS);
+    $entry['value'] = $form_state->getValue('value', '');
     $saved = BlacklistStorage::saveEntry($entry);
     if ($saved) {
       drupal_set_message($this->t('The blacklist entry %entry has been saved to your %type blacklist.', array(
