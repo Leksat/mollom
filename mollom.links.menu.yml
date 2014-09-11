@@ -1,0 +1,5 @@
+mollom.overview:
+  title: 'Mollom content moderation'
+  description: 'Configure how the Mollom service moderates user-submitted content such as spam and profanity.'
+  route_name: mollom.form.list
+  parent: system.admin_config_content

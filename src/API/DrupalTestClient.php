@@ -1,12 +1,8 @@
 <?php
-/**
- * Created by PhpStorm.
- * User: lisa.backer
- * Date: 5/19/14
- * Time: 11:27 AM
- */
 
 namespace Drupal\mollom\API;
+
+use Mollom\Exception\MollomException;
 
 /**
  * Drupal Mollom client implementation using testing API servers.
@@ -52,7 +48,9 @@ class DrupalTestClient extends DrupalClient {
     // "production" API keys on the local fake server on its own. This special
     // override must only be possible when executing tests.
     // @todo Add global test_info as condition?
-    if (module_exists('mollom_test_server') && !variable_get('mollom_testing_mode', 0)) {
+    $testing_mode = \Drupal::config('mollom.settings')->get('mollom_testing_mode', 0);
+    $module_exists = \Drupal::moduleHandler()->moduleExists('mollom_test_server');
+    if ($module_exists && !$testing_mode) {
       // Disable authentication error auto-recovery.
       $this->createKeys = FALSE;
     }
@@ -67,11 +65,11 @@ class DrupalTestClient extends DrupalClient {
 
     // Unless pre-set, determine whether API keys should be auto-created.
     if (!isset($this->createKeys)) {
-      $this->createKeys = (bool) variable_get('mollom_testing_create_keys', TRUE);
+      $this->createKeys = (bool) \Drupal::config('mollom.settings')->get('mollom_testing_create_keys', TRUE);
     }
 
     // Testing can require additional time.
-    $this->requestTimeout = variable_get('mollom_connection_timeout', 3) + 10;
+    $this->requestTimeout = \Drupal::config('mollom.settings')->get('mollom_connection_timeout', 3) + 10;
   }
 
   /**
@@ -130,7 +128,9 @@ class DrupalTestClient extends DrupalClient {
     $this->oAuthStrategy = '';
     $result = $this->createSite(array(
       'url' => $GLOBALS['base_url'],
-      'email' => variable_get('site_mail', 'mollom-drupal-test@example.com'),
+      //'email' => variable_get('site_mail', 'mollom-drupal-test@example.com'),
+      // @todo Drupal 8 for site_mail
+      'email' => 'mollom-drupal-test@example.com',
     ));
     $this->oAuthStrategy = $oAuthStrategy;
 

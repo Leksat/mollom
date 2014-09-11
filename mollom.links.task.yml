@@ -1,0 +1,19 @@
+mollom.overview:
+  route_name: mollom.form.list
+  base_route: mollom.form.list
+  title: 'Forms'
+
+mollom.statistics:
+  route_name: mollom.statistics
+  base_route: mollom.form.list
+  title: 'Statistics'
+
+mollom.blacklist:
+  route_name: mollom.blacklist.list
+  base_route: mollom.form.list
+  title: 'Blacklists'
+
+mollom.settings:
+  route_name: mollom.settings
+  base_route: mollom.form.list
+  title: 'Settings'

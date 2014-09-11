@@ -101,7 +101,7 @@ class Logger {
     // Only log if severity if it meets configured minimum severity, or if testing
     // mode is enabled.
     if ($config->get('testing_mode') || $log['severity'] < $config->get('log_level')) {
-      list($message, $arguments) = _self::formatLog($log);
+      list($message, $arguments) = $this::formatLog($log);
       watchdog('mollom', $message, $arguments, $log['severity']);
     }
   }

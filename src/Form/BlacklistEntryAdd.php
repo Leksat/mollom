@@ -11,13 +11,13 @@ namespace Drupal\mollom\Form;
 
 use Drupal\Core\Form\FormStateInterface;
 
-class BlacklistEntryEditForm extends BlacklistEntryFormBase {
+class BlacklistEntryAdd extends BlacklistEntryFormBase {
 
   /**
    * {@inheritdoc}
    */
   public function getFormId() {
-    return 'mollom_blacklist_edit';
+    return 'mollom_blacklist_add';
   }
 
   /*
@@ -25,13 +25,7 @@ class BlacklistEntryEditForm extends BlacklistEntryFormBase {
    */
   public function buildForm(array $form, FormStateInterface $form_state, $entry_id = NULL) {
     $form = parent::buildForm($form, $form_state, $entry_id);
-
-    $form['blacklist_entry_id'] = array(
-      '#type' => 'value',
-      '#value' => $entry_id,
-    );
-
-    $form['actions']['submit']['#value'] = $this->t('Save blacklist entry');
+    $form['actions']['submit']['#value'] = $this->t('Add blacklist entry');
     return $form;
   }
 } 

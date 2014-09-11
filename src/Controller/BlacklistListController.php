@@ -34,7 +34,6 @@ class BlacklistListController implements ContainerInjectionInterface {
     $this->link = $link_generator;
   }
 
-
   /**
    * Implements ContainerInjectionInterface::create().
    */
@@ -48,15 +47,7 @@ class BlacklistListController implements ContainerInjectionInterface {
 
   function content() {
     $items = BlacklistStorage::getList();
-
-    // Add link.
-    if (count($items) > 0) {
-      $build['add'] = array(
-        '#type' => 'link',
-        '#title' => t('Create a blacklist entry'),
-        '#route_name' => 'mollom.blacklist.add',
-      );
-    }
+    $rows = array();
 
     // Edit/delete.
     $header = array(
@@ -83,19 +74,11 @@ class BlacklistListController implements ContainerInjectionInterface {
       '#type' => 'table',
       '#header' => $header,
       '#rows' => $rows,
-      '#empty' => $this->t('There are no entries in the blacklist.  <a href="@add-url">Create a blacklist entry</a>.', array(
+      '#empty' => $this->t('There are no entries in the blacklist.', array(
           '@add-url' => $this->url->generateFromRoute('mollom.blacklist.add'),
         )),
       '#attributes' => array( 'id' => 'mollom-blacklist-list'),
     );
-
-    if (count($items) > 5) {
-      $build['add_bottom'] = array(
-        '#type' => 'link',
-        '#title' => t('Create a blacklist entry'),
-        '#route_name' => 'mollom.blacklist.add',
-      );
-    }
 
     return $build;
   }

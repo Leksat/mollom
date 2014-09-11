@@ -9,10 +9,9 @@ use Drupal\Core\Config\Config;
 use Drupal\Core\Http\Client as HttpClient;
 use Drupal\Core\Language\LanguageManager;
 use Drupal\mollom\Utility\Logger;
-use Mollom\Client as MollomClient;
+use Mollom\Client\Client;
 
-
-class DrupalClient extends MollomClient {
+class DrupalClient extends Client {
 
   /**
    * The settings configuration.

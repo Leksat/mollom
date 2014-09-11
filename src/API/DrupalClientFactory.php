@@ -25,7 +25,7 @@ class DrupalClientFactory {
    *
    * @param string $class
    *   (optional) A specific class implementation to load.
-   * @return \MollomAPI\Client
+   * @return \Mollom\Client\Client
    *   A Drupal implementation of the Mollom API client.
    */
   static public function getClient($class = NULL) {
@@ -37,14 +37,14 @@ class DrupalClientFactory {
     // new one.
     if (!isset(self::$classes[$class]) || !(self::$classes[$class] instanceof $class)) {
 
-
       // Add the Mollom API library into the namespaces to load.
-      $loader = require('/core/vendor/autoload.php');
-      $loader->setPsr4('Mollom\\', drupal_get_path('module', 'mollom') . '/lib/vendor/mollom/src');
+      $loader = require(drupal_get_path('module', 'mollom') . '/vendor/autoload.php');
+      $loader->setPsr4('mollom\\', drupal_get_path('module', 'mollom') . '/vendor/mollom/src');
 
       $namespaced_class = 'Drupal\\mollom\\API\\' . $class;
       self::$classes[$class] = new $namespaced_class();
     }
+
     return self::$classes[$class];
   }
 }

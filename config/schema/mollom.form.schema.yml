@@ -1,0 +1,40 @@
+mollom.form.*:
+  type: mapping
+  label : 'Mollom form'
+  mapping:
+    id:
+      type: string
+      label: 'Machine name'
+    uuid:
+      type: string
+      label: 'UUID'
+    label:
+      type: label
+      label: 'Name'
+    mode:
+      type: string
+      label: 'Protection Mode'
+    checks:
+      type: sequence
+      label: 'How to analyze'
+      sequence:
+        - type: string
+          label: 'Selected Spam protection methods'
+    enabled_fields:
+      type: sequence
+      label: 'Fields to analyze'
+      sequence:
+        - type: string
+          label: 'Selected field'
+    strictness:
+      type: string
+      label: 'Strictness of the analyzer'
+    unsure:
+      type: string
+      label: 'what to do if Mollom is not sure'
+    discard:
+      type: string
+      label: 'What to do if Mollom identified it as spam'
+    moderation:
+      type: boolean
+      label: 'Moderation platform'
