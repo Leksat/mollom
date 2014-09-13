@@ -275,4 +275,5 @@ class Logger {
     }
     return strtr($string, $args);
   }
+
 }

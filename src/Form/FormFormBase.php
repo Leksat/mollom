@@ -8,12 +8,13 @@
 namespace Drupal\mollom\Form;
 
 use Drupal\Core\Routing\RequestHelper;
-use Drupal\Core\Url;
 use Drupal\Core\Entity\EntityForm;
 use Drupal\Core\Entity\Query\QueryFactory;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\mollom\Entity\FormInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\DependencyInjection\Exception\ServiceNotFoundException;
+use Drupal\mollom\Controller\FormController;
 
 /**
  * Class FormFormBase.
@@ -100,7 +101,15 @@ class FormFormBase extends EntityForm {
       '#options' => $this->mollom_admin_form_options(),
       '#default_value' => $mollom_form->label(),
       '#required' => TRUE,
+      '#ajax' => array(
+        'trigger_as' => array('name' => 'formfields_configure'),
+        'callback' => array(get_class($this), 'buildAjaxFormFieldsConfigForm'),
+        'wrapper' => 'mollom-formfields-config-form',
+        'method' => 'replace',
+        'effect' => 'fade',
+      ),
     );
+
     $form['id'] = array(
       '#type' => 'machine_name',
       '#title' => $this->t('Machine name'),
@@ -119,8 +128,8 @@ class FormFormBase extends EntityForm {
     );
 
     $modes = array(
-      MOLLOM_MODE_ANALYSIS => $this->t('!option <em>(!recommended)</em>', $t_args_modes),
-      MOLLOM_MODE_CAPTCHA => t('CAPTCHA only'),
+      FormInterface::MOLLOM_MODE_ANALYSIS => $this->t('!option <em>(!recommended)</em>', $t_args_modes),
+      FormInterface::MOLLOM_MODE_CAPTCHA => t('CAPTCHA only'),
     );
 
     $form['mode'] = array(
@@ -129,13 +138,13 @@ class FormFormBase extends EntityForm {
       '#options' => $modes,
       '#default_value' => isset($mollom_form->mode) ? $mollom_form->mode : key($modes),
     );
-    $form['mode'][MOLLOM_MODE_ANALYSIS] = array(
+    $form['mode'][FormInterface::MOLLOM_MODE_ANALYSIS] = array(
       '#description' => t('Mollom will analyze the post and will only show a CAPTCHA when it is unsure.'),
     );
-    $form['mode'][MOLLOM_MODE_CAPTCHA] = array(
+    $form['mode'][FormInterface::MOLLOM_MODE_CAPTCHA] = array(
       '#description' => t('A CAPTCHA will be shown for every post. Only choose this if there are too few text fields to analyze.'),
     );
-    $form['mode'][MOLLOM_MODE_CAPTCHA]['#description'] .= '<br />' . t('Note: Page caching is disabled on all pages containing a CAPTCHA-only protected form.');
+    $form['mode'][FormInterface::MOLLOM_MODE_CAPTCHA]['#description'] .= '<br />' . t('Note: Page caching is disabled on all pages containing a CAPTCHA-only protected form.');
 
     $all_permissions = array();
     foreach (\Drupal::moduleHandler()->getImplementations('permission') as $module) {
@@ -146,19 +155,22 @@ class FormFormBase extends EntityForm {
         $all_permissions += $module_permissions;
       }
     }
+
     // Prepend Mollom's global permission to the list.
     //array_unshift($mollom_form['bypass access'], 'bypass mollom protection');
 
     $permissions = array();
-    foreach ($form['bypass access'] as $permission) {
-      // @todo D7: Array keys are used as CSS class for the link list item,
-      //   but are not sanitized: http://drupal.org/node/98696
-      $permissions[drupal_html_class($permission)] = array(
-        'title' => $all_permissions[$permission]['title'],
-        'href' => 'admin/people/permissions',
-        'fragment' => 'module-' . $all_permissions[$permission]['module'],
-        'html' => TRUE,
-      );
+    if (isset($form['bypass access'])) {
+      foreach ($form['bypass access'] as $permission) {
+        // @todo D7: Array keys are used as CSS class for the link list item,
+        //   but are not sanitized: http://drupal.org/node/98696
+        $permissions[drupal_html_class($permission)] = array(
+          'title' => $all_permissions[$permission]['title'],
+          'href' => 'admin/people/permissions',
+          'fragment' => 'module-' . $all_permissions[$permission]['module'],
+          'html' => TRUE,
+        );
+      }
     }
     // Theme is available as an element type (may have additional processing in rendering).
     $links = array(
@@ -174,7 +186,7 @@ class FormFormBase extends EntityForm {
 
     // If not re-configuring an existing protection, make it the default.
     if (!isset($form['mode'])) {
-      $form['mode']['#default_value'] = MOLLOM_MODE_ANALYSIS;
+      $form['mode']['#default_value'] = FormInterface::MOLLOM_MODE_ANALYSIS;
     }
 
     // Textual analysis filters.
@@ -185,49 +197,37 @@ class FormFormBase extends EntityForm {
         'spam' => t('Spam'),
         'profanity' => t('Profanity'),
       ),
-      '#default_value' => isset($mollom_form->checks) ? $mollom_form->checks : 'spam',
+      '#default_value' => isset($mollom_form->checks) ? $mollom_form->checks : array('spam'),
       '#states' => array(
         'visible' => array(
-          '[name="mode"]' => array('value' => (string) MOLLOM_MODE_ANALYSIS),
+          '[name="mode"]' => array('value' => (string) FormInterface::MOLLOM_MODE_ANALYSIS),
         ),
       ),
     );
-    // Profanity check requires text to analyze; unlike the spam check, there
-    // is no fallback in case there is no text.
-    $form['checks']['profanity']['#access'] = !empty($form['elements']);
 
-    // Form elements defined by hook_mollom_form_info() use the
-    // 'parent][child' syntax, which Form API also uses internally for
-    // form_set_error(), and which allows us to recurse into nested fields
-    // during processing of submitted form values. However, since we are using
-    // those keys also as internal values to configure the fields to use for
-    // textual analysis, we need to encode them. Otherwise, a nested field key
-    // would result in the following checkbox attribute:
-    //   '#name' => 'mollom[enabled_fields][parent][child]'
-    // This would lead to a form validation error, because it is a valid key.
-    // By encoding them, we prevent this from happening:
-    //   '#name' => 'mollom[enabled_fields][parent%5D%5Bchild]'
-    $elements = array();
-    foreach ($form['elements'] as $key => $value) {
-      $elements[rawurlencode($key)] = $value;
-    }
-    $enabled_fields = array();
-    foreach ($form['enabled_fields'] as $value) {
-      $enabled_fields[] = rawurlencode($value);
-    }
-    $form['enabled_fields'] = array(
-      '#type' => 'checkboxes',
-      '#title' => t('Text fields to analyze'),
-      '#options' => $elements,
-      '#default_value' => $enabled_fields,
-      '#description' => t('Only enable fields that accept text (not numbers). Omit fields that contain sensitive data (e.g., credit card numbers) or computed/auto-generated values, as well as author information fields (e.g., name, e-mail).'),
-      '#access' => !empty($form['elements']),
-      '#states' => array(
-        'visible' => array(
-          '[name="mode"]' => array('value' => (string) MOLLOM_MODE_ANALYSIS),
-        ),
+
+    $form['formfields_config'] = array(
+      '#type' => 'container',
+      '#attributes' => array(
+        'id' => 'mollom-formfields-config-form',
       ),
+      '#tree' => TRUE,
     );
+
+    $form['formfields_configure_button'] = array(
+      '#type' => 'submit',
+      '#name' => 'formfields_configure',
+      '#value' => $this->t('Refresh Fields'),
+      '#limit_validation_errors' => array(array('formfields')),
+      '#submit' => array(array(get_class($this), 'submitAjaxFormFieldsConfigForm')),
+      '#ajax' => array(
+        'callback' => array(get_class($this), 'buildAjaxFormFieldsConfigForm'),
+        'wrapper' => 'mollom-formfields-config-form',
+      ),
+      '#attributes' => array('class' => array('js-hide')),
+    );
+
+    $this->buildFormFieldsConfigForm($form, $form_state, $mollom_form);
 
     $form['strictness'] = array(
       '#type' => 'radios',
@@ -243,7 +243,7 @@ class FormFormBase extends EntityForm {
       '#default_value' => isset($mollom_form->strictness) ? $mollom_form->strictness : 'normal',
       '#states' => array(
         'visible' => array(
-          '[name="mode"]' => array('value' => (string) MOLLOM_MODE_ANALYSIS),
+          '[name="mode"]' => array('value' => (string) FormInterface::MOLLOM_MODE_ANALYSIS),
         ),
       ),
     );
@@ -260,11 +260,11 @@ class FormFormBase extends EntityForm {
         'moderate' => t('Retain the post for manual moderation'),
         'binary' => t('Accept the post'),
       ),
-      '#required' => $mollom_form->mode == MOLLOM_MODE_ANALYSIS,
+      '#required' => $mollom_form->mode == FormInterface::MOLLOM_MODE_ANALYSIS,
       // Only possible for forms protected via text analysis.
       '#states' => array(
         'visible' => array(
-          '[name="mode"]' => array('value' => (string) MOLLOM_MODE_ANALYSIS),
+          '[name="mode"]' => array('value' => (string) FormInterface::MOLLOM_MODE_ANALYSIS),
           '[name="checks[spam]"]' => array('checked' => TRUE),
         ),
       ),
@@ -283,18 +283,19 @@ class FormFormBase extends EntityForm {
         )),
         0 => t('Retain the post for manual moderation'),
       ),
-      '#required' => $mollom_form->mode == MOLLOM_MODE_ANALYSIS,
+      '#required' => $mollom_form->mode == FormInterface::MOLLOM_MODE_ANALYSIS,
       // Only possible for forms supporting moderation of unpublished posts.
       //'#access' => !empty($mollom_form['moderation callback']),
       // Only possible for forms protected via text analysis.
       '#states' => array(
         'visible' => array(
-          'name="mode"]' => array('value' => (string) MOLLOM_MODE_ANALYSIS),
-          'name="checks[spam]"]' => array('checked' => TRUE),
+          '[name="mode"]' => array('value' => (string) FormInterface::MOLLOM_MODE_ANALYSIS),
+          '[name="checks[spam]"]' => array('checked' => TRUE),
         ),
       ),
     );
 
+    $clean_urls = FALSE;
     // CMP integration requires Clean URLs to be enabled, in order for the
     // local moderation callback endpoints to work.
     if ($clean_urls === NULL) {
@@ -320,7 +321,7 @@ class FormFormBase extends EntityForm {
       // Only possible for forms protected via text analysis.
       '#states' => array(
         'visible' => array(
-          ':input[name="mollom[mode]"]' => array('value' => (string) MOLLOM_MODE_ANALYSIS),
+          ':input[name="mollom[mode]"]' => array('value' => (string) FormInterface::MOLLOM_MODE_ANALYSIS),
         ),
       ),
       '#description' => t('Provides a unified moderation interface supporting multiple sites, moderation teams, and detailed analytics.'),
@@ -336,8 +337,84 @@ class FormFormBase extends EntityForm {
         ));
     }
 
+
     // Return the form.
     return $form;
+  }
+
+  /**
+   * Builds the configuration forms for all selected datasources.
+   *
+   * @param \Drupal\search_api\Index\IndexInterface $index
+   *   The index begin created or edited.
+   */
+  public function buildFormFieldsConfigForm(array &$form, FormStateInterface $form_state, \Drupal\mollom\Entity\Form $mollom_form) {
+    // Get the fields for the selected form
+    $mollom_form_identifier = $mollom_form->id();
+    if (empty($mollom_form_identifier)) {
+      $complete_form = $form_state->getCompleteForm();
+      $mollom_form_identifier = $complete_form['label']['#value'];
+    }
+
+    if (empty($mollom_form_identifier)) {
+      return TRUE;
+    }
+
+    $form_mollom = FormController::mollom_form_new($mollom_form_identifier);
+
+    // Profanity check requires text to analyze; unlike the spam check, there
+    // is no fallback in case there is no text.
+    $form['checks']['profanity']['#access'] = !empty($form_mollom['elements']);
+
+    // Form elements defined by hook_mollom_form_info() use the
+    // 'parent][child' syntax, which Form API also uses internally for
+    // form_set_error(), and which allows us to recurse into nested fields
+    // during processing of submitted form values. However, since we are using
+    // those keys also as internal values to configure the fields to use for
+    // textual analysis, we need to encode them. Otherwise, a nested field key
+    // would result in the following checkbox attribute:
+    //   '#name' => 'mollom[enabled_fields][parent][child]'
+    // This would lead to a form validation error, because it is a valid key.
+    // By encoding them, we prevent this from happening:
+    //   '#name' => 'mollom[enabled_fields][parent%5D%5Bchild]'
+    $elements = array();
+    foreach ($form_mollom['elements'] as $key => $value) {
+      $elements[rawurlencode($key)] = $value;
+    }
+    $enabled_fields = array();
+    foreach ($form_mollom['enabled_fields'] as $value) {
+      $enabled_fields[] = rawurlencode($value);
+    }
+    $form['formfields_config']['enabled_fields'] = array(
+      '#type' => 'checkboxes',
+      '#title' => t('Text fields to analyze'),
+      '#options' => $elements,
+      '#default_value' => $enabled_fields,
+      '#description' => t('Only enable fields that accept text (not numbers). Omit fields that contain sensitive data (e.g., credit card numbers) or computed/auto-generated values, as well as author information fields (e.g., name, e-mail).'),
+      '#access' => !empty($form_mollom['elements']),
+      '#states' => array(
+        'visible' => array(
+          '[name="mode"]' => array('value' => (string) MOLLOM_MODE_ANALYSIS),
+        ),
+      ),
+    );
+
+  }
+
+  /**
+   * Form submission handler for buildEntityForm().
+   *
+   * Takes care of changes in the selected datasources.
+   */
+  public static function submitAjaxFormFieldsConfigForm($form, FormStateInterface $form_state) {
+    $form_state->setRebuild();
+  }
+
+  /**
+   * Handles changes to the selected datasources.
+   */
+  public static function buildAjaxFormFieldsConfigForm(array $form, FormStateInterface $form_state) {
+    return $form['formfields_config'];
   }
 
   /**
@@ -443,7 +520,7 @@ class FormFormBase extends EntityForm {
     }
 
     // Redirect the user to the following path after the save action.
-    $form_state->setRedirect('mollom.overview');
+    $form_state->setRedirect('mollom.form.list');
   }
 
 
@@ -452,7 +529,7 @@ class FormFormBase extends EntityForm {
    */
   protected function mollom_admin_form_options() {
     // Retrieve all registered forms.
-    $form_list = $this->mollom_form_list();
+    $form_list = FormController::mollom_form_list();
 
     // Remove already configured form ids.
     $result = $this->entity->loadMultiple();
@@ -487,29 +564,6 @@ class FormFormBase extends EntityForm {
     asort($options);
 
     return $options;
-  }
-
-  /**
-   * Returns a list of protectable forms registered via hook_mollom_form_info().
-   */
-  protected function mollom_form_list() {
-    $form_list = array();
-    foreach (\Drupal::moduleHandler()->getImplementations('mollom_form_list') as $module) {
-      $function = $module . '_mollom_form_list';
-      $module_forms = $function();
-      foreach ($module_forms as $form_id => $info) {
-        $form_list[$form_id] = $info;
-        $form_list[$form_id] += array(
-          'form_id' => $form_id,
-          'module' => $module,
-        );
-      }
-    }
-
-    // Allow modules to alter the form list.
-    \Drupal::moduleHandler()->alter('mollom_form_list', $form_list);
-
-    return $form_list;
   }
 
 }

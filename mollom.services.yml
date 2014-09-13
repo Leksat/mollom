@@ -1,0 +1,10 @@
+services:
+  mollom.client:
+    class: Drupal\mollom\API\DrupalClient
+    arguments: ['@config.factory', '@http_client']
+  mollom.client.test:
+    class: Drupal\mollom\Test\DrupalTestClient
+    arguments: ['@config.factory', '@http_client']
+  mollom.client.testlocal:
+    class: Drupal\mollom\Test\DrupalTestLocalClient
+    arguments: ['@config.factory', '@http_client']

@@ -1,6 +1,9 @@
 <?php
 
-namespace Drupal\mollom\API;
+namespace Drupal\mollom\Test;
+
+use Drupal\Core\Config\ConfigFactory;
+use Guzzle\Http\ClientInterface;
 
 /**
  * Drupal Mollom client implementation using local dummy/fake REST server.
@@ -10,12 +13,12 @@ class DrupalTestLocalClient extends DrupalTestClient {
   /**
    * Overrides MollomDrupalTest::__construct().
    */
-  function __construct() {
+  public function __construct(ConfigFactory $config_factory, ClientInterface $http_client) {
     // Replace server/endpoint with our local fake server.
     list(, $server) = explode('://', $GLOBALS['base_url'], 2);
     $this->server = $server . '/mollom-test/rest';
 
-    parent::__construct();
+    parent::__construct($config_factory, $http_client);
   }
 
   /**
@@ -68,55 +71,3 @@ class DrupalTestLocalClient extends DrupalTestClient {
     return $response;
   }
 }
-
-/**
- * Drupal Mollom client implementation using an invalid server.
- */
-class MollomDrupalTestInvalid extends MollomDrupalTest {
-
-  /**
-   * Overrides MollomDrupalTest::$createKeys.
-   *
-   * Do not attempt to verify API keys against invalid server.
-   */
-  public $createKeys = FALSE;
-
-  private $currentAttempt = 0;
-
-  private $originalServer;
-
-  /**
-   * Overrides MollomDrupalTest::__construct().
-   */
-  function __construct() {
-    $this->originalServer = $this->server;
-    $this->server = 'fake-host';
-    parent::__construct();
-  }
-
-  /**
-   * Overrides Mollom::query().
-   */
-  public function query($method, $path, array $data = array(), array $expected = array()) {
-    $this->currentAttempt = 0;
-    return parent::query($method, $path, $data, $expected);
-  }
-
-  /**
-   * Overrides Mollom::handleRequest().
-   *
-   * Mollom::$server is replaced with an invalid server, so all requests will
-   * result in a network error. However, if the 'mollom_testing_server_failover'
-   * variable is set to TRUE, then the last request attempt will succeed.
-   */
-  protected function handleRequest($method, $server, $path, $data, $expected = array()) {
-    $this->currentAttempt++;
-
-    if (variable_get('mollom_testing_server_failover', FALSE) && $this->currentAttempt == $this->requestMaxAttempts) {
-      // Prior to PHP 5.3, there is no late static binding, so there is no way
-      // to access the original value of MollomDrupalTest::$server.
-      $server = strtr($server, array($this->server => $this->originalServer));
-    }
-    return parent::handleRequest($method, $server, $path, $data, $expected);
-  }
-} 

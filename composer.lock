@@ -1,8 +1,7 @@
 {
     "_readme": [
         "This file locks the dependencies of your project to a known state",
-        "Read more about it at http://getcomposer.org/doc/01-basic-usage.md#composer-lock-the-lock-file",
-        "This file is @generated automatically"
+        "Read more about it at http://getcomposer.org/doc/01-basic-usage.md#composer-lock-the-lock-file"
     ],
     "hash": "58631e967f707f4ae63ad2c92de7b141",
     "packages": [
@@ -51,7 +50,6 @@
     "stability-flags": {
         "mollom/client": 20
     },
-    "prefer-stable": false,
     "platform": {
         "php": ">=5.3.0"
     },

@@ -1,4 +1,4 @@
-mollom.overview:
+mollom.form.list:
   route_name: mollom.form.list
   base_route: mollom.form.list
   title: 'Forms'

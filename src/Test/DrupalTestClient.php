@@ -1,7 +1,10 @@
 <?php
 
-namespace Drupal\mollom\API;
+namespace Drupal\mollom\Test;
 
+use Drupal\Core\Config\ConfigFactory;
+use Drupal\mollom\API\DrupalClient;
+use Guzzle\Http\ClientInterface;
 use Mollom\Exception\MollomException;
 
 /**
@@ -41,14 +44,22 @@ class DrupalTestClient extends DrupalClient {
    *   so said tests can disable the behavior by preemptively setting
    *   $createKeys or the 'mollom_testing_create_keys' system variable to FALSE,
    *   and manually create testing API keys (once).
+   *
+   * Constructor.
+   * @param ConfigFactory $config_factory
+   * @param ClientInterface $http_client
+   *
+   * @see Mollom::__construct().
    */
-  function __construct() {
+  public function __construct(ConfigFactory $config_factory, ClientInterface $http_client) {
+    $this->config = $config_factory->get('mollom.settings');
+
     // Some tests are verifying the production behavior of e.g. setting up API
     // keys, in which testing mode is NOT enabled and the test creates fake
     // "production" API keys on the local fake server on its own. This special
     // override must only be possible when executing tests.
     // @todo Add global test_info as condition?
-    $testing_mode = \Drupal::config('mollom.settings')->get('mollom_testing_mode', 0);
+    $testing_mode = $this->config->get('mollom_testing_mode', 0);
     $module_exists = \Drupal::moduleHandler()->moduleExists('mollom_test_server');
     if ($module_exists && !$testing_mode) {
       // Disable authentication error auto-recovery.
@@ -61,7 +72,7 @@ class DrupalTestClient extends DrupalClient {
     }
 
     // Load and set publicKey and privateKey configuration values.
-    parent::__construct();
+    parent::__construct($config_factory, $http_client);
 
     // Unless pre-set, determine whether API keys should be auto-created.
     if (!isset($this->createKeys)) {

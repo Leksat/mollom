@@ -66,7 +66,7 @@ class FormDelete extends EntityConfirmFormBase {
    *   The URL to go to if the user cancels the deletion.
    */
   public function getCancelUrl() {
-    return new Url('mollom.overview');
+    return new Url('mollom.form.list');
   }
 
   /**
@@ -90,7 +90,7 @@ class FormDelete extends EntityConfirmFormBase {
     )));
 
     // Redirect the user to the list controller when complete.
-    $form_state->setRedirect('mollom.overview');
+    $form_state->setRedirect('mollom.form.list');
   }
 
 }

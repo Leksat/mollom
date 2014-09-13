@@ -41,7 +41,7 @@ use Drupal\Core\Config\Entity\ConfigEntityBase;
  *   }
  * )
  */
-class Form extends ConfigEntityBase {
+class Form extends ConfigEntityBase implements FormInterface {
 
   /**
    * The form ID.

@@ -1,4 +1,4 @@
-mollom.overview:
+mollom.form.list:
   title: 'Mollom content moderation'
   description: 'Configure how the Mollom service moderates user-submitted content such as spam and profanity.'
   route_name: mollom.form.list

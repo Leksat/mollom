@@ -6,10 +6,13 @@
 namespace Drupal\mollom\API;
 
 use Drupal\Core\Config\Config;
+use Drupal\Core\Config\ConfigFactory;
 use Drupal\Core\Http\Client as HttpClient;
 use Drupal\Core\Language\LanguageManager;
 use Drupal\mollom\Utility\Logger;
+use GuzzleHttp\ClientInterface;
 use Mollom\Client\Client;
+use Symfony\Component\DependencyInjection\ContainerInterface;
 
 class DrupalClient extends Client {
 
@@ -37,21 +40,40 @@ class DrupalClient extends Client {
   /**
    * Overrides the connection timeout based on module configuration.
    *
-   * @param \Drupal\Core\Config\ConfigFactoryInterface $config_factory
-   *   The factory for configuration objects.
+   * Constructor.
+   * @param ConfigFactory $config_factory
+   * @param ClientInterface $http_client
    *
    * @see Mollom::__construct().
    */
-  public function __construct() {
-    $this->config = \Drupal::config('mollom.settings');
+  public function __construct(ConfigFactory $config_factory, ClientInterface $http_client) {
+    $this->config = $config_factory->get('mollom.settings');
     $this->requestTimeout = $this->config->get('connection_timeout_seconds');
-    $this->client = \Drupal::httpClient();
+    $this->client = $http_client;
     $this->configuration_map = array(
       'publicKey' => 'keys.public',
       'privateKey' => 'keys.private',
       'expectedLanguages' => 'languages_expected',
     );
     parent::__construct();
+  }
+
+  /**
+   * Factory method for DrupalClient.
+   *
+   * When Drupal builds this class it does not call the constructor directly.
+   * Instead, it relies on this method to build the new object. Why? The class
+   * constructor may take multiple arguments that are unknown to Drupal. The
+   * create() method always takes one parameter -- the container. The purpose
+   * of the create() method is twofold: It provides a standard way for Drupal
+   * to construct the object, meanwhile it provides you a place to get needed
+   * constructor parameters from the container.
+   *
+   * In this case, we ask the container for an config.factory factory and a http_client. We then
+   * pass the factory to our class as a constructor parameter.
+   */
+  public static function create(ContainerInterface $container) {
+    return new static($container->get('config.factory'), $container->get('http_client'));
   }
 
   /**
@@ -151,14 +173,23 @@ class DrupalClient extends Client {
     try {
       $response = $this->client->send($request);
     }
-    Catch( \Exception $e ){ echo $e->getTraceAsString();  }
-    $response = (object) array(
+    Catch( \Exception $e ){
+      Logger::addMessage(array('failed to connect. Message !message', array('!message' => $e->getMessage())), WATCHDOG_ERROR);
+      return (object) array(
+        'code' => '0',
+        'message' => $e->getMessage(),
+        'headers' => '',
+        'body' => '',
+      );
+    }
+
+    $mollom_response = (object) array(
       'code' => $response->getStatusCode(),
       'message' => ($response->getStatusCode() >= 200 && $response->getStatusCode() < 300) ? $response->getReasonPhrase() : NULL,
       'headers' => $response->getHeaders(),
       'body' => $response->getBody(TRUE),
     );
-    return $response;
+    return $mollom_response;
   }
 
   /**
