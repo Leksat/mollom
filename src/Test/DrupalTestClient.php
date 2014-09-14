@@ -4,7 +4,7 @@ namespace Drupal\mollom\Test;
 
 use Drupal\Core\Config\ConfigFactory;
 use Drupal\mollom\API\DrupalClient;
-use Guzzle\Http\ClientInterface;
+use GuzzleHttp\ClientInterface;
 use Mollom\Exception\MollomException;
 
 /**

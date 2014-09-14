@@ -42,7 +42,6 @@ class Settings extends ConfigFormBase {
   public function buildForm(array $form, FormStateInterface $form_state, Request $request = NULL) {
     $config = $this->config('mollom.settings');
 
-    $mollom = \Drupal::service('mollom.client');
     $check = empty($form_state['values']);
     $status = Mollom::_mollom_status($check);
     if ($check && $status['isVerified'] && !$config->get('testing_mode')) {

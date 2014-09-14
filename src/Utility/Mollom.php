@@ -230,6 +230,7 @@ class Mollom {
     if ($fallback == MOLLOM_FALLBACK_BLOCK) {
       form_set_error('mollom', t("The spam filter installed on this site is currently unavailable. Per site policy, we are unable to accept new submissions until that problem is resolved. Please try resubmitting the form in a couple of minutes."));
     }
+    return true;
   }
 
   /**

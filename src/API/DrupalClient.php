@@ -5,9 +5,7 @@
 
 namespace Drupal\mollom\API;
 
-use Drupal\Core\Config\Config;
 use Drupal\Core\Config\ConfigFactory;
-use Drupal\Core\Http\Client as HttpClient;
 use Drupal\Core\Language\LanguageManager;
 use Drupal\mollom\Utility\Logger;
 use GuzzleHttp\ClientInterface;
@@ -70,7 +68,7 @@ class DrupalClient extends Client {
    * constructor parameters from the container.
    *
    * In this case, we ask the container for an config.factory factory and a http_client. We then
-   * pass the factory to our class as a constructor parameter.
+   * pass the factory and the http client to our class as a constructor parameter.
    */
   public static function create(ContainerInterface $container) {
     return new static($container->get('config.factory'), $container->get('http_client'));
@@ -115,7 +113,7 @@ class DrupalClient extends Client {
     $mollom_info = system_get_info('module', 'mollom');
     if (empty($mollom_info['version'])) {
       // Manually build a module version string for repository checkouts.
-      $mollom_info['version'] = \Drupal::CORE_COMPATIBILITY . '-2.x-dev';
+      $mollom_info['version'] = \Drupal::CORE_COMPATIBILITY . '-1.x-dev';
     }
 
     $data = array(

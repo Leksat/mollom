@@ -240,6 +240,30 @@ function user_mollom_form_info($form_id) {
 }
 
 /**
+ * Implements hook_mollom_form_list().
+ */
+function user_mollom_form_list() {
+  $forms['user_register_form'] = array(
+    'mode' => FormInterface::MOLLOM_MODE_CAPTCHA,
+    'title' => t('User registration form'),
+    'type' => 'user',
+    'entity' => 'user',
+    'bundle' => 'user',
+    'delete form' => 'user_cancel_confirm_form',
+    'report path' => 'user/%id/cancel',
+    'report access' => array('administer users'),
+  );
+  $forms['user_profile_form'] = $forms['user_register_form'];
+  $forms['user_profile_form']['title'] = t('User profile form');
+
+  $forms['user_pass'] = array(
+    'mode' => FormInterface::MOLLOM_MODE_CAPTCHA,
+    'title' => t('User password request form'),
+  );
+  return $forms;
+}
+
+/**
  * Implements hook_mollom_form_info_alter().
  *
  * Adds profile fields exposed on the user registration form.
@@ -314,7 +338,7 @@ function mollom_form_alter(&$form, &$form_state, $form_id) {
       // fallback mode would not be triggered.
       $status = Mollom::_mollom_status();
       if (!$status['isConfigured']) {
-        return;
+        //return;
       }
 
       // Add Mollom form widget.
@@ -330,9 +354,10 @@ function mollom_form_alter(&$form, &$form_state, $form_id) {
       // Form-level validation handlers are required, since we need access to
       // all validated and submitted form values. _form_validate() invokes
       // #element_validate handlers while it is recursing into the form.
-      $form['#validate'][] = 'mollom_validate_captcha';
-      $form['#validate'][] = 'mollom_validate_analysis';
-      $form['#validate'][] = 'mollom_validate_post';
+
+      $form['#validate'][] = array('\Drupal\mollom\Controller\FormController', 'mollom_validate_captcha');
+      $form['#validate'][] = array('\Drupal\mollom\Controller\FormController', 'mollom_validate_analysis');
+      $form['#validate'][] = array('\Drupal\mollom\Controller\FormController', 'mollom_validate_post');
 
       // Append a submit handler to store Mollom session data. Requires that
       // the primary submit handler has run already, so a potential 'post_id'
@@ -349,7 +374,7 @@ function mollom_form_alter(&$form, &$form_state, $form_id) {
       else {
         $form_submit_key = &$form;
       }
-      $form_submit_key['#submit'][] = 'mollom_form_submit';
+      $form_submit_key['#submit'][] = array('\Drupal\mollom\Controller\FormController', 'mollom_form_submit');
 
       // Add link to privacy policy on forms protected via textual analysis,
       // if enabled.
