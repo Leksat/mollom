@@ -8,3 +8,7 @@ services:
   mollom.client.testlocal:
     class: Drupal\mollom\Test\DrupalTestLocalClient
     arguments: ['@config.factory', '@http_client']
+  mollom_init_subscriber:
+    class: Drupal\mollom\EventSubscriber\InitSubscriber
+    tags:
+      - { name: event_subscriber }

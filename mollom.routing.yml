@@ -92,3 +92,10 @@ mollom.blacklist.delete:
     _form: '\Drupal\mollom\Form\BlacklistEntryDeleteForm'
   requirements:
     _permission: 'administer mollom'
+
+mollom.captcha_js:
+  path: 'mollom/captcha/{type}/{form_build_id}/{mollom_session_id}'
+  defaults:
+    _content: '\Drupal\mollom\Controller\DefaultController::captchaJs'
+  requirements:
+    _custom_access: '\Drupal\mollom\Controller\DefaultController::access'

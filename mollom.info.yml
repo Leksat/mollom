@@ -5,4 +5,9 @@ package: Acquia
 core: 8.x
 configure: mollom.settings
 dependencies:
- - composer_manager
+  - composer_manager
+scripts:
+  - mollom.js
+stylesheets:
+  all:
+    - mollom.css
