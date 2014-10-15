@@ -2,6 +2,7 @@
 
 namespace Drupal\mollom\Utility;
 
+use Drupal\Core\Logger\RfcLogLevel;
 use Drupal\mollom\API\DrupalClient;
 
 class Mollom {
@@ -159,7 +160,7 @@ class Mollom {
         $status['isVerified'] = TRUE;
         Logger::addMessage(array(
           'message' => 'API keys are valid.',
-        ), WATCHDOG_INFO);
+        ), RfcLogLevel::INFO);
 
         // Unless we just updated, update local configuration with remote.
         if (!$update) {
@@ -173,13 +174,13 @@ class Mollom {
         $status['response'] = $response;
         Logger::addMessage(array(
           'message' => 'Invalid API keys.',
-        ), WATCHDOG_ERROR);
+        ), RfcLogLevel::ERROR);
       }
       elseif ($response === $mollom::REQUEST_ERROR) {
         $status['response'] = $response;
         Logger::addMessage(array(
           'message' => 'Invalid client configuration.',
-        ), WATCHDOG_ERROR);
+        ), RfcLogLevel::ERROR);
       }
       else {
         $status['response'] = $response;

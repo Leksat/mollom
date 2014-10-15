@@ -511,12 +511,12 @@ class FormFormBase extends EntityForm {
     if ($status == SAVED_UPDATED) {
       // If we edited an existing entity...
       drupal_set_message($this->t('Mollom Form %label has been updated.', array('%label' => $mollom_form->label())));
-      watchdog('contact', 'Mollom Form %label has been updated.', array('%label' => $mollom_form->label()), WATCHDOG_NOTICE, l($this->t('Edit'), $uri . '/edit'));
+      \Drupal::logger('mollom')->notice('Mollom Form %label has been updated.', array('%label' => $mollom_form->label()));
     }
     else {
       // If we created a new entity...
       drupal_set_message($this->t('Mollom form %label has been added.', array('%label' => $mollom_form->label())));
-      watchdog('contact', 'Mollom form %label has been added.', array('%label' => $mollom_form->label()), WATCHDOG_NOTICE, l($this->t('Edit'), $uri . '/edit'));
+      \Drupal::logger('mollom')->notice('Mollom form %label has been added.', array('%label' => $mollom_form->label()));
     }
 
     // Redirect the user to the following path after the save action.

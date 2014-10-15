@@ -9,6 +9,7 @@ namespace Drupal\mollom\Form;
 
 use Drupal\Core\Form\ConfigFormBase;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Logger\RfcLogLevel;
 use Drupal\mollom\API\DrupalClient;
 use Drupal\mollom\API\APIKeys;
 use Drupal\mollom\Utility\Mollom;
@@ -127,8 +128,8 @@ class Settings extends ConfigFormBase {
         '#type' => 'radios',
         '#title' => t('Mollom logging level warning'),
         '#options' => array(
-            WATCHDOG_WARNING => t('Only log warnings and errors'),
-            WATCHDOG_DEBUG => t('Log all Mollom messages'),
+            RfcLogLevel::WARNING => t('Only log warnings and errors'),
+            RfcLogLevel::DEBUG => t('Log all Mollom messages'),
         ),
         '#default_value' => $config->get('log_level'),
     );
