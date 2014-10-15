@@ -295,27 +295,13 @@ class FormFormBase extends EntityForm {
       ),
     );
 
-    $clean_urls = FALSE;
-    // CMP integration requires Clean URLs to be enabled, in order for the
-    // local moderation callback endpoints to work.
-    if ($clean_urls === NULL) {
-      // Assume clean URLs unless the request tells us otherwise.
-      $clean_urls = TRUE;
-      try {
-        $request = \Drupal::request();
-        $clean_urls = RequestHelper::isCleanUrl($request);
-      }
-      catch (ServiceNotFoundException $e) {
-      }
-    }
     $form['moderation'] = array(
       '#type' => 'checkbox',
       '#title' => t('Allow content to be moderated from the <a href="@moderation-url">@moderation-product</a>', array(
         '@moderation-url' => 'https://mollom.com/moderation',
         '@moderation-product' => 'Mollom Content Moderation Platform',
       )),
-      '#default_value' => (string) (int) ($mollom_form->moderation && $clean_urls),
-      '#disabled' => !$clean_urls,
+      '#default_value' => $mollom_form->moderation,
       // Only possible for forms which result in a locally stored entity.
       //'#access' => !empty($mollom_form['entity']),
       // Only possible for forms protected via text analysis.
@@ -324,19 +310,10 @@ class FormFormBase extends EntityForm {
           ':input[name="mollom[mode]"]' => array('value' => (string) FormInterface::MOLLOM_MODE_ANALYSIS),
         ),
       ),
-      '#description' => t('Provides a unified moderation interface supporting multiple sites, moderation teams, and detailed analytics.'),
-    );
-    if (!$clean_urls) {
-      $form['moderation']['#description'] .= ' ' . t('Requires <a href="@clean-urls">Clean URLs</a> to be enabled.', array(
-          '@clean-urls' => url('admin/config/search/clean-urls'),
-        ));
-    }
-    else {
-      $form['moderation']['#description'] .= ' ' . t('Note: All content that was created while this option was disabled cannot be moderated from the @moderation-product; only new content will appear.', array(
+      '#description' => t('Provides a unified moderation interface supporting multiple sites, moderation teams, and detailed analytics.  Note: All content that was created while this option was disabled cannot be moderated from the @moderation-product; only new content will appear.', array(
           '@moderation-product' => 'Mollom Content Moderation Platform',
-        ));
-    }
-
+      )),
+    );
 
     // Return the form.
     return $form;
