@@ -10,6 +10,7 @@
  * Install and uninstall functions as well as schema definition for the Mollom module.
  */
 
+use Drupal\Core\Url;
 use Drupal\mollom\API\APIKeys;
 
 /**
@@ -50,7 +51,7 @@ function mollom_requirements($phase = 'runtime', $check = TRUE) {
     $admin_message = '';
     if (current_path() != 'admin/config/content/mollom/settings') {
       $admin_message = t('Visit the <a href="@settings-url">Mollom settings page</a> to configure your keys.', array(
-        '@settings-url' => url('admin/config/content/mollom/settings'),
+        '@settings-url' => Url::fromRoute('mollom.settings')->toString(),
       ));
     }
     // Generate an appropriate error message:

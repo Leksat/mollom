@@ -3,6 +3,7 @@
 namespace Drupal\mollom\Utility;
 
 use Drupal\Core\Logger\RfcLogLevel;
+use Drupal\Core\Url;
 use Drupal\mollom\API\DrupalClient;
 
 class Mollom {
@@ -213,7 +214,7 @@ class Mollom {
       $admin_message = '';
       if (user_access('administer mollom') && $_GET['q'] != 'admin/config/content/mollom/settings') {
         $admin_message = t('Visit the <a href="@settings-url">Mollom settings page</a> to disable it.', array(
-          '@settings-url' => url('admin/config/content/mollom/settings'),
+          '@settings-url' => Url::fromRoute('mollom.settings')->toString(),
         ));
       }
       $message = t('Mollom testing mode is still enabled. !admin-message', array(
