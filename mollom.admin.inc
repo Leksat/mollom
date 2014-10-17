@@ -829,7 +829,16 @@ function mollom_admin_settings(&$form_state) {
   if ($check && $status['isVerified'] && !variable_get('mollom_testing_mode', 0)) {
     drupal_set_message(t('Mollom servers verified your keys.  The services are operating correctly.'));
   }
-  
+
+  drupal_add_js(drupal_get_path('module', 'mollom') . '/mollom.admin.js');
+  // Add the asmselect library if available through the libraries module.
+  if (module_exists('libraries')) {
+    if ($path = libraries_get_path('asmselect')) {
+      drupal_add_js($path . '/jquery.asmselect.js');
+      drupal_add_css($path . '/jquery.asmselect.css');
+    }
+  }
+
   $form['access-keys'] = array(
     '#type' => 'fieldset',
     '#title' => t('Mollom API keys'),
@@ -879,10 +888,6 @@ function mollom_admin_settings(&$form_state) {
   else {
     $default_languages = $mollom->loadConfiguration('expectedLanguages');
   }
-  $path = drupal_get_path('module', 'mollom');
-  drupal_add_js($path . '/assets/asmselect/jquery.asmselect.js');
-  drupal_add_js($path . '/mollom.admin.js');
-  drupal_add_css($path . '/assets/asmselect/jquery.asmselect.css');
   $form[$mollom->configuration_map['expectedLanguages']] = array(
     '#type' => 'select',
     '#title' => t('Expected languages'),
