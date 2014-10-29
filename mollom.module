@@ -283,7 +283,7 @@ function mollom_form_alter(&$form, &$form_state, $form_id) {
   $forms = Form::loadMultiple();
   // Remind of enabled testing mode on all protected forms.
   //if (isset($forms[$form_id]) || strpos($_GET['q'], 'admin/config/content/mollom') === 0) {
-    //Mollom::_mollom_testing_mode_warning();
+    //Mollom::displayMollomTestModeWarning();
   //}
 
   $current_user = \Drupal::currentUser();
@@ -312,7 +312,7 @@ function mollom_form_alter(&$form, &$form_state, $form_id) {
       // If API keys have been configured, then the form has to be processed,
       // regardless of whether API keys could be verified; otherwise, the
       // fallback mode would not be triggered.
-      $status = Mollom::_mollom_status();
+      $status = Mollom::getAPIKeyStatus();
       if (!$status['isConfigured']) {
         return;
       }

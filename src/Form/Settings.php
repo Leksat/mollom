@@ -11,7 +11,6 @@ use Drupal\Core\Form\ConfigFormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Logger\RfcLogLevel;
 use Drupal\mollom\API\DrupalClient;
-use Drupal\mollom\API\APIKeys;
 use Drupal\mollom\Utility\Mollom;
 use Symfony\Component\HttpFoundation\Request;
 
@@ -46,7 +45,7 @@ class Settings extends ConfigFormBase {
     $mollom = \Drupal::service('mollom.client');
     $values = $form_state->getValues();
     $check = empty($values);
-    $status = Mollom::_mollom_status($check);
+    $status = Mollom::getAdminAPIKeyStatus($check);
     if ($check && $status['isVerified'] && !$config->get('testing_mode')) {
         drupal_set_message(t('Mollom servers verified your keys. The services are operating correctly.'));
     }
@@ -237,7 +236,7 @@ class Settings extends ConfigFormBase {
 
     parent::submitForm($form, $form_state);
     // Update Mollom site record with local configuration.
-    APIKeys::getStatus(true, true);
+    Mollom::getAPIKeyStatus(TRUE, TRUE);
   }
 
 }

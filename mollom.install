@@ -11,7 +11,7 @@
  */
 
 use Drupal\Core\Url;
-use Drupal\mollom\API\APIKeys;
+use Drupal\mollom\Utility\Mollom;
 
 /**
  * Implements hook_requirements().
@@ -30,7 +30,7 @@ use Drupal\mollom\API\APIKeys;
 function mollom_requirements($phase = 'runtime', $check = TRUE) {
   $requirements = array();
   if ($phase == 'runtime') {
-    $status = APIKeys::getStatus($check);
+    $status = Mollom::getAPIKeyStatus($check);
 
     $requirements['mollom'] = array(
       'title' => t('Mollom API keys'),
