@@ -5,15 +5,15 @@
 
 namespace Drupal\mollom\API;
 
-use Drupal\Core\Config\Config;
 use Drupal\Core\Config\ConfigFactory;
-use Drupal\Core\Http\Client as HttpClient;
 use Drupal\Core\Language\LanguageManager;
 use Drupal\Core\Logger\RfcLogLevel;
 use Drupal\mollom\Utility\Logger;
 use GuzzleHttp\ClientInterface;
 use Mollom\Client\Client;
 use Symfony\Component\DependencyInjection\ContainerInterface;
+
+require_once drupal_get_path('module', 'mollom') . '/vendor/autoload.php';
 
 class DrupalClient extends Client {
 
