@@ -109,17 +109,19 @@ class Mollom {
     $testing_mode = (int) \Drupal::config('mollom.settings')->get('mollom_testing_mode', 0);
     $status = &$static_cache[$testing_mode];
 
-    if (!$force && isset($status)) {
-      return $status;
-    }
-    // Check the cached status.
     $drupal_cache = \Drupal::cache();
     $cid = 'mollom_status:' . $testing_mode;
     $expire_valid = 86400; // once per day
     $expire_invalid = 3600; // once per hour
 
-    if (!$force && $cache = $drupal_cache->get($cid)) {
-      return $cache->data;
+    // Look for cached status.
+    if (!$force) {
+      if (isset($status)) {
+        return $status;
+      }
+      else if ($cache = $drupal_cache->get($cid)) {
+        return $cache->data;
+      }
     }
 
     // Re-check configuration status.

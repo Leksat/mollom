@@ -42,12 +42,14 @@ class Settings extends ConfigFormBase {
   public function buildForm(array $form, FormStateInterface $form_state, Request $request = NULL) {
     $config = $this->config('mollom.settings');
 
-    $mollom = \Drupal::service('mollom.client');
-    $values = $form_state->getValues();
-    $check = empty($values);
-    $status = Mollom::getAdminAPIKeyStatus($check);
-    if ($check && $status['isVerified'] && !$config->get('testing_mode')) {
+    // Only check and display the status message if the form is being shown
+    // for the first time and not when displayed again after submission.
+    $check = empty($_POST);
+    if ($check) {
+      $status = Mollom::getAdminAPIKeyStatus($check);
+      if ($status['isVerified'] && !$config->get('testing_mode')) {
         drupal_set_message(t('Mollom servers verified your keys. The services are operating correctly.'));
+      }
     }
 
     $form['keys'] = array(
