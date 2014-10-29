@@ -92,7 +92,7 @@ class Settings extends ConfigFormBase {
 
     $options = DrupalClient::getSupportedLanguages();
     $default_languages = isset($status['expectedLanguages']) ? $status['expectedLanguages'] : $config->get("languages_expected");
-    // @todo: Add chosen UI functionality for improved UX.
+    // @todo: Add chosen UI functionality for improved UX when available.
     $form['expected_languages'] = array(
         '#type' => 'select',
         '#title' => t('Expected languages'),
