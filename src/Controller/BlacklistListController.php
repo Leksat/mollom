@@ -6,11 +6,12 @@
 namespace Drupal\mollom\Controller;
 
 use Drupal\Core\DependencyInjection\ContainerInjectionInterface;
-use Drupal\Core\Routing\UrlGeneratorInterface;
 use Drupal\Core\StringTranslation\StringTranslationTrait;
 use Drupal\Core\StringTranslation\TranslationInterface;
+use Drupal\Core\Url;
 use Drupal\Core\Utility\LinkGeneratorInterface;
 use Drupal\mollom\Storage\BlacklistStorage;
+use Drupal\mollom\Utility\Mollom;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
@@ -20,7 +21,6 @@ class BlacklistListController implements ContainerInjectionInterface {
 
   use StringTranslationTrait;
 
-  protected $url;
   protected $link;
 
   /**
@@ -28,9 +28,8 @@ class BlacklistListController implements ContainerInjectionInterface {
    *
    * @param TranslationInterface $translation_manager
    */
-  public function __construct(TranslationInterface $translation_manager, UrlGeneratorInterface $url_generator, LinkGeneratorInterface $link_generator) {
+  public function __construct(TranslationInterface $translation_manager, LinkGeneratorInterface $link_generator) {
     $this->stringTranslation = $translation_manager;
-    $this->url = $url_generator;
     $this->link = $link_generator;
   }
 
@@ -40,12 +39,13 @@ class BlacklistListController implements ContainerInjectionInterface {
   public static function create(ContainerInterface $container) {
     return new static(
       $container->get('string_translation'),
-      $container->get('url_generator'),
       $container->get('link_generator')
     );
   }
 
   function content() {
+    Mollom::getAdminAPIKeyStatus();
+
     $items = BlacklistStorage::getList();
     $rows = array();
 
@@ -63,10 +63,10 @@ class BlacklistListController implements ContainerInjectionInterface {
         'data' => array(
           $entry['reason'],
           $entry['context'],
-          $entry['matches'],
+          $entry['match'],
           $entry['value'],
-          $this->link->generate($this->t('Edit'), 'mollom.blacklist.edit'),
-          $this->link->generate($this->t('Delete'), 'mollom.blacklist.delete'),
+          $this->link->generate($this->t('Edit'), Url::fromRoute('mollom.blacklist.edit', array('entry_id' => $entry['id']))),
+          $this->link->generate($this->t('Delete'), Url::fromRoute('mollom.blacklist.delete', array('entry_id' => $entry['id']))),
         ),
       );
     }
@@ -74,9 +74,7 @@ class BlacklistListController implements ContainerInjectionInterface {
       '#type' => 'table',
       '#header' => $header,
       '#rows' => $rows,
-      '#empty' => $this->t('There are no entries in the blacklist.', array(
-          '@add-url' => $this->url->generateFromRoute('mollom.blacklist.add'),
-        )),
+      '#empty' => $this->t('There are no entries in the blacklist.'),
       '#attributes' => array( 'id' => 'mollom-blacklist-list'),
     );
 

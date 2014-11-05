@@ -9,6 +9,7 @@ namespace Drupal\mollom\Form;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\mollom\Storage\BlacklistStorage;
+use Drupal\mollom\Utility\Mollom;
 
 /**
  * Class BlacklistEntryFormBase
@@ -63,6 +64,8 @@ abstract class BlacklistEntryFormBase extends FormBase {
    * Overrides Drupal\Core\Form\FormInterface::buildForm().
    */
   public function buildForm(array $form, FormStateInterface $form_state, $entry_id = NULL) {
+    Mollom::getAdminAPIKeyStatus();
+
     $entry = $this->loadByEntryId($entry_id);
 
     $form['reason'] = array(
@@ -76,7 +79,6 @@ abstract class BlacklistEntryFormBase extends FormBase {
     $form['context'] = array(
       '#type' => 'select',
       '#title' => $this->t('Context'),
-      '#title_display' => 'invisible',
       '#default_value' => $entry['context'],
       '#options' => $this->getContextOptions(),
       '#required' => TRUE,
@@ -85,7 +87,6 @@ abstract class BlacklistEntryFormBase extends FormBase {
     $form['matches'] = array(
       '#type' => 'select',
       '#title' => $this->t('Matches'),
-      '#title_display' => 'invisible',
       '#default_value' => $entry['matches'],
       '#options' => $this->getMatchesOptions(),
       '#required' => TRUE,
@@ -94,7 +95,6 @@ abstract class BlacklistEntryFormBase extends FormBase {
     $form['value'] = array(
       '#type' => 'textfield',
       '#title' => $this->t('Value'),
-      '#title_display' => 'invisible',
       '#default_value' => $entry['value'],
       '#required' => TRUE,
     );
@@ -137,6 +137,8 @@ abstract class BlacklistEntryFormBase extends FormBase {
         '%entry' => $entry['value'],
         '%type' => $entry['reason'],
       )));
+      // Redirect the user to the following path after the save action.
+      $form_state->setRedirect('mollom.blacklist.list');
     }
   }
 

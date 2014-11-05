@@ -5,6 +5,7 @@
 
 namespace Drupal\mollom\API;
 
+use Drupal\Component\Utility\Unicode;
 use Drupal\Core\Config\ConfigFactory;
 use Drupal\Core\Language\LanguageManager;
 use Drupal\Core\Logger\RfcLogLevel;
@@ -184,10 +185,15 @@ class DrupalClient extends Client {
       );
     }
 
+    $response_headers = $response->getHeaders();
+    $headers = array();
+    foreach ($response_headers as $key => $header) {
+      $headers[Unicode::strtolower($key)] = $header[0];
+    }
     $mollom_response = (object) array(
       'code' => $response->getStatusCode(),
       'message' => ($response->getStatusCode() >= 200 && $response->getStatusCode() < 300) ? $response->getReasonPhrase() : NULL,
-      'headers' => $response->getHeaders(),
+      'headers' => $headers,
       'body' => $response->getBody(TRUE),
     );
     return $mollom_response;
