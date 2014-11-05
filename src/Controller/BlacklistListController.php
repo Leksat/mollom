@@ -55,8 +55,7 @@ class BlacklistListController implements ContainerInjectionInterface {
       'context' => $this->t('Context'),
       'matches' => $this->t('Matches'),
       'value' => $this->t('Value'),
-      'edit' => $this->t('Operations'),
-      'delete' => '',
+      'operations' => $this->t('Operations'),
     );
     foreach ($items as $entry) {
       $rows[] = array(
@@ -65,8 +64,21 @@ class BlacklistListController implements ContainerInjectionInterface {
           $entry['context'],
           $entry['match'],
           $entry['value'],
-          $this->link->generate($this->t('Edit'), Url::fromRoute('mollom.blacklist.edit', array('entry_id' => $entry['id']))),
-          $this->link->generate($this->t('Delete'), Url::fromRoute('mollom.blacklist.delete', array('entry_id' => $entry['id']))),
+          array(
+            'data' => array(
+              '#type' => 'operations',
+              '#links' => array(
+                array(
+                  'title' => $this->t('Edit'),
+                  'url' => Url::fromRoute('mollom.blacklist.edit', array('entry_id' => $entry['id'])),
+                ),
+                array(
+                  'title' => $this->t('Delete'),
+                  'url' => Url::fromRoute('mollom.blacklist.delete', array('entry_id' => $entry['id']))
+                ),
+              ),
+            ),
+          ),
         ),
       );
     }
