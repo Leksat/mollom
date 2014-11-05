@@ -10,12 +10,15 @@ namespace Drupal\mollom\Controller;
 use Drupal\Component\Utility\String;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Template\Attribute;
+use Drupal\mollom\Utility\Mollom;
 
 /**
  * Defines a page that shows statistics.
  */
 class StatisticsController extends ControllerBase {
   public function content() {
+
+    Mollom::getAdminAPIKeyStatus();
 
     $config = $this->config('mollom.settings');
 
