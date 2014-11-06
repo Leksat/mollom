@@ -89,6 +89,6 @@ mollom.blacklist.edit:
 mollom.blacklist.delete:
   path: 'admin/config/content/mollom/blacklist/delete/{entry_id}'
   defaults:
-    _form: '\Drupal\mollom\Form\BlacklistEntryDeleteForm'
+    _form: '\Drupal\mollom\Form\BlacklistEntryDelete'
   requirements:
     _permission: 'administer mollom'

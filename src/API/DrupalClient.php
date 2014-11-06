@@ -176,7 +176,7 @@ class DrupalClient extends Client {
       $response = $this->client->send($request);
     }
     Catch( \Exception $e ){
-      Logger::addMessage(array('failed to connect. Message !message', array('!message' => $e->getMessage())), WATCHDOG_ERROR);
+      Logger::addMessage(array('failed to connect. Message !message', array('!message' => $e->getMessage())), RfcLogLevel::ERROR);
       return (object) array(
         'code' => '0',
         'message' => $e->getMessage(),

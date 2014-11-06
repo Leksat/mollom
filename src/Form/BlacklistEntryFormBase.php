@@ -68,10 +68,15 @@ abstract class BlacklistEntryFormBase extends FormBase {
 
     $entry = $this->loadByEntryId($entry_id);
 
+    $form['entry_id'] = array(
+      '#type' => 'value',
+      '#value' => $entry_id,
+    );
+
     $form['reason'] = array(
       '#type' => 'select',
       '#title' => $this->t('Type'),
-      '#default_value' => $entry['type'],
+      '#default_value' => $entry['reason'],
       '#options' => $this->getBlacklistTypeOptions(),
       '#required' => TRUE,
     );
@@ -112,18 +117,11 @@ abstract class BlacklistEntryFormBase extends FormBase {
   }
 
   /**
-   * Overrides Drupal\Core\Form\FormInterface::validateForm().
-   */
-  public function validateForm(array &$form, FormStateInterface $form_state) {
-    parent::validateForm($form, $form_state);
-  }
-
-  /**
    * Overrides Drupal\Core\Form\FormInterface::submitForm().
    */
   public function submitForm(array &$form, FormStateInterface $form_state) {
     $entry = array();
-    $id = $form_state->getValue('blacklist_entry_id', '');
+    $id = $form_state->getValue('entry_id', '');
     if (!empty($id)) {
       $entry['id'] = $id;
     }
@@ -139,6 +137,11 @@ abstract class BlacklistEntryFormBase extends FormBase {
       )));
       // Redirect the user to the following path after the save action.
       $form_state->setRedirect('mollom.blacklist.list');
+    }
+    else {
+      drupal_set_message($this->t('There was a problem saving the blacklist entry to your %type blacklist.', array(
+        '%type' => $entry['reason'],
+      )), 'error');
     }
   }
 
