@@ -1843,7 +1843,8 @@ function mollom_fba_js() {
     header($_SERVER['SERVER_PROTOCOL'] . ' 405 Method Not Allowed');
     // A HTTP 405 response MUST specify allowed methods.
     header('Allow: POST');
-    drupal_exit();
+    module_invoke_all('exit');
+    exit;
   }
 
   $mollom = mollom();
