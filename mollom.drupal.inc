@@ -298,6 +298,7 @@ class MollomDrupalTest extends MollomDrupal {
     $this->oAuthStrategy = $oAuthStrategy;
 
     // Set class properties.
+    debug($result, 'create keys result');
     if (is_array($result) && !empty($result['publicKey']) && !empty($result['privateKey'])) {
       $this->publicKey = $result['publicKey'];
       $this->privateKey = $result['privateKey'];
