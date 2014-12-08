@@ -113,4 +113,11 @@ class Form extends ConfigEntityBase implements FormInterface {
    */
   public $moderation;
 
+  /**
+   * Stored mapping of the Drupal fields to Mollom fields.
+   *
+   * @var array
+   */
+  public $mapping;
+
 }

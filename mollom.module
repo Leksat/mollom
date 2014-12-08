@@ -62,6 +62,7 @@ function comment_mollom_form_info($form_id) {
     'moderation callback' => 'comment_mollom_form_moderation',
     'elements' => array(
       'subject' => t('Subject'),
+      'comment_body' => t('Body'),
     ),
     'mapping' => array(
       'post_title' => 'subject',

@@ -380,6 +380,11 @@ class FormFormBase extends EntityForm {
       ),
     );
 
+    $form['formfields_config']['mapping'] = array(
+      '#type' => 'value',
+      '#value' => $form_mollom['mapping'],
+    );
+
   }
 
   /**
@@ -481,6 +486,11 @@ class FormFormBase extends EntityForm {
     $mollom_form = $this->entity;
     if (isset($mollom_form->formfields_config['enabled_fields'])) {
       $mollom_form->enabled_fields = $mollom_form->formfields_config['enabled_fields'];
+    }
+
+
+    if (isset($mollom_form->formfields_config['mapping'])) {
+      $mollom_form->mapping = $mollom_form->formfields_config['mapping'];
     }
 
     // Drupal already populated the form values in the entity object. Each

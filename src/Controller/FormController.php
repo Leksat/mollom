@@ -626,7 +626,7 @@ class FormController extends ControllerBase {
     // Next to the Mollom session id and captcha result, the Mollom back-end also
     // takes into account the author's IP and local user id (if registered). Any
     // other values are ignored.
-    $all_data = self::mollom_form_get_values($form_state, $mollom_form->enabled_fields, $form_state->get('mollom')['mapping']);
+    $all_data = self::mollom_form_get_values($form_state, $mollom_form->enabled_fields, $mollom_form->mapping);
     // Cancel processing upon invalid UTF-8 data.
     if ($all_data === FALSE) {
       return FALSE;
@@ -712,7 +712,7 @@ class FormController extends ControllerBase {
 
     // Perform textual analysis.
     // @todo Add Mapping, see Drupal 7 for example
-    $all_data = self::mollom_form_get_values($form_state, $mollom_form->enabled_fields, array());
+    $all_data = self::mollom_form_get_values($form_state, $mollom_form->enabled_fields, $mollom_form->mapping);
     // @ todo : not all fields are available here yet
     // Cancel processing upon invalid UTF-8 data.
     if ($all_data === FALSE) {
@@ -726,21 +726,21 @@ class FormController extends ControllerBase {
     if (!empty($form_state->getValue('mollom')['contentId'])) {
       $data['id'] = $form_state->getValue('mollom')['contentId'];
     }
-    $data['checks'] = $form_state->get('mollom')['checks'];
-    $data['strictness'] = $form_state->get('mollom')['strictness'];
-    if (isset($form_state->get('mollom')['type'])) {
-      $data['type'] = $form_state->get('mollom')['type'];
+    $data['checks'] = $mollom_form->checks;
+    $data['strictness'] = $mollom_form->strictness;
+    if (isset($mollom_form->type)) {
+      $data['type'] = $mollom_form->type;
     }
-    if (in_array('spam', $data['checks']) && $form_state->get('mollom')['unsure'] == 'binary') {
+    if (in_array('spam', $data['checks']) && $mollom_form->unsure == 'binary') {
       $data['unsure'] = 0;
     }
     // Only pass the tracking id if this is the first textual evaluation.
-    if (isset($form_state->getValue('mollom')['fba']) && empty($data['id'])) {
-      if (empty($form_state->getValue('mollom')['fba'])) {
+    if (isset($mollom_form->fba) && empty($data['id'])) {
+      if (empty($mollom_form->fba)) {
         $data['trackingImageId'] = -1;
       }
       else {
-        $data['trackingImageId'] = $form_state->getValue('mollom')['fba'];
+        $data['trackingImageId'] = $mollom_form->fba;
       }
     }
 
@@ -924,7 +924,7 @@ class FormController extends ControllerBase {
       // data mapping. We do not care for the actual fields, only for the value of
       // the mapped postId.
       // @todo Directly extract 'postId' from submitted form values.
-      $values = self::mollom_form_get_values($form_state, $mollom_form->enabled_fields, $form_state['mollom']['mapping']);
+      $values = self::mollom_form_get_values($form_state, $mollom_form->enabled_fields, $mollom_form->mapping);
       // We only consider non-empty and non-zero values as valid entity ids.
       if (!empty($values['postId'])) {
         // Save the Mollom session data.
