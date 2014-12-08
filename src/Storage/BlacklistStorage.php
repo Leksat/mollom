@@ -5,9 +5,6 @@
 
 namespace Drupal\mollom\Storage;
 
-use Drupal\mollom\API\DrupalClient;
-use Drupal\mollom\API\DrupalClientFactory;
-
 /**
  * Class BlacklistStorage is responsible for managing and retrieving a site's
  * blacklist.  It uses the DrupalClient for the Mollom API to handle operations.
@@ -63,8 +60,7 @@ class BlacklistStorage {
    *   An associative array of blacklist entry data.
    */
   static function getEntry($entry_id) {
-    $mollom = DrupalClient::getClient();
-    $result = $mollom->getBlacklistEntry($entry_id);
+    $result = \Drupal::service('mollom.client')->getBlacklistEntry($entry_id);
     return $result;
   }
 
@@ -93,8 +89,7 @@ class BlacklistStorage {
    *   True if successful, false if not.
    */
   static function saveEntry($entry) {
-    $mollom = DrupalClientFactory::getClient();
-    $result = $mollom->saveBlacklistEntry($entry);
+    $result = \Drupal::service('mollom.client')->saveBlacklistEntry($entry);
     return !empty($result['id']);
   }
 
@@ -103,12 +98,11 @@ class BlacklistStorage {
    *
    * @param $id
    *   The id of the blacklist entry to delete.
-   * @resposne bool
+   * @response bool
    *   True if successful, false if not.
    */
   static function deleteEntry($id) {
-    $mollom = DrupalClientFactory::getClient();
-    return $mollom->deleteBlacklistEntry($id);
+    \Drupal::service('mollom.client')->deleteBlacklistEntry($id);
   }
 
   /**
@@ -121,8 +115,7 @@ class BlacklistStorage {
    */
   static private function loadList() {
     if (is_null(self::$blacklist)) {
-      $mollom = DrupalClientFactory::getClient();
-      self::$blacklist = $mollom->getBlacklist();
+      self::$blacklist = \Drupal::service('mollom.client')->getBlacklist();
     }
     return self::$blacklist;
   }

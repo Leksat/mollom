@@ -102,29 +102,27 @@ class Mollom {
    *   - response: The response error code of the API verification request.
    *   - ...: The full site resource, as returned by the Mollom API.
    *
-   * @see mollom_init()
-   * @see mollom_admin_settings()
    * @see mollom_requirements()
    */
-  public static function _mollom_status($force = FALSE, $update = FALSE) {
+  public static function getAPIKeyStatus($force = FALSE, $update = FALSE) {
     $static_cache = &drupal_static(__FUNCTION__, array());
     $testing_mode = (int) \Drupal::config('mollom.settings')->get('mollom_testing_mode', 0);
     $status = &$static_cache[$testing_mode];
 
-    if (!$force && isset($status)) {
-      return $status;
-    }
-    // Check the cached status.
+    $drupal_cache = \Drupal::cache();
     $cid = 'mollom_status:' . $testing_mode;
     $expire_valid = 86400; // once per day
     $expire_invalid = 3600; // once per hour
 
-    /*if (!$force && $cache = cache_get($cid, 'cache')) {
-      if ($cache->expire > REQUEST_TIME) {
-        $status = $cache->data;
+    // Look for cached status.
+    if (!$force) {
+      if (isset($status)) {
         return $status;
       }
-    }*/
+      else if ($cache = $drupal_cache->get($cid)) {
+        return $cache->data;
+      }
+    }
 
     // Re-check configuration status.
     /** @var \Drupal\mollom\API\DrupalClient $mollom */
@@ -164,8 +162,7 @@ class Mollom {
         ), RfcLogLevel::INFO);
 
         // Unless we just updated, update local configuration with remote.
-        if (!$update) {
-          $languages_expected = is_array($status['expectedLanguages']) ? array_values($status['expectedLanguages']) : array();
+        if ($update) {
           if ($old_status['expectedLanguages'] != $status['expectedLanguages']) {
             $mollom->saveConfiguration('expectedLanguages', $status['expectedLanguages']);
           }
@@ -194,14 +191,50 @@ class Mollom {
         ), WATCHDOG_ERROR);
       }
     }
-    //cache_set($cid, $status, 'cache', REQUEST_TIME + ($status === TRUE ? $expire_valid : $expire_invalid));
+    $drupal_cache->set($cid, $status, $status['isVerified'] === TRUE ? $expire_valid : $expire_invalid);
     return $status;
   }
 
   /**
+   * Gets the status of Mollom's API key configuration and also displays a
+   * warning message if the Mollom API keys are not configured.
+   *
+   * To be used within the Mollom administration pages only.
+   *
+   * @param bool $force
+   *   (optional) Boolean whether to ignore the cached state and re-check.
+   *   Defaults to FALSE.
+   * @param bool $update
+   *   (optional) Whether to update Mollom with locally stored configuration.
+   *   Defaults to FALSE.
+   *
+   * @return array
+   *   An associative array describing the current status of the module:
+   *   - isConfigured: Boolean whether Mollom API keys have been configured.
+   *   - isVerified: Boolean whether Mollom API keys have been verified.
+   *   - response: The response error code of the API verification request.
+   *   - ...: The full site resource, as returned by the Mollom API.
+   *
+   * @see Mollom::getAPIKeyStatus().
+   */
+  public static function getAdminAPIKeyStatus($force = FALSE, $update = FALSE) {
+    $status = Mollom::getAPIKeyStatus($force, $update);
+    if (empty($_POST) && !$status['isVerified']) {
+      // Fetch and display requirements error message, without re-checking.
+      module_load_install('mollom');
+      $requirements = mollom_requirements('runtime', FALSE);
+      if (isset($requirements['mollom']['description'])) {
+        drupal_set_message($requirements['mollom']['description'], 'error');
+      }
+    }
+    return $status;
+  }
+
+
+  /**
    * Outputs a warning message about enabled testing mode (once).
    */
-  public static function _mollom_testing_mode_warning() {
+  public static function displayMollomTestModeWarning() {
     // drupal_set_message() starts a session and disables page caching, which
     // breaks cache-related tests. Thus, tests set the verbose variable to TRUE.
     $warned = &drupal_static(__FUNCTION__, \Drupal::config('mollom.settings')->get('mollom_testing_mode_omit_warning', NULL));

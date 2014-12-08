@@ -7,10 +7,10 @@
 
 namespace Drupal\mollom\Controller;
 
-use Drupal\Component\Utility\String;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Template\Attribute;
 use Drupal\mollom\API\DrupalClient;
+use Drupal\Core\Entity\FieldableEntityInterface;
 use Drupal\mollom\Utility\Logger;
 use Drupal\mollom\Utility\Mollom;
 use Drupal\search_api\Utility\Utility;
@@ -556,7 +556,7 @@ class FormController extends ControllerBase {
     }
     $form_info['mapping']['post_id'] = $entity_info->getKeys()['id'];
 
-    if ($entity_info->isFieldable()) {
+    if ($entity_info instanceof FieldableEntityInterface) {
       $field_instances = \Drupal::entityManager()->getFieldDefinitions($entity_type, $bundle);
 
       // Add form element mappings for any text fields attached to the bundle.

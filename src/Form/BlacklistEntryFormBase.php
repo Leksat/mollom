@@ -9,6 +9,7 @@ namespace Drupal\mollom\Form;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\mollom\Storage\BlacklistStorage;
+use Drupal\mollom\Utility\Mollom;
 
 /**
  * Class BlacklistEntryFormBase
@@ -63,12 +64,19 @@ abstract class BlacklistEntryFormBase extends FormBase {
    * Overrides Drupal\Core\Form\FormInterface::buildForm().
    */
   public function buildForm(array $form, FormStateInterface $form_state, $entry_id = NULL) {
+    Mollom::getAdminAPIKeyStatus();
+
     $entry = $this->loadByEntryId($entry_id);
+
+    $form['entry_id'] = array(
+      '#type' => 'value',
+      '#value' => $entry_id,
+    );
 
     $form['reason'] = array(
       '#type' => 'select',
       '#title' => $this->t('Type'),
-      '#default_value' => $entry['type'],
+      '#default_value' => $entry['reason'],
       '#options' => $this->getBlacklistTypeOptions(),
       '#required' => TRUE,
     );
@@ -76,7 +84,6 @@ abstract class BlacklistEntryFormBase extends FormBase {
     $form['context'] = array(
       '#type' => 'select',
       '#title' => $this->t('Context'),
-      '#title_display' => 'invisible',
       '#default_value' => $entry['context'],
       '#options' => $this->getContextOptions(),
       '#required' => TRUE,
@@ -85,7 +92,6 @@ abstract class BlacklistEntryFormBase extends FormBase {
     $form['matches'] = array(
       '#type' => 'select',
       '#title' => $this->t('Matches'),
-      '#title_display' => 'invisible',
       '#default_value' => $entry['matches'],
       '#options' => $this->getMatchesOptions(),
       '#required' => TRUE,
@@ -94,7 +100,6 @@ abstract class BlacklistEntryFormBase extends FormBase {
     $form['value'] = array(
       '#type' => 'textfield',
       '#title' => $this->t('Value'),
-      '#title_display' => 'invisible',
       '#default_value' => $entry['value'],
       '#required' => TRUE,
     );
@@ -112,18 +117,11 @@ abstract class BlacklistEntryFormBase extends FormBase {
   }
 
   /**
-   * Overrides Drupal\Core\Form\FormInterface::validateForm().
-   */
-  public function validateForm(array &$form, FormStateInterface $form_state) {
-    parent::validateForm($form, $form_state);
-  }
-
-  /**
    * Overrides Drupal\Core\Form\FormInterface::submitForm().
    */
   public function submitForm(array &$form, FormStateInterface $form_state) {
     $entry = array();
-    $id = $form_state->getValue('blacklist_entry_id', '');
+    $id = $form_state->getValue('entry_id', '');
     if (!empty($id)) {
       $entry['id'] = $id;
     }
@@ -137,6 +135,13 @@ abstract class BlacklistEntryFormBase extends FormBase {
         '%entry' => $entry['value'],
         '%type' => $entry['reason'],
       )));
+      // Redirect the user to the following path after the save action.
+      $form_state->setRedirect('mollom.blacklist.list');
+    }
+    else {
+      drupal_set_message($this->t('There was a problem saving the blacklist entry to your %type blacklist.', array(
+        '%type' => $entry['reason'],
+      )), 'error');
     }
   }
 

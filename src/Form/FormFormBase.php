@@ -12,6 +12,7 @@ use Drupal\Core\Entity\EntityForm;
 use Drupal\Core\Entity\Query\QueryFactory;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\mollom\Entity\FormInterface;
+use Drupal\mollom\Utility\Mollom;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\DependencyInjection\Exception\ServiceNotFoundException;
 use Drupal\mollom\Controller\FormController;
@@ -84,6 +85,9 @@ class FormFormBase extends EntityForm {
   public function buildForm(array $form, FormStateInterface $form_state) {
     // Get anything we need form the base class.
     $form = parent::buildForm($form, $form_state);
+
+    // Display any API key errors.
+    Mollom::getAdminAPIKeyStatus();
 
     // Drupal provides the entity to us as a class variable. If this is an
     // existing entity, it will be populated with existing values as class

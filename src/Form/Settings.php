@@ -11,7 +11,6 @@ use Drupal\Core\Form\ConfigFormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Logger\RfcLogLevel;
 use Drupal\mollom\API\DrupalClient;
-use Drupal\mollom\API\APIKeys;
 use Drupal\mollom\Utility\Mollom;
 use Symfony\Component\HttpFoundation\Request;
 
@@ -43,16 +42,17 @@ class Settings extends ConfigFormBase {
   public function buildForm(array $form, FormStateInterface $form_state, Request $request = NULL) {
     $config = $this->config('mollom.settings');
 
-<<<<<<< HEAD
-    $check = empty($form_state['values']);
-=======
     $mollom = \Drupal::service('mollom.client');
     $values = $form_state->getValues();
     $check = empty($values);
->>>>>>> a8bd5e3fd4109ef1562393aa4c57089fea7685c5
-    $status = Mollom::_mollom_status($check);
-    if ($check && $status['isVerified'] && !$config->get('testing_mode')) {
+    // Only check and display the status message if the form is being shown
+    // for the first time and not when displayed again after submission.
+    $check = empty($_POST);
+    if ($check) {
+      $status = Mollom::getAdminAPIKeyStatus($check);
+      if ($status['isVerified'] && !$config->get('testing_mode')) {
         drupal_set_message(t('Mollom servers verified your keys. The services are operating correctly.'));
+      }
     }
 
     $form['keys'] = array(
@@ -96,7 +96,7 @@ class Settings extends ConfigFormBase {
 
     $options = DrupalClient::getSupportedLanguages();
     $default_languages = isset($status['expectedLanguages']) ? $status['expectedLanguages'] : $config->get("languages_expected");
-    // @todo: Add chosen UI functionality for improved UX.
+    // @todo: Add chosen UI functionality for improved UX when available.
     $form['expected_languages'] = array(
         '#type' => 'select',
         '#title' => t('Expected languages'),
@@ -241,7 +241,7 @@ class Settings extends ConfigFormBase {
 
     parent::submitForm($form, $form_state);
     // Update Mollom site record with local configuration.
-    APIKeys::getStatus(true, true);
+    Mollom::getAPIKeyStatus(TRUE, TRUE);
   }
 
 }

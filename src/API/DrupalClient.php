@@ -5,6 +5,7 @@
 
 namespace Drupal\mollom\API;
 
+use Drupal\Component\Utility\Unicode;
 use Drupal\Core\Config\ConfigFactory;
 use Drupal\Core\Language\LanguageManager;
 use Drupal\Core\Logger\RfcLogLevel;
@@ -12,6 +13,8 @@ use Drupal\mollom\Utility\Logger;
 use GuzzleHttp\ClientInterface;
 use Mollom\Client\Client;
 use Symfony\Component\DependencyInjection\ContainerInterface;
+
+require_once drupal_get_path('module', 'mollom') . '/vendor/autoload.php';
 
 class DrupalClient extends Client {
 
@@ -173,7 +176,7 @@ class DrupalClient extends Client {
       $response = $this->client->send($request);
     }
     Catch( \Exception $e ){
-      Logger::addMessage(array('failed to connect. Message !message', array('!message' => $e->getMessage())), WATCHDOG_ERROR);
+      Logger::addMessage(array('failed to connect. Message !message', array('!message' => $e->getMessage())), RfcLogLevel::ERROR);
       return (object) array(
         'code' => '0',
         'message' => $e->getMessage(),
@@ -182,10 +185,15 @@ class DrupalClient extends Client {
       );
     }
 
+    $response_headers = $response->getHeaders();
+    $headers = array();
+    foreach ($response_headers as $key => $header) {
+      $headers[Unicode::strtolower($key)] = $header[0];
+    }
     $mollom_response = (object) array(
       'code' => $response->getStatusCode(),
       'message' => ($response->getStatusCode() >= 200 && $response->getStatusCode() < 300) ? $response->getReasonPhrase() : NULL,
-      'headers' => $response->getHeaders(),
+      'headers' => $headers,
       'body' => $response->getBody(TRUE),
     );
     return $mollom_response;
