@@ -229,7 +229,7 @@ EOF;
         ),
       ),
     );
-    $this->assertSame($input, Mollom::parseXML(new SimpleXmlIterator($input)), $expected);
+    $this->assertSame($input, Mollom::parseXML(new \SimpleXmlIterator($input)), $expected);
 
     $input = $header . <<<EOF
 <response>
@@ -255,7 +255,7 @@ EOF;
         ),
       ),
     );
-    $this->assertSame($input, Mollom::parseXML(new SimpleXmlIterator($input)), $expected);
+    $this->assertSame($input, Mollom::parseXML(new \SimpleXmlIterator($input)), $expected);
   }
 
   /**

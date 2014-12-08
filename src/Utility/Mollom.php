@@ -106,7 +106,7 @@ class Mollom {
    */
   public static function getAPIKeyStatus($force = FALSE, $update = FALSE) {
     $static_cache = &drupal_static(__FUNCTION__, array());
-    $testing_mode = (int) \Drupal::config('mollom.settings')->get('mollom_testing_mode', 0);
+    $testing_mode = (int) \Drupal::config('mollom.settings')->get('testing_mode', 0);
     $status = &$static_cache[$testing_mode];
 
     $drupal_cache = \Drupal::cache();
@@ -237,15 +237,15 @@ class Mollom {
   public static function displayMollomTestModeWarning() {
     // drupal_set_message() starts a session and disables page caching, which
     // breaks cache-related tests. Thus, tests set the verbose variable to TRUE.
-    $warned = &drupal_static(__FUNCTION__, \Drupal::config('mollom.settings')->get('mollom_testing_mode_omit_warning', NULL));
+    $warned = &drupal_static(__FUNCTION__, \Drupal::config('mollom.settings')->get('testing_mode_omit_warning', NULL));
     if (isset($warned)) {
       return;
     }
     $warned = TRUE;
 
-    if (\Drupal::config('mollom.settings')->get('mollom_testing_mode', 0) && empty($_POST)) {
+    if (\Drupal::config('mollom.settings')->get('testing_mode', 0) && empty($_POST)) {
       $admin_message = '';
-      if (user_access('administer mollom') && $_GET['q'] != 'admin/config/content/mollom/settings') {
+      if (\Drupal::currentUser()->hasPermission('administer mollom') && $_GET['q'] != 'admin/config/content/mollom/settings') {
         $admin_message = t('Visit the <a href="@settings-url">Mollom settings page</a> to disable it.', array(
           '@settings-url' => Url::fromRoute('mollom.settings')->toString(),
         ));

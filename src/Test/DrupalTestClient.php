@@ -30,7 +30,7 @@ class DrupalTestClient extends DrupalClient {
    * - Straight low-level requests against the testing API from a custom script,
    *   caring for API keys on its own.
    * - Whenever the testing mode is enabled (either through the module's
-   *   settings page or by changing the mollom_testing_mode system variable),
+   *   settings page or by changing the testing_mode system variable),
    *   the client requires valid testing API keys to perform any calls. Testing
    *   API keys are different to production API keys, need to be created first,
    *   and may vanish at any time (whenever the testing API server is
@@ -59,7 +59,7 @@ class DrupalTestClient extends DrupalClient {
     // "production" API keys on the local fake server on its own. This special
     // override must only be possible when executing tests.
     // @todo Add global test_info as condition?
-    $testing_mode = $this->config->get('mollom_testing_mode', 0);
+    $testing_mode = $this->config->get('testing_mode', 0);
     $module_exists = \Drupal::moduleHandler()->moduleExists('mollom_test_server');
     if ($module_exists && !$testing_mode) {
       // Disable authentication error auto-recovery.

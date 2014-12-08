@@ -256,7 +256,7 @@ function mollom_schema() {
       ),
     ),
   );
-
+  return $schema;
 }
 
 /**

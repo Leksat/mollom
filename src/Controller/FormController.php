@@ -14,6 +14,7 @@ use Drupal\Core\Entity\FieldableEntityInterface;
 use Drupal\mollom\Utility\Logger;
 use Drupal\mollom\Utility\Mollom;
 use Drupal\search_api\Utility\Utility;
+use Drupal\Core\Form\FormState;
 
 /**
  * Controller with functions that are useful in the context of Mollom
@@ -139,7 +140,7 @@ class FormController extends ControllerBase {
    *
    * @see hook_mollom_form_info()
    */
-  public static function mollom_form_get_values(&$form_state, $fields, $mapping) {
+  public static function mollom_form_get_values(FormState $form_state, $fields, $mapping) {
     global $user;
 
     // @todo Unless mollom_form_submit() directly attempts to retrieve 'postId'
@@ -392,24 +393,27 @@ class FormController extends ControllerBase {
   public static function mollom_form_cache($reset = FALSE) {
     $forms = &drupal_static(__FUNCTION__);
 
-    if ($reset) {
+    /*if ($reset) {
       // This catches both 'mollom:form_cache' as well as mollom_form_load()'s
       // 'mollom:form:*' entries.
       //cache_clear_all('mollom:form', 'cache', TRUE);
       unset($forms);
-      return;
+      return true;
     }
 
     if (isset($forms)) {
       return $forms;
-    }
+    }*/
 
-    if ($cache = cache_get('mollom:form_cache')) {
-      $forms = $cache->data;
-      return $forms;
-    }
+    //if ($cache = cache_get('mollom:form_cache')) {
+    //  $forms = $cache->data;
+    //  return $forms;
+    //}
 
-    $forms['protected'] = db_query("SELECT form_id, module FROM {mollom_form}")->fetchAllKeyed();
+    // Get all forms that are protected
+    $forms = array();
+    $form_ids = array_keys(\Drupal\mollom\Entity\Form::loadMultiple());
+    $forms['protected'] = array_combine($form_ids, $form_ids);
 
     // Build a list of delete confirmation forms of entities integrating with
     // Mollom, so we are able to alter the delete confirmation form to display
@@ -424,13 +428,13 @@ class FormController extends ControllerBase {
       // once. Additionally, we only care for protected forms.
       if (!isset($forms['delete'][$info['delete form']]) && isset($forms['protected'][$form_id])) {
         // A delete confirmation form integration requires a 'post_id' mapping.
-        $form_info = mollom_form_info($form_id, $info['module']);
+        //$form_info = mollom_form_info($form_id, $info['module']);
         if (isset($form_info['mapping']['post_id'])) {
           $forms['delete'][$info['delete form']] = $form_id;
         }
       }
     }
-    cache_set('mollom:form_cache', $forms);
+    //cache_set('mollom:form_cache', $forms);
 
     return $forms;
   }
@@ -575,23 +579,23 @@ class FormController extends ControllerBase {
    * CAPTCHA, if it was configured to be protected by a CAPTCHA only, or when the
    * text analysis result is "unsure".
    */
-  public static function mollom_validate_captcha(&$form, &$form_state) {
-    if ($form_state['mollom']['require_analysis']) {
+  public static function mollom_validate_captcha(&$form, FormState $form_state) {
+    if ($form_state->get('mollom')['require_analysis']) {
       // For text analysis, only validate the CAPTCHA if there is an ID. If the ID
       // is maliciously removed from the form values, text analysis will punish
       // the author's reputation and present a new CAPTCHA to solve.
-      if (empty($form_state['values']['mollom']['captchaId'])) {
+      if (empty($form_state->getValue('mollom')['captchaId'])) {
         return FALSE;
       }
     }
     else {
       // Otherwise, this form is protected with a CAPTCHA only, unless disabled by
       // another module.
-      if (!$form_state['mollom']['require_captcha']) {
+      if (!$form_state->get('mollom')['require_captcha']) {
         return FALSE;
       }
       // If there is no CAPTCHA ID yet, retrieve one and throw an error.
-      if (empty($form_state['values']['mollom']['captchaId'])) {
+      if (empty($form_state->getValue('mollom')['captchaId'])) {
         if (mollom_form_add_captcha($form['mollom'], $form_state)) {
           form_error($form['mollom']['captcha'], t('To complete this form, please complete the word verification below.'));
         }
@@ -600,7 +604,7 @@ class FormController extends ControllerBase {
     }
     // Inform text analysis validation that a CAPTCHA was validated, so the
     // appropriate error message can be output.
-    $form_state['temporary']['mollom']['had_captcha'] = TRUE;
+    $form_state->set(array('temporary' => array('mollom' => 'had_captcha')), TRUE);
 
     // $form_state['mollom']['passed_captcha'] may only ever be set by this
     // validation handler and must not be changed elsewhere.
@@ -608,7 +612,7 @@ class FormController extends ControllerBase {
     // CAPTCHA state is locally tracked in $form_state. For text analysis, the
     // primary 'require_captcha' condition will not be TRUE unless needed in the
     // first place.
-    if ($form_state['mollom']['passed_captcha']) {
+    if ($form_state->get('mollom')['passed_captcha']) {
       $form['mollom']['captcha']['#access'] = FALSE;
       $form['mollom']['captcha']['#solved'] = TRUE;
       return FALSE;
@@ -618,14 +622,14 @@ class FormController extends ControllerBase {
     // Next to the Mollom session id and captcha result, the Mollom back-end also
     // takes into account the author's IP and local user id (if registered). Any
     // other values are ignored.
-    $all_data = self::mollom_form_get_values($form_state, $form_state['mollom']['enabled_fields'], $form_state['mollom']['mapping']);
+    $all_data = self::mollom_form_get_values($form_state, $form_state->get('mollom')['enabled_fields'], $form_state->get('mollom')['mapping']);
     // Cancel processing upon invalid UTF-8 data.
     if ($all_data === FALSE) {
       return FALSE;
     }
     $data = array(
-      'id' => $form_state['values']['mollom']['captchaId'],
-      'solution' => $form_state['values']['mollom']['captcha'],
+      'id' => $form_state->getValue('mollom')['captchaId'],
+      'solution' => $form_state->getValue('mollom')['captcha'],
       'authorIp' => $all_data['authorIp'],
     );
     if (isset($all_data['authorId'])) {
@@ -651,12 +655,12 @@ class FormController extends ControllerBase {
       }
 
       // Store the response for #submit handlers.
-      $form_state['mollom']['response']['captcha'] = $result;
+      $form_state->set(array('mollom' => array('response' => 'captcha')), $result);
       // Set form values accordingly. Do not overwrite the entity ID.
       // @todo Rename 'id' to 'entity_id'.
       $result['captchaId'] = $result['id'];
       unset($result['id']);
-      $form_state['values']['mollom'] = array_merge($form_state['values']['mollom'], $result);
+      $form_state->setValue('mollom', array_merge($form_state->getValue('mollom'), $result));
 
       // Ensure the latest CAPTCHA ID is output as value.
       // form_set_value() is effectless, as this is not a element-level but a
@@ -681,7 +685,7 @@ class FormController extends ControllerBase {
     else {
       // Text analysis will re-check the content and may trigger a CAPTCHA on its
       // own again (not guaranteed).
-      if (!$form_state['mollom']['require_analysis']) {
+      if (!$form_state->get('mollom')['require_analysis']) {
         form_set_error('mollom][captcha', t('The word verification was not completed correctly. Please complete this new word verification and try again.') . ' ' . _mollom_format_message_falsepositive($form_state, $data));
         mollom_form_add_captcha($form['mollom'], $form_state);
       }
@@ -695,13 +699,13 @@ class FormController extends ControllerBase {
   /**
    * Form validation handler to perform textual analysis on submitted form values.
    */
-  public static function mollom_validate_analysis(&$form, &$form_state) {
-    if (!$form_state['mollom']['require_analysis']) {
+  public static function mollom_validate_analysis(&$form,FormState $form_state) {
+    if (!$form_state->get('mollom')['require_analysis']) {
       return false;
     }
 
     // Perform textual analysis.
-    $all_data = self::mollom_form_get_values($form_state, $form_state['mollom']['enabled_fields'], $form_state['mollom']['mapping']);
+    $all_data = self::mollom_form_get_values($form_state, $form_state->get('mollom')['enabled_fields'], $form_state->get('mollom')['mapping']);
     // Cancel processing upon invalid UTF-8 data.
     if ($all_data === FALSE) {
       return false;
@@ -711,24 +715,24 @@ class FormController extends ControllerBase {
     if (isset($data['postId'])) {
       unset($data['postId']);
     }
-    if (!empty($form_state['values']['mollom']['contentId'])) {
-      $data['id'] = $form_state['values']['mollom']['contentId'];
+    if (!empty($form_state->getValue('mollom')['contentId'])) {
+      $data['id'] = $form_state->getValue('mollom')['contentId'];
     }
-    $data['checks'] = $form_state['mollom']['checks'];
-    $data['strictness'] = $form_state['mollom']['strictness'];
-    if (isset($form_state['mollom']['type'])) {
-      $data['type'] = $form_state['mollom']['type'];
+    $data['checks'] = $form_state->get('mollom')['checks'];
+    $data['strictness'] = $form_state->get('mollom')['strictness'];
+    if (isset($form_state->get('mollom')['type'])) {
+      $data['type'] = $form_state->get('mollom')['type'];
     }
-    if (in_array('spam', $data['checks']) && $form_state['mollom']['unsure'] == 'binary') {
+    if (in_array('spam', $data['checks']) && $form_state->get('mollom')['unsure'] == 'binary') {
       $data['unsure'] = 0;
     }
     // Only pass the tracking id if this is the first textual evaluation.
-    if (isset($form_state['values']['mollom']['fba']) && empty($data['id'])) {
-      if (empty($form_state['values']['mollom']['fba'])) {
+    if (isset($form_state->getValue('mollom')['fba']) && empty($data['id'])) {
+      if (empty($form_state->getValue('mollom')['fba'])) {
         $data['trackingImageId'] = -1;
       }
       else {
-        $data['trackingImageId'] = $form_state['values']['mollom']['fba'];
+        $data['trackingImageId'] = $form_state->getValue('mollom')['fba'];
       }
     }
 
@@ -745,12 +749,12 @@ class FormController extends ControllerBase {
     }
 
     // Store the response returned by Mollom.
-    $form_state['mollom']['response']['content'] = $result;
+    $form_state->get('mollom')['response']['content'] = $result;
     // Set form values accordingly. Do not overwrite the entity ID.
     // @todo Rename 'id' to 'entity_id'.
     $result['contentId'] = $result['id'];
     unset($result['id']);
-    $form_state['values']['mollom'] = array_merge($form_state['values']['mollom'], $result);
+    $form_state->setValue('mollom', array_merge($form_state->getValue('mollom'), $result));
 
     // Ensure the latest content ID is output as value.
     // form_set_value() is effectless, as this is not a element-level but a
@@ -768,11 +772,11 @@ class FormController extends ControllerBase {
 
     // Handle the profanity check result.
     if (isset($result['profanityScore']) && $result['profanityScore'] >= 0.5) {
-      if ($form_state['mollom']['discard']) {
+      if ($form_state->get('mollom')['discard']) {
         form_set_error('mollom', t('Your submission has triggered the profanity filter and will not be accepted until the inappropriate language is removed.'));
       }
       else {
-        $form_state['mollom']['require_moderation'] = TRUE;
+        $form_state->set(array('mollom' => 'require_moderation'), TRUE);
       }
       Logger::addMessage(array(
         'message' => 'Profanity: %teaser',
@@ -786,7 +790,7 @@ class FormController extends ControllerBase {
     // It may also change to 'spam', if the user replaced the values with very
     // spammy content. In any case, we always do what we are told to do.
     // Note: The returned spamScore may diverge from the spamClassification.
-    $form_state['mollom']['require_captcha'] = FALSE;
+    $form_state->set(array('mollom' => 'require_captcha'), FALSE);
     $form['mollom']['captcha']['#access'] = FALSE;
 
     if (isset($result['spamClassification'])) {
@@ -799,11 +803,11 @@ class FormController extends ControllerBase {
           break;
 
         case 'spam':
-          if ($form_state['mollom']['discard']) {
+          if ($form_state->get('mollom')['discard']) {
             form_set_error('mollom', t('Your submission has triggered the spam filter and will not be accepted.') . ' ' . Mollom::_mollom_format_message_falsepositive($form_state, $data));
           }
           else {
-            $form_state['mollom']['require_moderation'] = TRUE;
+            $form_state->set(array('mollom' => 'require_moderation'), TRUE);
           }
           Logger::addMessage(array(
             'message' => 'Spam: %teaser',
@@ -812,18 +816,18 @@ class FormController extends ControllerBase {
           break;
 
         case 'unsure':
-          if ($form_state['mollom']['unsure'] == 'moderate') {
-            $form_state['mollom']['require_moderation'] = TRUE;
+          if ($form_state->get('mollom')['unsure'] == 'moderate') {
+            $form_state->set(array('mollom' => 'require_moderation'), TRUE);
           }
           else {
-            $form_state['mollom']['require_captcha'] = TRUE;
-            $form_state['mollom']['passed_captcha'] = FALSE;
+            $form_state->set(array('mollom' => 'require_captcha'), TRUE);
+            $form_state->set(array('mollom' => 'passed_captcha'), TRUE);
 
             // Retrieve a new CAPTCHA and throw an error.
             if (mollom_form_add_captcha($form['mollom'], $form_state)) {
               $form['mollom']['captcha']['#access'] = TRUE;
 
-              if (!empty($form_state['temporary']['mollom']['had_captcha'])) {
+              if (!empty($form_state->get('temporary')['mollom']['had_captcha'])) {
                 form_error($form['mollom']['captcha'], t('The word verification was not completed correctly. Please complete this new word verification and try again.') . ' ' . _mollom_format_message_falsepositive($form_state, $data));
               }
               else {
@@ -856,23 +860,23 @@ class FormController extends ControllerBase {
     // submission attempt might have been unsure. If this submit will pass
     // validation, then the rebuilt form will have no indication that it passed
     // analysis and will be auto-populated with values from $form_state['input'].
-    if (!$form_state['mollom']['require_captcha']) {
-      $form_state['input']['mollom']['captchaId'] = '';
+    if (!$form_state->get('mollom')['require_captcha']) {
+      $form_state->setUserInput(array('mollom' => 'captchaId'), '');
     }
   }
 
   /**
    * Form validation handler to perform post-validation tasks.
    */
-  public static function mollom_validate_post(&$form, &$form_state) {
+  public static function mollom_validate_post(&$form, FormState $form_state) {
     // Retain a post instead of discarding it. If 'discard' is FALSE, then the
     // 'moderation callback' is responsible for altering $form_state in a way that
     // the post ends up in a moderation queue. Most callbacks will only want to
     // set or change a value in $form_state.
-    if ($form_state['mollom']['require_moderation']) {
-      $form_state['values']['mollom']['moderate'] = 1;
+    if ($form_state->get('mollom')['require_moderation']) {
+      $form_state->setValue(array('mollom' => 'moderate'), 1);
 
-      $function = $form_state['mollom']['moderation callback'];
+      $function = $form_state->get('mollom')['moderation callback'];
       $function($form, $form_state);
     }
   }
@@ -894,7 +898,7 @@ class FormController extends ControllerBase {
    *     user_register_form_submit()), so mollom_mail_alter() is invoked before
    *     Mollom session data has been saved.
    */
-  public static function mollom_form_submit($form, &$form_state) {
+  public static function mollom_form_submit($form, FormState $form_state) {
     // Some modules are implementing multi-step forms without separate form
     // submit handlers. In case we reach here and the form will be rebuilt, we
     // need to defer our submit handling until final submission.

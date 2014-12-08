@@ -5,6 +5,16 @@
 
 namespace Drupal\mollom\API;
 
+if (!class_exists("Mollom\Client\Client")) {
+  if (file_exists(drupal_get_path('module', 'mollom') . '/vendor/autoload.php')) {
+    require_once drupal_get_path('module', 'mollom') . '/vendor/autoload.php';
+  }
+  else {
+    // Class does not exist. Fail!
+    throw new \Exception("Mollom Class could not be found. Please run composer in the module folder or install composer manager.");
+  }
+}
+
 use Drupal\Component\Utility\Unicode;
 use Drupal\Core\Config\ConfigFactory;
 use Drupal\Core\Language\LanguageManager;
@@ -14,7 +24,6 @@ use GuzzleHttp\ClientInterface;
 use Mollom\Client\Client;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
-require_once drupal_get_path('module', 'mollom') . '/vendor/autoload.php';
 
 class DrupalClient extends Client {
 

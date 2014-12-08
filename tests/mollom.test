@@ -74,7 +74,7 @@ class MollomWebTestCase extends DrupalWebTestCase {
   /**
    * Flag indicating whether to automatically create testing API keys.
    *
-   * If mollom_testing_mode is enabled, Mollom module automatically uses the
+   * If testing_mode is enabled, Mollom module automatically uses the
    * MollomDrupalTest client implementation. This implementation automatically
    * creates testing API keys when being instantiated (and ensures to re-create
    * testing API keys in case they vanish). The behavior is executed by default,
