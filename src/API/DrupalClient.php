@@ -7,6 +7,7 @@ namespace Drupal\mollom\API;
 
 use Drupal\Core\Config\ConfigFactory;
 use Drupal\Core\Language\LanguageManager;
+use Drupal\Core\Logger\RfcLogLevel;
 use Drupal\mollom\Utility\Logger;
 use GuzzleHttp\ClientInterface;
 use Mollom\Client\Client;
@@ -144,7 +145,7 @@ class DrupalClient extends Client {
       // can normalize the severity of all log entries to the overall success or
       // failure of the attempted request.
       // @see Mollom::query()
-      Logger::addMessage($entry, $this->lastResponseCode === TRUE ? NULL : WATCHDOG_ERROR);
+      Logger::addMessage($entry, $this->lastResponseCode === TRUE ? NULL : RfcLogLevel::WARNING);
     }
 
     // After writing log messages, empty the log.

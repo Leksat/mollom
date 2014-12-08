@@ -2,6 +2,8 @@
 
 namespace Drupal\mollom\Utility;
 
+use Drupal\Core\Logger\RfcLogLevel;
+use Drupal\Core\Url;
 use Drupal\mollom\API\DrupalClient;
 
 class Mollom {
@@ -159,7 +161,7 @@ class Mollom {
         $status['isVerified'] = TRUE;
         Logger::addMessage(array(
           'message' => 'API keys are valid.',
-        ), WATCHDOG_INFO);
+        ), RfcLogLevel::INFO);
 
         // Unless we just updated, update local configuration with remote.
         if (!$update) {
@@ -173,13 +175,13 @@ class Mollom {
         $status['response'] = $response;
         Logger::addMessage(array(
           'message' => 'Invalid API keys.',
-        ), WATCHDOG_ERROR);
+        ), RfcLogLevel::ERROR);
       }
       elseif ($response === $mollom::REQUEST_ERROR) {
         $status['response'] = $response;
         Logger::addMessage(array(
           'message' => 'Invalid client configuration.',
-        ), WATCHDOG_ERROR);
+        ), RfcLogLevel::ERROR);
       }
       else {
         $status['response'] = $response;
@@ -212,7 +214,7 @@ class Mollom {
       $admin_message = '';
       if (user_access('administer mollom') && $_GET['q'] != 'admin/config/content/mollom/settings') {
         $admin_message = t('Visit the <a href="@settings-url">Mollom settings page</a> to disable it.', array(
-          '@settings-url' => url('admin/config/content/mollom/settings'),
+          '@settings-url' => Url::fromRoute('mollom.settings')->toString(),
         ));
       }
       $message = t('Mollom testing mode is still enabled. !admin-message', array(

@@ -9,6 +9,7 @@ namespace Drupal\mollom\Form;
 
 use Drupal\Core\Form\ConfigFormBase;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Logger\RfcLogLevel;
 use Drupal\mollom\API\DrupalClient;
 use Drupal\mollom\API\APIKeys;
 use Drupal\mollom\Utility\Mollom;
@@ -42,7 +43,13 @@ class Settings extends ConfigFormBase {
   public function buildForm(array $form, FormStateInterface $form_state, Request $request = NULL) {
     $config = $this->config('mollom.settings');
 
+<<<<<<< HEAD
     $check = empty($form_state['values']);
+=======
+    $mollom = \Drupal::service('mollom.client');
+    $values = $form_state->getValues();
+    $check = empty($values);
+>>>>>>> a8bd5e3fd4109ef1562393aa4c57089fea7685c5
     $status = Mollom::_mollom_status($check);
     if ($check && $status['isVerified'] && !$config->get('testing_mode')) {
         drupal_set_message(t('Mollom servers verified your keys. The services are operating correctly.'));
@@ -126,8 +133,8 @@ class Settings extends ConfigFormBase {
         '#type' => 'radios',
         '#title' => t('Mollom logging level warning'),
         '#options' => array(
-            WATCHDOG_WARNING => t('Only log warnings and errors'),
-            WATCHDOG_DEBUG => t('Log all Mollom messages'),
+            RfcLogLevel::WARNING => t('Only log warnings and errors'),
+            RfcLogLevel::DEBUG => t('Log all Mollom messages'),
         ),
         '#default_value' => $config->get('log_level'),
     );
@@ -183,11 +190,11 @@ class Settings extends ConfigFormBase {
    *   An associative array containing the current state of the form.
    */
   public function validateForm(array &$form, FormStateInterface $form_state) {
-    $message = $this->validateKey($form_state['values']['keys']['public']);
+    $message = $this->validateKey($form_state->getValue(array('keys','public')));
     if (!empty($message)) {
       $form_state->setError($form['keys']['public'], $message);
     }
-    $message = $this->validateKey($form_state['values']['keys']['private']);
+    $message = $this->validateKey($form_state->getValue(array('keys','private')));
     if (!empty($message)) {
       $form_state->setError($form['keys']['private'], $message);
     }
@@ -207,7 +214,7 @@ class Settings extends ConfigFormBase {
       return $error;
     }
     $key = trim($key);
-    if (drupal_strlen($key) !== 32) {
+    if (\Drupal\Component\Utility\Unicode::strlen($key) !== 32) {
       $error = $this->t('Keys must be 32 characters long.  Ensure you copied the key correctly.');
     }
     return $error;
@@ -217,18 +224,19 @@ class Settings extends ConfigFormBase {
    * {@inheritdoc}
    */
   public function submitForm(array &$form, FormStateInterface $form_state) {
+    $values = $form_state->getValues();
     $config = $this->config('mollom.settings');
-    $config->set('keys.public', $form_state['values']['keys']['public'])
-        ->set('keys.private', $form_state['values']['keys']['private'])
-        ->set('fallback', $form_state['values']['fallback'])
-        ->set('languages_expected', $form_state['values']['expected_languages'])
-        ->set('privacy_link', $form_state['values']['privacy_link'])
-        ->set('testing_mode', $form_state['values']['testing_mode'])
-        ->set('log_level', $form_state['values']['log_level'])
-        ->set('captcha.audio.enabled', $form_state['values']['audio_captcha_enabled'])
-        ->set('connection_timeout_seconds', $form_state['values']['connection_timeout_seconds'])
-        ->set('fba.enabled', $form_state['values']['fba_enabled'])
-        ->set('fai.enabled', $form_state['values']['fai_enabled'])
+    $config->set('keys.public', $values['keys']['public'])
+        ->set('keys.private', $values['keys']['private'])
+        ->set('fallback', $values['fallback'])
+        ->set('languages_expected', $values['expected_languages'])
+        ->set('privacy_link', $values['privacy_link'])
+        ->set('testing_mode', $values['testing_mode'])
+        ->set('log_level', $values['log_level'])
+        ->set('captcha.audio.enabled', $values['audio_captcha_enabled'])
+        ->set('connection_timeout_seconds', $values['connection_timeout_seconds'])
+        ->set('fba.enabled', $values['fba_enabled'])
+        ->set('fai.enabled', $values['fai_enabled'])
         ->save();
 
     parent::submitForm($form, $form_state);

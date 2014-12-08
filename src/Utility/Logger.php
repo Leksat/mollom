@@ -3,6 +3,7 @@
 namespace Drupal\mollom\Utility;
 
 use \Drupal\Component\Utility\String;
+use Drupal\Core\Logger\RfcLogLevel;
 
 class Logger {
 
@@ -65,12 +66,12 @@ class Logger {
 
       // Default to notice severity for module messages.
       if (!isset($severity)) {
-        $severity = WATCHDOG_NOTICE;
+        $severity = RfcLogLevel::NOTICE;
       }
     }
 
     if (!isset($log['severity'])) {
-      $log['severity'] = WATCHDOG_DEBUG;
+      $log['severity'] = RfcLogLevel::WARNING;
     }
     // Update severity, if the entry is more severe than existing.
     // Fail-over handling for requests is encapsulated in the Mollom class, which
@@ -101,8 +102,8 @@ class Logger {
     // Only log if severity if it meets configured minimum severity, or if testing
     // mode is enabled.
     if ($config->get('testing_mode') || $log['severity'] < $config->get('log_level')) {
-      list($message, $arguments) = $this::formatLog($log);
-      watchdog('mollom', $message, $arguments, $log['severity']);
+      list($message, $arguments) = self::formatLog($log);
+      \Drupal::logger('mollom')->log($log['severity'], $message, $arguments);
     }
   }
 
