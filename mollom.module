@@ -1,6 +1,7 @@
 <?php
 
 use Drupal\comment\CommentInterface;
+use Drupal\Component\Utility\Unicode;
 use Drupal\Core\Url;
 use \Drupal\mollom\Controller\FormController;
 use Drupal\mollom\Entity\Form;
@@ -70,7 +71,7 @@ function comment_mollom_form_info($form_id) {
     ),
   );
   // Retrieve internal type from $form_id.
-  $comment_bundle = drupal_substr($form_id, 0, -5);
+  $comment_bundle = Unicode::substr($form_id, 0, -5);
   FormController::mollom_form_info_add_fields($form_info, 'comment', $comment_bundle);
   return $form_info;
 }
@@ -80,7 +81,7 @@ function comment_mollom_form_info($form_id) {
  */
 function node_mollom_form_info($form_id) {
   // Retrieve internal type from $form_id.
-  $entity_type = drupal_substr($form_id, 0, -10);
+  $entity_type = Unicode::substr($form_id, 0, -10);
 
   if (!$type = NodeType::load($entity_type)) {
     return '';
@@ -322,13 +323,12 @@ function mollom_form_alter(&$form, \Drupal\Core\Form\FormState $form_state, $for
 
   // Site administrators don't have their content checked with Mollom.
   // @todo: Enable this when Development has completed
-  //if (!$current_user->hasPermission('bypass mollom protection')) {
-  if (true) {
-
+  if (!$current_user->hasPermission('bypass mollom protection')) {
     // Retrieve configuration for this form.
-    if (isset($forms[$form_id])) {
+    if (isset($forms['protected'][$form_id])) {
       /** @var \Drupal\mollom\Entity\Form $mollom_form */
-      $mollom_form = $forms[$form_id];
+      $mollom_form_id = $forms['protected'][$form_id];
+      $mollom_form = \Drupal\mollom\Entity\Form::load($mollom_form_id);
 
       // Determine whether to bypass validation for the current user.
       //foreach ($mollom_form['bypass access'] as $permission) {
@@ -347,7 +347,7 @@ function mollom_form_alter(&$form, \Drupal\Core\Form\FormState $form_state, $for
       // fallback mode would not be triggered.
       $status = Mollom::getAPIKeyStatus();
       if (!$status['isConfigured']) {
-        //return;
+        return;
       }
 
       // Add Mollom form widget.

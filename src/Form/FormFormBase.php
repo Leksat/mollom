@@ -375,7 +375,7 @@ class FormFormBase extends EntityForm {
       '#access' => !empty($form_mollom['elements']),
       '#states' => array(
         'visible' => array(
-          '[name="mode"]' => array('value' => (string) MOLLOM_MODE_ANALYSIS),
+          '[name="mode"]' => array('value' => (string) FormInterface::MOLLOM_MODE_ANALYSIS),
         ),
       ),
     );
@@ -479,6 +479,9 @@ class FormFormBase extends EntityForm {
     // it often makes the code easier to read.
     /** @var \Drupal\mollom\Entity\Form $mollom_form */
     $mollom_form = $this->entity;
+    if (isset($mollom_form->formfields_config['enabled_fields'])) {
+      $mollom_form->enabled_fields = $mollom_form->formfields_config['enabled_fields'];
+    }
 
     // Drupal already populated the form values in the entity object. Each
     // form field was saved as a public variable in the entity class. PHP

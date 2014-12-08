@@ -14,18 +14,18 @@ mollom.form.*:
     mode:
       type: string
       label: 'Protection Mode'
-    checks:
-      type: sequence
-      label: 'How to analyze'
-      sequence:
-        - type: string
-          label: 'Selected Spam protection methods'
     enabled_fields:
       type: sequence
       label: 'Fields to analyze'
       sequence:
         - type: string
           label: 'Selected field'
+    checks:
+      type: sequence
+      label: 'How to analyze'
+      sequence:
+        - type: string
+          label: 'Selected Spam protection methods'
     strictness:
       type: string
       label: 'Strictness of the analyzer'

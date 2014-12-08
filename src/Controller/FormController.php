@@ -7,7 +7,9 @@
 
 namespace Drupal\mollom\Controller;
 
+use Drupal\Component\Utility\Unicode;
 use Drupal\Core\Controller\ControllerBase;
+use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Template\Attribute;
 use Drupal\mollom\API\DrupalClient;
 use Drupal\Core\Entity\FieldableEntityInterface;
@@ -148,9 +150,7 @@ class FormController extends ControllerBase {
     //   function cannot be cached.
 
     // Remove all button values from $form_state['values'].
-    $form_state_copy = $form_state;
-    form_state_values_clean($form_state_copy);
-    $form_values = $form_state_copy['values'];
+    $form_values = $form_state->getValues();
 
     // All elements specified in $mapping must be excluded from $fields, as they
     // are used for dedicated $data properties instead. To reduce the parsing code
@@ -297,7 +297,7 @@ class FormController extends ControllerBase {
     }
 
     // Author IP.
-    $data['authorIp'] = ip_address();
+    $data['authorIp'] = \Drupal::request()->getClientIp();
 
     // Honeypot.
     // For the Mollom backend, it only matters whether 'honeypot' is non-empty.
@@ -580,7 +580,10 @@ class FormController extends ControllerBase {
    * text analysis result is "unsure".
    */
   public static function mollom_validate_captcha(&$form, FormState $form_state) {
-    if ($form_state->get('mollom')['require_analysis']) {
+    /** @var \Drupal\mollom\Entity\Form $mollom_form */
+    $mollom_form = $form_state->getCompleteForm()['mollom']['#mollom_form'];
+
+    if ($mollom_form->mode == \Drupal\mollom\Entity\FormInterface::MOLLOM_MODE_ANALYSIS) {
       // For text analysis, only validate the CAPTCHA if there is an ID. If the ID
       // is maliciously removed from the form values, text analysis will punish
       // the author's reputation and present a new CAPTCHA to solve.
@@ -602,6 +605,7 @@ class FormController extends ControllerBase {
         return FALSE;
       }
     }
+
     // Inform text analysis validation that a CAPTCHA was validated, so the
     // appropriate error message can be output.
     $form_state->set(array('temporary' => array('mollom' => 'had_captcha')), TRUE);
@@ -622,7 +626,7 @@ class FormController extends ControllerBase {
     // Next to the Mollom session id and captcha result, the Mollom back-end also
     // takes into account the author's IP and local user id (if registered). Any
     // other values are ignored.
-    $all_data = self::mollom_form_get_values($form_state, $form_state->get('mollom')['enabled_fields'], $form_state->get('mollom')['mapping']);
+    $all_data = self::mollom_form_get_values($form_state, $mollom_form->enabled_fields, $form_state->get('mollom')['mapping']);
     // Cancel processing upon invalid UTF-8 data.
     if ($all_data === FALSE) {
       return FALSE;
@@ -699,13 +703,17 @@ class FormController extends ControllerBase {
   /**
    * Form validation handler to perform textual analysis on submitted form values.
    */
-  public static function mollom_validate_analysis(&$form,FormState $form_state) {
-    if (!$form_state->get('mollom')['require_analysis']) {
+  public static function mollom_validate_analysis(&$form, FormState $form_state) {
+    /** @var \Drupal\mollom\Entity\Form $mollom_form */
+    $mollom_form = $form_state->getCompleteForm()['mollom']['#mollom_form'];
+    if (!$mollom_form->mode == \Drupal\mollom\Entity\FormInterface::MOLLOM_MODE_ANALYSIS) {
       return false;
     }
 
     // Perform textual analysis.
-    $all_data = self::mollom_form_get_values($form_state, $form_state->get('mollom')['enabled_fields'], $form_state->get('mollom')['mapping']);
+    // @todo Add Mapping, see Drupal 7 for example
+    $all_data = self::mollom_form_get_values($form_state, $mollom_form->enabled_fields, array());
+    // @ todo : not all fields are available here yet
     // Cancel processing upon invalid UTF-8 data.
     if ($all_data === FALSE) {
       return false;
@@ -764,10 +772,10 @@ class FormController extends ControllerBase {
     // Prepare watchdog message teaser text.
     $teaser = '--';
     if (isset($data['postTitle'])) {
-      $teaser = truncate_utf8(strip_tags($data['postTitle']), 40);
+      $teaser = Unicode::truncate(strip_tags($data['postTitle']), 40);
     }
     elseif (isset($data['postBody'])) {
-      $teaser = truncate_utf8(strip_tags($data['postBody']), 40);
+      $teaser = Unicode::truncate(strip_tags($data['postBody']), 40);
     }
 
     // Handle the profanity check result.
@@ -905,6 +913,9 @@ class FormController extends ControllerBase {
     if (!empty($form_state['rebuild'])) {
       return;
     }
+    /** @var \Drupal\mollom\Entity\Form $mollom_form */
+    $mollom_form = $form_state->getCompleteForm()['mollom']['#mollom_form'];
+
     // If an 'entity' and a 'post_id' mapping was provided via
     // hook_mollom_form_info(), try to automatically store Mollom session data.
     if (!empty($form_state['mollom']['entity']) && isset($form_state['mollom']['mapping']['post_id'])) {
@@ -913,7 +924,7 @@ class FormController extends ControllerBase {
       // data mapping. We do not care for the actual fields, only for the value of
       // the mapped postId.
       // @todo Directly extract 'postId' from submitted form values.
-      $values = self::mollom_form_get_values($form_state, $form_state['mollom']['enabled_fields'], $form_state['mollom']['mapping']);
+      $values = self::mollom_form_get_values($form_state, $mollom_form->enabled_fields, $form_state['mollom']['mapping']);
       // We only consider non-empty and non-zero values as valid entity ids.
       if (!empty($values['postId'])) {
         // Save the Mollom session data.
