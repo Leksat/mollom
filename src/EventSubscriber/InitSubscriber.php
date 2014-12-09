@@ -5,6 +5,7 @@
 
 namespace Drupal\mollom\EventSubscriber;
 
+use Drupal\Core\Url;
 use Symfony\Component\HttpKernel\KernelEvents;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 
@@ -23,9 +24,11 @@ class InitSubscriber implements EventSubscriberInterface {
 function onEvent() {
   // On all Mollom administration pages, check the module configuration and
   // display the corresponding requirements error, if invalid.
-  if (empty($_POST) && strpos($_GET['q'], 'admin/config/content/mollom') === 0 && \Drupal::currentUser()->hasPermission('administer mollom')) {
+  $url = Url::fromRoute('<current>');
+  $current_path = $url->toString();
+  if (empty($_POST) && strpos($current_path, 'admin/config/content/mollom') === 0 && \Drupal::currentUser()->hasPermission('administer mollom')) {
     // Re-check the status on the settings form only.
-    $status = _mollom_status($_GET['q'] == 'admin/config/content/mollom/settings');
+    $status = \Drupal\mollom\Utility\Mollom::getAPIKeyStatus($current_path == 'admin/config/content/mollom/settings');
     if ($status !== TRUE) {
       // Fetch and display requirements error message, without re-checking.
       module_load_install('mollom');

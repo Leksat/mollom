@@ -182,6 +182,10 @@ class FormController extends ControllerBase {
       // field. Also unset this field from $exclude_fields, so we can process the
       // remaining mappings below.
       if (isset($exclude_fields[$field])) {
+        $value = Mollom::_mollom_flatten_form_values($value);
+        if (is_array($value)) {
+          $value = implode(' ', $value);
+        }
         $mapping[$exclude_fields[$field]] = $value;
         unset($exclude_fields[$field]);
         continue;
@@ -332,7 +336,7 @@ class FormController extends ControllerBase {
       }
     }
     if ($invalid_utf8 || $invalid_xml) {
-      //form_set_error('', t('Your submission contains invalid characters and will not be accepted.'));
+      $form_state->setErrorByName('', t('Your submission contains invalid characters and will not be accepted.'));
       Logger::addMessage(array(
         'message' => 'Invalid !type in form values',
         'arguments' => array('!type' => $invalid_utf8 ? 'UTF-8' : 'XML characters'),
@@ -690,8 +694,10 @@ class FormController extends ControllerBase {
       // Text analysis will re-check the content and may trigger a CAPTCHA on its
       // own again (not guaranteed).
       if (!$form_state->get('mollom')['require_analysis']) {
-        form_set_error('mollom][captcha', t('The word verification was not completed correctly. Please complete this new word verification and try again.') . ' ' . _mollom_format_message_falsepositive($form_state, $data));
-        mollom_form_add_captcha($form['mollom'], $form_state);
+        $form_state->setErrorByName('mollom][captcha', t('The word verification was not completed correctly. Please complete this new word verification and try again.') . ' ' . _mollom_format_message_falsepositive($form_state, $data));
+        //mollom_form_add_captcha($form['mollom'], $form_state);
+        // @todo Fix mollom_form_add_captcha here
+        drupal_set_message("I would set a captcha here if I were you...", 'error');
       }
 
       Logger::addMessage(array(
@@ -726,7 +732,18 @@ class FormController extends ControllerBase {
     if (!empty($form_state->getValue('mollom')['contentId'])) {
       $data['id'] = $form_state->getValue('mollom')['contentId'];
     }
-    $data['checks'] = $mollom_form->checks;
+    if (is_array($mollom_form->checks)) {
+      $checks_to_add = array();
+      foreach ($mollom_form->checks as $check_id => $check) {
+        if ($check_id == $check) {
+          $checks_to_add[] = $check;
+        }
+      }
+      if (is_array($checks_to_add)) {
+        $checks = implode(',', $checks_to_add);
+        $data['checks'] = $checks;
+      }
+    }
     $data['strictness'] = $mollom_form->strictness;
     if (isset($mollom_form->type)) {
       $data['type'] = $mollom_form->type;
@@ -747,6 +764,7 @@ class FormController extends ControllerBase {
     /** @var \Drupal\mollom\API\DrupalClient $mollom */
     $mollom = \Drupal::service('mollom.client');
     $result = $mollom->checkContent($data);
+    dpm($result);
 
     // Use all available data properties for log messages below.
     $data += $all_data;
@@ -781,7 +799,7 @@ class FormController extends ControllerBase {
     // Handle the profanity check result.
     if (isset($result['profanityScore']) && $result['profanityScore'] >= 0.5) {
       if ($form_state->get('mollom')['discard']) {
-        form_set_error('mollom', t('Your submission has triggered the profanity filter and will not be accepted until the inappropriate language is removed.'));
+        $form_state->setErrorByName('mollom', t('Your submission has triggered the profanity filter and will not be accepted until the inappropriate language is removed.'));
       }
       else {
         $form_state->set(array('mollom' => 'require_moderation'), TRUE);
@@ -812,7 +830,7 @@ class FormController extends ControllerBase {
 
         case 'spam':
           if ($form_state->get('mollom')['discard']) {
-            form_set_error('mollom', t('Your submission has triggered the spam filter and will not be accepted.') . ' ' . Mollom::_mollom_format_message_falsepositive($form_state, $data));
+            $form_state->setErrorByName('mollom', t('Your submission has triggered the spam filter and will not be accepted.') . ' ' . Mollom::_mollom_format_message_falsepositive($form_state, $data));
           }
           else {
             $form_state->set(array('mollom' => 'require_moderation'), TRUE);
@@ -831,17 +849,18 @@ class FormController extends ControllerBase {
             $form_state->set(array('mollom' => 'require_captcha'), TRUE);
             $form_state->set(array('mollom' => 'passed_captcha'), TRUE);
 
+            // @todo Fix the captcha stuff
             // Retrieve a new CAPTCHA and throw an error.
-            if (mollom_form_add_captcha($form['mollom'], $form_state)) {
+            /*if (mollom_form_add_captcha($form['mollom'], $form_state)) {
               $form['mollom']['captcha']['#access'] = TRUE;
 
               if (!empty($form_state->get('temporary')['mollom']['had_captcha'])) {
-                form_error($form['mollom']['captcha'], t('The word verification was not completed correctly. Please complete this new word verification and try again.') . ' ' . _mollom_format_message_falsepositive($form_state, $data));
+                $form_state->setErrorByName('captcha', t('The word verification was not completed correctly. Please complete this new word verification and try again.') . ' ' . _mollom_format_message_falsepositive($form_state, $data));
               }
               else {
-                form_error($form['mollom']['captcha'], t('To complete this form, please complete the word verification below.'));
+                $form_state->setErrorByName('captcha', t('To complete this form, please complete the word verification below.'));
               }
-            }
+            }*/
           }
           Logger::addMessage(array(
             'message' => 'Unsure: %teaser',

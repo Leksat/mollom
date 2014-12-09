@@ -5,6 +5,7 @@ namespace Drupal\mollom\Utility;
 use Drupal\Core\Logger\RfcLogLevel;
 use Drupal\Core\Url;
 use Drupal\mollom\API\DrupalClient;
+use Drupal\mollom\Entity\FormInterface;
 
 class Mollom {
 
@@ -261,9 +262,9 @@ class Mollom {
    * Helper function to log and optionally output an error message when Mollom servers are unavailable.
    */
   public static function _mollom_fallback() {
-    $fallback = \Drupal::config('mollom.settings')->get('mollom_fallback', MOLLOM_FALLBACK_BLOCK);
-    if ($fallback == MOLLOM_FALLBACK_BLOCK) {
-      form_set_error('mollom', t("The spam filter installed on this site is currently unavailable. Per site policy, we are unable to accept new submissions until that problem is resolved. Please try resubmitting the form in a couple of minutes."));
+    $fallback = \Drupal::config('mollom.settings')->get('mollom_fallback', FormInterface::MOLLOM_FALLBACK_BLOCK);
+    if ($fallback == FormInterface::MOLLOM_FALLBACK_BLOCK) {
+      drupal_set_message(t("The spam filter installed on this site is currently unavailable. Per site policy, we are unable to accept new submissions until that problem is resolved. Please try resubmitting the form in a couple of minutes."), 'error');
     }
     return true;
   }
