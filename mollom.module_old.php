@@ -313,50 +313,6 @@ function mollom_cron() {
 }
 
 /**
- * Helper function to convert database column names to variable names.
- *
- * Database column names are separated by underscore, while some variable names
- * are camelcased for backwards compatibility.
- *
- * @param stdClass $db_result
- *   The database result object to convert.
- * @param bool $reverse
- *   True if the conversion should be run in reverse, from variable names to
- *   database names.
- * @return stdClass
- *   The updated object with converted field names.
- */
-function _mollom_convert_db_names($db_result, $reverse = FALSE) {
-  if (!is_object($db_result)) {
-    return $db_result;
-  }
-  $replace = array(
-    'content_id' => 'contentId',
-    'captcha_id' => 'captchaId',
-    'spam_score' => 'spamScore',
-    'spam_classification' => 'spamClassification',
-    'quality_score' => 'qualityScore',
-    'profanity_score' => 'profanityScore',
-  );
-  if ($reverse) {
-    $replace = array_flip($replace);
-  }
-
-  // Don't update the original data object but return a new converted clone.
-  $clone = new stdClass();
-  foreach($db_result as $prop => $value) {
-    if (array_key_exists($prop, $replace)) {
-      $clone->{$replace[$prop]} = $value;
-    }
-    else {
-      $clone->{$prop} = $value;
-    }
-  }
-  return $clone;
-}
-
-
-/**
  * Load a Mollom data record by contentId.
  *
  * @param $contentId
@@ -440,71 +396,6 @@ function mollom_db_query_range($query, $from, $count, array $args = array(), arr
   $connection->setAttribute(PDO::ATTR_CASE, $backup);
 
   return $result;
-}
-
-/**
- * Save Mollom validation data to the database.
- *
- * Based on the specified entity type and id, this function stores the
- * validation results returned by Mollom in the database.
- *
- * The special $entity type "session" may be used for mails and messages, which
- * originate from form submissions protected by Mollom, and can be reported by
- * anyone; $id is expected to be a Mollom session id instead of an entity id
- * then.
- *
- * @param $data
- *   An object containing Mollom session data for the entity, containing at
- *   least the following properties:
- *   - entity: The entity type of the data to save.
- *   - id: The entity ID the data belongs to.
- *   - form_id: The form ID the session data belongs to.
- *   - session_id: The session ID returned by Mollom.
- *   And optionally:
- *   - spam: A spam check result double returned by Mollom.
- *   - spamClassification: A final spam classification result string; 'ham',
- *     'spam', or 'unsure'.
- *   - quality: A rating of the content's quality, in the range of 0 and 1.0.
- *   - profanity: A profanity check rating returned by Mollom, in the range of
- *     0 and 1.0.
- *   - languages: An array containing language codes the content might be
- *     written in.
- *   - flags_spam: Total count of spam feedback reports.
- *   - flags_ham: Total count of ham feedback reports.
- *   - flags_profanity: Total count of profanity feedback reports.
- *   - flags_quality: Total count of low quality feedback reports.
- *   - flags_unwanted: Total count of unwanted feedback reports.
- */
-function mollom_data_save($data) {
-  $data->changed = REQUEST_TIME;
-
-  // Convert languages array into a string.
-  if (isset($data->languages) && is_array($data->languages)) {
-    $languages = array();
-    foreach ($data->languages as $language) {
-      $languages[] = $language['languageCode'];
-    }
-    $data->languages = implode(',', $languages);
-  }
-
-  // Convert mixed case variable names to lower-case _ separated database names.
-  $converted = _mollom_convert_db_names($data, TRUE);
-
-  $update = db_query_range("SELECT 'id' FROM {mollom} WHERE entity = :entity AND id = :id", 0, 1, array(
-    ':entity' => $data->entity,
-    ':id' => $data->id,
-  ))->fetchField();
-  drupal_write_record('mollom', $converted, $update ? array('entity', $update) : array());
-
-  // Pass unconverted data to other modules for backwards compatibility.
-  if (!$update) {
-    module_invoke_all('mollom_data_insert', $data);
-  }
-  else {
-    module_invoke_all('mollom_data_update', $data);
-  }
-
-  return $data;
 }
 
 /**
@@ -962,43 +853,7 @@ function mollom_process_mollom($element, &$form_state, $complete_form) {
   return $element;
 }
 
-/**
- * Adds a Mollom CAPTCHA to a Mollom-protected form.
- *
- * @param $element
- *   The form element structure contained in $form['mollom']. Passed by
- *   reference.
- * @param $form_state
- *   The current state of the form. Passed by reference.
- *
- * @return bool
- *   TRUE if a CAPTCHA was added, FALSE if not.
- */
-function mollom_form_add_captcha(&$element, &$form_state) {
-  // Prevent the page cache from storing a form containing a CAPTCHA element.
-  drupal_page_is_cacheable(FALSE);
 
-  $captcha = mollom_get_captcha($form_state);
-  // If we get a response, add the image CAPTCHA to the form element.
-  if (!empty($captcha)) {
-    $element['captcha']['#access'] = TRUE;
-    $element['captcha']['#field_prefix'] = $captcha;
-    $element['captcha']['#attributes'] = array('title' => t('Enter the characters from the verification above.'));
-    _mollom_attach_captcha_script($element['captcha']);
-
-    // Ensure that the latest CAPTCHA ID is output as value.
-    $element['captchaId']['#value'] = $form_state['mollom']['response']['captcha']['id'];
-    $form_state['values']['mollom']['captchaId'] = $form_state['mollom']['response']['captcha']['id'];
-    return TRUE;
-  }
-  // Otherwise, we have a communication or configuration error.
-  else {
-    $element['captcha']['#access'] = FALSE;
-    // Trigger fallback mode.
-    _mollom_fallback();
-    return FALSE;
-  }
-}
 
 /**
  * #pre_render callback for #type 'mollom'.
@@ -1113,121 +968,6 @@ function mollom_field_extra_fields() {
     }
   }
   return $extras;
-}
-
-/**
- * Get the HTML markup for a Mollom CAPTCHA.
- *
- * @param $form_state
- *   The current state of a form.
- *
- * @return string
- *   The markup of the CAPTCHA HTML.
- */
-function mollom_get_captcha(&$form_state) {
-  // @todo Re-use existing CAPTCHA URL when the Mollom server response for
-  //   verifying a CAPTCHA solution returns the existing URL.
-  $data = array(
-    'type' => $form_state['mollom']['captcha_type'],
-    'ssl' => (int) (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] == 'on'),
-  );
-  if (!empty($form_state['values']['mollom']['contentId'])) {
-    $data['contentId'] = $form_state['values']['mollom']['contentId'];
-  }
-  $result = mollom()->createCaptcha($data);
-
-  // Add a log message to prevent the request log from appearing without a
-  // message on CAPTCHA-only protected forms.
-  mollom_log(array(
-    'message' => 'Retrieved new CAPTCHA',
-  ), WATCHDOG_INFO);
-
-  if (is_array($result) && isset($result['url'])) {
-    $url = $result['url'];
-    $form_state['mollom']['response']['captcha'] = $result;
-  }
-  else {
-    return '';
-  }
-  // Theme CAPTCHA output and return.
-  $audio_enabled = variable_get('mollom_audio_captcha_enabled', 1);
-  if ($audio_enabled && $form_state['mollom']['captcha_type'] == 'audio') {
-    return theme('mollom_captcha_audio', array(
-      'captcha_url' => $url,
-    ));
-  }
-  else {
-    return theme('mollom_captcha_image', array(
-      'captcha_url' => $url,
-      'audio_enabled' => $audio_enabled,
-    ));
-  }
-}
-
-/**
- * Attach SWFObject script to render element when available.
- *
- * @param $element
- *   A render element to attach the script to.
- *
- * @return bool
- *   True if the library can be found, false otherwise.
- */
-function _mollom_attach_captcha_script(&$element = NULL) {
-  $libraries = &drupal_static(__FUNCTION__);
-  if (empty($libraries['swfobject'])) {
-    $lib = array(
-      'found' => FALSE,
-    );
-
-    // Try to load via libraries module if enabled.
-    if (module_exists('libraries') && function_exists('libraries_detect ')) {
-      if (($library = libraries_detect('swfobject')) && !empty($library['installed'])) {
-        $lib = array(
-          'found' => TRUE,
-          'libraries' => TRUE,
-        );
-      }
-    }
-    if (!$lib['found']) {
-      // Check for SWFObject in standard library locations.
-      $profile = drupal_get_path('profile', drupal_get_profile());
-      $config = conf_path();
-      $search = array(
-        'libraries',
-        "$profile/libraries",
-        "sites/all/libraries",
-        "$config/libraries",
-      );
-      foreach ($search as $dir) {
-        if (is_dir($dir) && (
-          file_exists("$dir/swfobject.js") || file_exists("$dir/swfobject/swfobject.js")
-          )) {
-          $lib = array(
-            'found' => TRUE,
-            'libraries' => FALSE,
-            'path' => file_exists("$dir/swfobject.js") ? "$dir/swfobject.js" : "$dir/swfobject/swfobject.js",
-          );
-          break;
-        }
-      }
-    }
-    $libraries['swfobject'] = $lib;
-  }
-  if ($libraries['swfobject']['found']) {
-    if (isset($element)) {
-      if ($libraries['swfobject']['libraries']) {
-        $element['#attached']['libraries_load'][] = array('swfobject');
-      }
-      else {
-        $element['#attached'] = array(
-          'js' => array($libraries['swfobject']['path']),
-        );
-      }
-    }
-    return TRUE;
-  }
-  return FALSE;
 }
 
 /**

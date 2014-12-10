@@ -49,7 +49,9 @@ function mollom_requirements($phase = 'runtime', $check = TRUE) {
     // except on the settings page itself. These error messages also need to be
     // shown on the settings page, since Mollom API keys can be entered later.
     $admin_message = '';
-    if (current_path() != 'admin/config/content/mollom/settings') {
+    $url = Url::fromRoute('<current>');
+    $current_path = $url->toString();
+    if ($current_path != 'admin/config/content/mollom/settings') {
       $admin_message = t('Visit the <a href="@settings-url">Mollom settings page</a> to configure your keys.', array(
         '@settings-url' => Url::fromRoute('mollom.settings')->toString(),
       ));

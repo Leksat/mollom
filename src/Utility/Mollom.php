@@ -368,4 +368,104 @@ class Mollom {
     return mollom_flag_entity_type_access($type, array($bundle));
   }
 
+  /**
+   * Save Mollom validation data to the database.
+   *
+   * Based on the specified entity type and id, this function stores the
+   * validation results returned by Mollom in the database.
+   *
+   * The special $entity type "session" may be used for mails and messages, which
+   * originate from form submissions protected by Mollom, and can be reported by
+   * anyone; $id is expected to be a Mollom session id instead of an entity id
+   * then.
+   *
+   * @param $data
+   *   An object containing Mollom session data for the entity, containing at
+   *   least the following properties:
+   *   - entity: The entity type of the data to save.
+   *   - id: The entity ID the data belongs to.
+   *   - form_id: The form ID the session data belongs to.
+   *   - session_id: The session ID returned by Mollom.
+   *   And optionally:
+   *   - spam: A spam check result double returned by Mollom.
+   *   - spamClassification: A final spam classification result string; 'ham',
+   *     'spam', or 'unsure'.
+   *   - quality: A rating of the content's quality, in the range of 0 and 1.0.
+   *   - profanity: A profanity check rating returned by Mollom, in the range of
+   *     0 and 1.0.
+   *   - languages: An array containing language codes the content might be
+   *     written in.
+   *   - flags_spam: Total count of spam feedback reports.
+   *   - flags_ham: Total count of ham feedback reports.
+   *   - flags_profanity: Total count of profanity feedback reports.
+   *   - flags_quality: Total count of low quality feedback reports.
+   *   - flags_unwanted: Total count of unwanted feedback reports.
+   */
+  public static function mollom_data_save($data) {
+    $data['changed'] = REQUEST_TIME;
+
+    // Convert languages array into a string.
+    if (isset($data['languages']) && is_array($data['languages'])) {
+      $languages = array();
+      foreach ($data['languages'] as $language) {
+        $languages[] = $language['languageCode'];
+      }
+      $data['languages'] = implode(',', $languages);
+    }
+
+
+    // Convert mixed case variable names to lower-case _ separated database names.
+    $converted = Mollom::_mollom_convert_db_names($data, TRUE);
+    unset($converted['response']);
+
+    // Using a merge query in a custom table.
+    \Drupal::database()->merge('mollom')
+      ->key(array('id' => $data['id']))
+      ->fields($converted)
+      ->execute();
+
+    // Pass unconverted data to other modules for backwards compatibility.
+    // @todo in Drupal 7 we used to have mollom_data_insert also, but since
+    // merge replaces that, we no longer have this! Make sure that the
+    // implementations of that hook know that.
+    \Drupal::moduleHandler()->invokeAll('mollom_data_update', $data);
+    return $data;
+  }
+
+  /**
+   * Helper function to convert database column names to variable names.
+   *
+   * Database column names are separated by underscore, while some variable names
+   * are camelcased for backwards compatibility.
+   *
+   * @param stdClass $db_result
+   *   The database result object to convert.
+   * @param bool $reverse
+   *   True if the conversion should be run in reverse, from variable names to
+   *   database names.
+   * @return stdClass
+   *   The updated object with converted field names.
+   */
+  public static function _mollom_convert_db_names($data, $reverse = FALSE) {
+    $replace = array(
+      'content_id' => 'contentId',
+      'captcha_id' => 'captchaId',
+      'spam_score' => 'spamScore',
+      'spam_classification' => 'spamClassification',
+      'quality_score' => 'qualityScore',
+      'profanity_score' => 'profanityScore',
+    );
+    if ($reverse) {
+      $replace = array_flip($replace);
+    }
+
+    $converted_data = array();
+    foreach ($data as $key => $value) {
+      if (isset($replace[$key])) {
+        $converted_data[$replace[$key]] = $value;
+      }
+    }
+    return $converted_data;
+  }
+
 }
