@@ -17,6 +17,11 @@ class MollomDrupal extends Mollom {
    */
   public function __construct() {
     parent::__construct();
+    // Set any configured endpoint that may be different from the default.
+    $configured_server = $this->loadConfiguration('server');
+    if (!empty($configured_server)) {
+      $this->server = $configured_server;
+    }
     $this->requestTimeout = variable_get('mollom_connection_timeout', 3);
   }
 
@@ -29,6 +34,7 @@ class MollomDrupal extends Mollom {
     'publicKey' => 'mollom_public_key',
     'privateKey' => 'mollom_private_key',
     'expectedLanguages' => 'mollom_languages_expected',
+    'server' => 'mollom_api_endpoint',
   );
 
   /**
@@ -43,6 +49,11 @@ class MollomDrupal extends Mollom {
    * Implements Mollom::saveConfiguration().
    */
   public function saveConfiguration($name, $value) {
+    // Save local variable.
+    if (property_exists('MollomDrupal', $name)) {
+      $this->{$name} = $value;
+    }
+    // Persist in Drupal.
     $name = $this->configuration_map[$name];
     return variable_set($name, $value);
   }
@@ -232,6 +243,7 @@ class MollomDrupalTest extends MollomDrupal {
       // Do not destroy production variables when testing mode is enabled.
       $this->configuration_map['publicKey'] = 'mollom_test_public_key';
       $this->configuration_map['privateKey'] = 'mollom_test_private_key';
+      $this->configuration_map['server'] = 'mollom_test_api_endpoint';
     }
 
     // Load and set publicKey and privateKey configuration values.
@@ -422,9 +434,11 @@ class MollomDrupalTestInvalid extends MollomDrupalTest {
    * Overrides MollomDrupalTest::__construct().
    */
   function __construct() {
+    $this->configuration_map['server'] = 'mollom_test_invalid_api_endpoint';
+    parent::__construct();
+
     $this->originalServer = $this->server;
     $this->server = 'fake-host';
-    parent::__construct();
   }
 
   /**

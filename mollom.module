@@ -2653,8 +2653,11 @@ function mollom_form_submit($form, &$form_state) {
  * @param $class
  *   (optional) The name of a Mollom client implementation class to instantiate.
  *   Overrides the 'mollom_class' configuration variable. Debug use only.
+ * @param $force
+ *   (optional) Indicates if a new class should be forcefully created whether
+ *   or not it exists in cache.
  */
-function mollom($class = NULL) {
+function mollom($class = NULL, $force = FALSE) {
   static $instances = array();
 
   module_load_include('inc', 'mollom', 'includes/mollom.class');
@@ -2670,7 +2673,7 @@ function mollom($class = NULL) {
   }
   // If there is no instance yet or if it is not of the desired class, create a
   // new one.
-  if (!isset($instances[$class]) || !($instances[$class] instanceof $class)) {
+  if ($force || !isset($instances[$class]) || !($instances[$class] instanceof $class)) {
     $instances[$class] = new $class();
   }
   return $instances[$class];
