@@ -1122,9 +1122,10 @@ function mollom_node_admin_overview_submit($form, &$form_state) {
 function mollom_admin_ping_submit($form, &$form_state) {
   $mollom = mollom();
   $response = $mollom->pingAPI($form_state['values']['mollom_public_key'], $form_state['values']['mollom_private_key']);
-  if (drupal_strlen($response)) {
+  $code = isset($response['code']) ? $response['code'] : $response;
+  if (drupal_strlen($code)) {
     $log_message = t('Mollom API response status: @response.  Please check your <a href="!log_url">Recent log messages</a> for details.', array(
-      '@response' => $response,
+      '@response' => $code,
       '!log_url' => url('admin/reports/dblog'),
     ));
   }
