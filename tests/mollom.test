@@ -1308,7 +1308,7 @@ class MollomInstallationTestCase extends MollomWebTestCase {
 }
 
 /**
- * Tests low-level XML-RPC communication with Mollom servers.
+ * Tests low-level REST communication with Mollom servers.
  */
 class MollomResponseTestCase extends MollomWebTestCase {
 
@@ -1323,7 +1323,7 @@ class MollomResponseTestCase extends MollomWebTestCase {
   }
 
   function setUp() {
-    parent::setUp(array('mollom'));
+    parent::setUp(array('mollom', 'mollom_test'));
     $this->setKeys();
     $this->assertValidKeys();
     $this->admin_user = $this->drupalCreateUser();
@@ -1434,6 +1434,52 @@ class MollomResponseTestCase extends MollomWebTestCase {
     // Restore keys for tearDown().
     $mollom->publicKey = $this->publicKey;
     $mollom->privateKey = $this->privateKey;
+  }
+
+  /**
+   * Tests Ping Site API.
+   */
+  function testPingSiteAPI() {
+    $mollom = mollom();
+    $info = $mollom->getClientInformation();
+
+    // Create a new site.
+    $site = array(
+      'url' => 'example.com',
+      'email' => 'mollom@example.com',
+    );
+    $result = $mollom->createSite($site);
+    $this->assertMollomWatchdogMessages();
+    $this->assertTrue(!empty($result['publicKey']), 'publicKey found.');
+    $this->assertTrue(!empty($result['privateKey']), 'privateKey found.');
+    $this->assertSame('url', $result['url'], $site['url']);
+    $this->assertSame('email', $result['email'], $site['email']);
+    $this->assertTrue(!isset($result['platformName']), 'platformName not found.');
+    $this->assertTrue(!isset($result['platformVersion']), 'platformVersion not found.');
+    $this->assertTrue(!isset($result['clientName']), 'clientName not found.');
+    $this->assertTrue(!isset($result['clientVersion']), 'clientVersion not found.');
+
+    // Test that Mollom can be pinged with the site credentials.
+    $result = $mollom->pingAPI();
+    if ($result['code'] == 200) {
+      $this->assertMollomWatchdogMessages();
+      $this->pass('Ping/pong success.');
+    }
+    else if ($result['code'] == 500 || $result == 900) {
+      // If a network error or a 500 data error is returned, then the request was submitted properly, but the
+      // pong callback could not succeed.  This is likely due to the test server
+      // not being publicly accessible.
+      $this->assertMollomWatchdogMessages(WATCHDOG_ERROR);
+      $this->pass('Ping success but pong was inaccessible.');
+      // Run a quick test to validate that we can actually access the pong
+      // callback locally.
+      $this->drupalPost('mollom-test/pong', array(), 'Submit');
+      $this->assertMollomWatchdogMessages();
+    }
+    else {
+      $this->assertMollomWatchdogMessages();
+      $this->fail('Ping/pong failure with code: ' . $result['code']);
+    }
   }
 
   /**

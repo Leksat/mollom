@@ -284,6 +284,14 @@ function mollom_menu() {
     'access callback' => '_mollom_access',
     'type' => MENU_CALLBACK,
   );
+
+  $items['mollom/pong'] = array(
+    'page callback' => 'mollom_admin_pong_callback',
+    'access callback' => TRUE,
+    'type' => MENU_CALLBACK,
+    'file' => 'mollom.admin.inc',
+  );
+
   return $items;
 }
 
