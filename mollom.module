@@ -352,9 +352,9 @@ function mollom_form_alter(&$form, \Drupal\Core\Form\FormState $form_state, $for
       }
 
       // Add Mollom Form object to our Form State.
-      $form['mollom_form'] = array(
-        '#type' => 'value',
-        '#value' => $mollom_form,
+      $form['mollom'] = array(
+        '#type' => 'mollom',
+        '#mollom_form' => $mollom_form,
         // #type 'actions' defaults to 100.
         '#weight' => (isset($form['actions']['#weight']) ? $form['actions']['#weight'] - 1 : 99),
         '#tree' => TRUE,
