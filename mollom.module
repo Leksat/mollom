@@ -386,19 +386,6 @@ function mollom_form_alter(&$form, \Drupal\Core\Form\FormState $form_state, $for
         $form_submit_key = &$form;
       }
       $form_submit_key['#submit'][] = array('\Drupal\mollom\Controller\FormController', 'mollom_form_submit');
-
-      // Add link to privacy policy on forms protected via textual analysis,
-      // if enabled.
-      if ($mollom_form->mode == Form::MOLLOM_MODE_ANALYSIS && \Drupal::config('mollom.settings')->get('privacy_link', 1)) {
-        $form['mollom']['privacy'] = array(
-          '#prefix' => '<div class="description mollom-privacy">',
-          '#suffix' => '</div>',
-          '#markup' => t('By submitting this form, you accept the <a href="@privacy-policy-url" class="mollom-target" rel="nofollow">Mollom privacy policy</a>.', array(
-            '@privacy-policy-url' => 'https://mollom.com/web-service-privacy-policy',
-          )),
-          '#weight' => 10,
-        );
-      }
     }
   }
   // Integrate with delete confirmation forms to send feedback to Mollom.
@@ -450,4 +437,27 @@ function mollom_form_alter(&$form, \Drupal\Core\Form\FormState $form_state, $for
       array_unshift($form['#submit'], 'mollom_data_delete_form_submit');
     }
   }*/
+}
+
+/**
+ * Implements hook_theme().
+ */
+function mollom_theme() {
+  $base_path = base_path() . drupal_get_path('module', 'mollom');
+  return array(
+    'mollom_captcha_audio' => array(
+      'variables' => array(
+        'captcha_url' => NULL,
+        'flash_fallback_player' => $base_path . '/mollom-captcha-player.swf',
+        'template' => 'mollom-captcha-audio.tpl.php'
+      ),
+    ),
+    'mollom_captcha_image' => array(
+      'variables' => array(
+        'captcha_url' => NULL,
+        'audio_enabled' => TRUE,
+        'template' => 'mollom-captcha-image.tpl.php'
+      ),
+    ),
+  );
 }

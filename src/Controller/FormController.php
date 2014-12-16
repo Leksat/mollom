@@ -677,11 +677,11 @@ class FormController extends ControllerBase {
       // solved, so this validation handler does not run again.
       $require_analysis = $form_state->getValue(array('mollom', 'require_analysis'));
       if ($require_analysis) {
-        $form['mollom_data']['captchaId']['#value'] = '';
+        $form['mollom']['captchaId']['#value'] = '';
       }
-      $form_state->setValue(array('mollom_data', 'passed_captcha'), TRUE);
-      $form['mollom_data']['captcha']['#access'] = FALSE;
-      $form['mollom_data']['captcha']['#solved'] = TRUE;
+      $form_state->setValue(array('mollom', 'passed_captcha'), TRUE);
+      $form['mollom']['captcha']['#access'] = FALSE;
+      $form['mollom']['captcha']['#solved'] = TRUE;
 
       Logger::addMessage(array(
         'message' => 'Correct CAPTCHA',
@@ -690,7 +690,7 @@ class FormController extends ControllerBase {
     else {
       // Text analysis will re-check the content and may trigger a CAPTCHA on its
       // own again (not guaranteed).
-      $require_analysis = $form_state->getValue(array('mollom_data', 'require_analysis'));
+      $require_analysis = $form_state->getValue(array('mollom', 'require_analysis'));
       if (!$require_analysis) {
         $form_state->setErrorByName('mollom][captcha', t('The word verification was not completed correctly. Please complete this new word verification and try again.') . ' ' . _mollom_format_message_falsepositive($form_state, $data));
         //mollom_form_add_captcha($form['mollom'], $form_state);
@@ -709,15 +709,15 @@ class FormController extends ControllerBase {
    */
   public static function mollom_validate_analysis(&$form, FormState $form_state) {
     /** @var \Drupal\mollom\Entity\Form $mollom_form */
-    $mollom_form = $form_state->getValues();
+    $mollom = $form_state->getValue('mollom');
 
-    if (!$mollom_form->mode == \Drupal\mollom\Entity\FormInterface::MOLLOM_MODE_ANALYSIS) {
+    if (!$mollom['mode'] == \Drupal\mollom\Entity\FormInterface::MOLLOM_MODE_ANALYSIS) {
       return false;
     }
 
     // Perform textual analysis.
     // @todo Add Mapping, see Drupal 7 for example
-    $all_data = self::mollom_form_get_values($form_state, $mollom_form->enabled_fields, $mollom_form->mapping);
+    $all_data = self::mollom_form_get_values($form_state, $mollom['enabled_fields'], $mollom['mapping']);
     // @ todo : not all fields are available here yet
     // Cancel processing upon invalid UTF-8 data.
     if ($all_data === FALSE) {
@@ -728,13 +728,13 @@ class FormController extends ControllerBase {
     if (isset($data['postId'])) {
       unset($data['postId']);
     }
-    $contentId = $form_state->getValue(array('mollom_data', 'contentId', ''));
+    $contentId = $mollom['privacy']['contentId'];
     if (!empty($contentId)) {
       $data['id'] = $contentId;
     }
-    if (is_array($mollom_form->checks)) {
+    if (is_array($mollom['checks'])) {
       $checks_to_add = array();
-      foreach ($mollom_form->checks as $check_id => $check) {
+      foreach ($mollom['checks'] as $check_id => $check) {
         if ($check_id == $check) {
           $checks_to_add[] = $check;
         }
@@ -743,28 +743,28 @@ class FormController extends ControllerBase {
         $data['checks'] = $checks_to_add;
       }
     }
-    $data['strictness'] = $mollom_form->strictness;
-    if (isset($mollom_form->type)) {
-      $data['type'] = $mollom_form->type;
+    $data['strictness'] = $mollom['strictness'];
+    if (isset($mollom['type'])) {
+      $data['type'] = $mollom['type'];
     }
-    if (in_array('spam', $data['checks']) && $mollom_form->unsure == 'binary') {
+    if (in_array('spam', $data['checks']) && $mollom['unsure'] == 'binary') {
       $data['unsure'] = 0;
     }
     // Only pass the tracking id if this is the first textual evaluation.
-    if (isset($mollom_form->fba) && empty($data['id'])) {
-      if (empty($mollom_form->fba)) {
+    if (isset($mollom['fba']) && empty($data['id'])) {
+      if (empty($mollom['fba'])) {
         $data['trackingImageId'] = -1;
       }
       else {
-        $data['trackingImageId'] = $mollom_form->fba;
+        $data['trackingImageId'] = $mollom['fba'];
       }
     }
 
     /** @var \Drupal\mollom\API\DrupalClient $mollom */
-    $mollom = \Drupal::service('mollom.client');
-    //dpm($data);
-    $result = $mollom->checkContent($data);
-    //dpm($result);
+    $mollom_service = \Drupal::service('mollom.client');
+    dpm($data);
+    $result = $mollom_service->checkContent($data);
+    dpm($result);
 
     // Use all available data properties for log messages below.
     $data += $all_data;
@@ -780,7 +780,7 @@ class FormController extends ControllerBase {
     unset($result['id']);
 
     // Store the response returned by Mollom.
-    $form_state->setValue(array('mollom_data', 'response', 'content'), $result);
+    $form_state->setValue(array('mollom', 'response', 'content'), $result);
 
     // Ensure the latest content ID is output as value.
     // form_set_value() is effectless, as this is not a element-level but a
@@ -798,7 +798,7 @@ class FormController extends ControllerBase {
 
     // Handle the profanity check result.
     if (isset($result['profanityScore']) && $result['profanityScore'] >= 0.5) {
-      if ($form_state->getValue(array('mollom_data', 'discard'), FALSE)) {
+      if ($mollom['discard']) {
         $form_state->setErrorByName('mollom', t('Your submission has triggered the profanity filter and will not be accepted until the inappropriate language is removed.'));
       }
       else {
@@ -827,24 +827,24 @@ class FormController extends ControllerBase {
           break;
 
         case 'spam':
-          if ($mollom_form->discard) {
+          if ($mollom['discard']) {
             $form_state->setErrorByName('mollom', t('Your submission has triggered the spam filter and will not be accepted.') . ' ' . Mollom::_mollom_format_message_falsepositive($form_state, $data));
           }
           else {
-            $form_state->setValue(array('mollom_data', 'require_moderation'), TRUE);
+            $form_state->setValue(array('mollom', 'require_moderation'), TRUE);
           }
           $message = String::format('Spam: %teaser', array('%teaser' => $teaser));
           \Drupal::logger('mollom')->notice($message);
           break;
 
         case 'unsure':
-          //dpm('I would add a Captcha!!!!');
-          if ($mollom_form->unsure == 'moderate') {
-            $form_state->setValue(array('mollom_data', 'require_moderation'), TRUE);
+          dpm('I would add a Captcha!!!!');
+          if ($mollom['unsure'] == 'moderate') {
+            $form_state->setValue(array('mollom', 'require_moderation'), TRUE);
           }
           else {
-            $form_state->setValue(array('mollom_data', 'passed_captcha'), TRUE);
-            $form_state->setValue(array('mollom_data', 'require_captcha'), TRUE);
+            $form_state->setValue(array('mollom', 'passed_captcha'), TRUE);
+            $form_state->setValue(array('mollom', 'require_captcha'), TRUE);
             // @todo Fix the captcha stuff
             // Retrieve a new CAPTCHA and throw an error.
             if (FormController::mollom_form_add_captcha($form, $form_state)) {
@@ -879,9 +879,9 @@ class FormController extends ControllerBase {
     // submission attempt might have been unsure. If this submit will pass
     // validation, then the rebuilt form will have no indication that it passed
     // analysis and will be auto-populated with values from $form_state['input'].
-    $require_captcha = $form_state->getValue(array('mollom_form', 'require_captcha'), FALSE);
+    $require_captcha = $form_state->getValue(array('mollom', 'require_captcha'), FALSE);
     if (!$require_captcha) {
-      $form_state->setValue(array('mollom_data', 'captchaId'), '');
+      $form_state->setValue(array('mollom', 'captchaId'), '');
     }
   }
 
@@ -895,7 +895,7 @@ class FormController extends ControllerBase {
     // set or change a value in $form_state.
     $require_moderation = $form_state->getValue(array('mollom_form', 'require_moderation'), FALSE);
     if ($require_moderation) {
-      $form_state->setValue(array('mollom_data', 'moderate'), 1);
+      $form_state->setValue(array('mollom', 'moderate'), 1);
 
       $function = $form_state->getValue(array('mollom_form', 'moderation callback'));
       if (!empty($function) && is_callable($function)) {
@@ -931,26 +931,26 @@ class FormController extends ControllerBase {
     }
 
     /** @var \Drupal\mollom\Entity\Form $mollom_form */
-    $mollom_form = $form_state->getValue('mollom_form');
+    $mollom = $form_state->getValue('mollom');
 
     // If an 'entity' and a 'post_id' mapping was provided via
     // hook_mollom_form_info(), try to automatically store Mollom session data.
-    if (!empty($mollom_form) && isset($mollom_form->mapping['post_id'])) {
+    if (!empty($mollom) && isset($mollom['mapping']['post_id'])) {
       // For new entities, the entity's form submit handler will have added the
       // new entity id value into $form_state['values'], so we need to rebuild the
       // data mapping. We do not care for the actual fields, only for the value of
       // the mapped postId.
       // @todo Directly extract 'postId' from submitted form values.
-      $values = self::mollom_form_get_values($form_state, $mollom_form->enabled_fields, $mollom_form->mapping);
+      $values = self::mollom_form_get_values($form_state, $mollom['enabled_fields'], $mollom['mapping']);
       // We only consider non-empty and non-zero values as valid entity ids.
       if (!empty($values['postId'])) {
         // Save the Mollom session data.
-        $data = $form_state->getValue('mollom_data');
+        $data = $form_state->getValue('mollom');
         $data['id'] = $values['postId'];
         // Set the moderation flag for forms accepting bad posts.
-        $data['moderate'] = $form_state->getValue(array('mollom_data', 'require_moderation'));
+        $data['moderate'] = $form_state->getValue(array('mollom', 'require_moderation'));
         $stored_data = Mollom::mollom_data_save($data);
-        $form_state->setValue(array('mollom_data', 'data'), $stored_data);
+        $form_state->setValue(array('mollom', 'data'), $stored_data);
       }
     }
   }
@@ -967,13 +967,13 @@ class FormController extends ControllerBase {
    * @return bool
    *   TRUE if a CAPTCHA was added, FALSE if not.
    */
-  public function mollom_form_add_captcha(&$form, FormStateInterface $form_state) {
+  public static function mollom_form_add_captcha(&$form, FormStateInterface $form_state) {
     // Prevent the page cache from storing a form containing a CAPTCHA element.
     \Drupal::service('page_cache_kill_switch')->trigger();
 
-
     $captcha = FormController::mollom_get_captcha($form_state);
-    //dpm($captcha);
+    dpm('getting the captcha');
+    dpm($captcha);
     // If we get a response, add the image CAPTCHA to the form element.
     if (!empty($captcha)) {
       $form['captcha']['#access'] = TRUE;
@@ -983,8 +983,8 @@ class FormController extends ControllerBase {
       //FormController::mollom_attach_captcha_script($element['captcha']);
 
       // Ensure that the latest CAPTCHA ID is output as value.
-      $form['captchaId']['#value'] = $form_state->getValue(array('mollom_data', 'response', 'captcha', 'id'));
-      $form_state->setValue(array('mollom_data', 'captchaId'), $form_state->getValue(array('mollom_data', 'response', 'captcha', 'id')));
+      $form['captchaId']['#value'] = $form_state->getValue(array('mollom', 'response', 'captcha', 'id'));
+      $form_state->setValue(array('mollom', 'captchaId'), $form_state->getValue(array('mollom', 'response', 'captcha', 'id')));
       return TRUE;
     }
     // Otherwise, we have a communication or configuration error.
@@ -1074,33 +1074,34 @@ class FormController extends ControllerBase {
   public static function mollom_get_captcha(FormStateInterface $form_state) {
     // @todo Re-use existing CAPTCHA URL when the Mollom server response for
     //   verifying a CAPTCHA solution returns the existing URL.
-    $mollom_form = $form_state->getValue('mollom_form');
+    $mollom = $form_state->getValue('mollom');
     $data = array(
-      'type' => $form_state['mollom']['captcha_type'],
+      'type' => $mollom['captcha_type'],
       'ssl' => (int) (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] == 'on'),
     );
-    if (!empty($form_state['values']['mollom']['contentId'])) {
-      $data['contentId'] = $form_state['values']['mollom']['contentId'];
+    if (!empty($mollom['contentId'])) {
+      $data['contentId'] = $mollom['contentId'];
     }
     /** @var \Drupal\mollom\API\DrupalClient $mollom */
-    $mollom = \Drupal::service('mollom.client');
-    //$result = $mollom->createCaptcha($data);
+    $mollom_service = \Drupal::service('mollom.client');
+    $result = $mollom_service->createCaptcha($data);
 
-    /*// Add a log message to prevent the request log from appearing without a
+    // Add a log message to prevent the request log from appearing without a
     // message on CAPTCHA-only protected forms.
     \Drupal::logger('mollom')->notice('Retrieved new CAPTCHA');
 
     if (is_array($result) && isset($result['url'])) {
       $url = $result['url'];
-      $form_state['mollom']['response']['captcha'] = $result;
+      $form_state->setValue(array('mollom', 'response', 'captcha'), $result);
     }
     else {
       return '';
     }
     // Theme CAPTCHA output and return.
     $audio_enabled = \Drupal::config('mollom.settings')->get('mollom_audio_captcha_enabled', 1);
+    /** @var \Drupal\Core\Render\RendererInterface $renderer */
     $renderer = \Drupal::service('renderer');
-    if ($audio_enabled && $form_state['mollom']['captcha_type'] == 'audio') {
+    if ($audio_enabled && $mollom['captcha_type'] == 'audio') {
       $audio_captcha = array(
         '#type' => 'mollom_captcha_audio',
         '#captcha_url' => $url,
@@ -1113,7 +1114,10 @@ class FormController extends ControllerBase {
         '#captcha_url' => $url,
         '#audio_enabled' => $audio_enabled,
       );
-      return $renderer->render($image_captcha);
-    }*/
+      dpm('rendering');
+      $render = $renderer->render($image_captcha);
+      dpm($render);
+      return $render;
+    }
   }
 }

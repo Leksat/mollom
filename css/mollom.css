@@ -30,3 +30,7 @@
 .mollom-captcha-container .mollom-captcha-content {
   padding-left: 20px;
 }
+
+.mollom-homepage {
+    display: none;
+}

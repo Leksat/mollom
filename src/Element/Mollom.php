@@ -25,7 +25,7 @@ class Mollom extends FormElement {
   public function getInfo() {
     $class = get_class($this);
     return array(
-      '#input' => TRUE,
+      '#input' => FALSE,
       '#process' => array(
         array($class, 'processMollom'),
       ),
@@ -43,6 +43,37 @@ class Mollom extends FormElement {
     //dpm($element);
     //dpm($input);
     return $input;
+  }
+
+  /**
+   * #pre_render callback for #type 'mollom'.
+   *
+   * - Hides the CAPTCHA if it is not required or the solution was correct.
+   * - Marks the CAPTCHA as required.
+   */
+  public static function preRenderMollom(array $element) {
+    // If there is no CAPTCHA ID, then there is no CAPTCHA that can be displayed.
+    // If a CAPTCHA was solved, then the widget makes no sense either.
+    if (empty($element['captchaId']['#value']) || !empty($element['captcha']['#solved'])) {
+      $element['captcha']['#access'] = FALSE;
+    }
+    else {
+      // The form element cannot be marked as #required, since _form_validate()
+      // would throw an element validation error on an empty value otherwise,
+      // before the form-level validation handler is executed.
+      // #access cannot default to FALSE, since the $form may be cached, and
+      // Form API ignores user input for all elements that are not accessible.
+      $element['captcha']['#required'] = TRUE;
+    }
+
+    // UX: Empty the CAPTCHA field value, as the user has to re-enter a new one.
+    $element['captcha']['#value'] = '';
+
+    // DX: Debugging helpers.
+    $element['#suffix'] = 'contentId: ' . $element['contentId']['#value'] . '<br>';
+    $element['#suffix'] .= 'captchaId: ' . $element['captchaId']['#value'] . '<br>';
+
+    return $element;
   }
 
 
@@ -105,8 +136,6 @@ class Mollom extends FormElement {
     $mollom_form_array = get_object_vars($element['#mollom_form']);
     $mollom += $mollom_form_array;
 
-    $form_state->setValue('mollom', $mollom);
-
     // By default, bad form submissions are discarded, unless the form was
     // configured to moderate bad posts. 'discard' may only be FALSE, if there is
     // a valid 'moderation callback'. Otherwise, it must be TRUE.
@@ -114,8 +143,10 @@ class Mollom extends FormElement {
       $mollom['discard'] = TRUE;
     }
 
+    $form_state->setValue('mollom', $mollom);
+
     // Add the JavaScript.
-    $element['#attached']['js'][] = drupal_get_path('module', 'mollom') . '/mollom.js';
+    $element['#attached']['js'][] = drupal_get_path('module', 'mollom') . '/js/mollom.js';
 
     // Add the Mollom session data elements.
     // These elements resemble the {mollom} database schema. The form validation
@@ -212,14 +243,34 @@ class Mollom extends FormElement {
       // robots cannot simply check for a style attribute, but instead have to
       // implement advanced DOM processing to figure out whether they are dealing
       // with a honeypot field.
-      '#prefix' => '<div style="display: none;">',
+      '#prefix' => '<div class="mollom-homepage">',
       '#suffix' => '</div>',
       '#default_value' => '',
       '#attributes' => array(
         // Disable browser autocompletion.
         'autocomplete' => 'off',
       ),
+      '#attached' => array(
+        'css' => array(
+          drupal_get_path('module', 'mollom') . '/css/mollom.css' => array(),
+        ),
+      ),
     );
+
+    // Add link to privacy policy on forms protected via textual analysis,
+    // if enabled.
+    if ($mollom_form_array['mode'] == FormInterface::MOLLOM_MODE_ANALYSIS && \Drupal::config('mollom.settings')->get('privacy_link', 1)) {
+      $element['#parents'][] = 'privacy';
+      $element['#array_parents'][] = 'privacy';
+      $element['privacy'] = array(
+        '#prefix' => '<div class="description mollom-privacy">',
+        '#suffix' => '</div>',
+        '#markup' => t('By submitting this form, you accept the <a href="@privacy-policy-url" class="mollom-target" rel="nofollow">Mollom privacy policy</a>.', array(
+          '@privacy-policy-url' => 'https://mollom.com/web-service-privacy-policy',
+        )),
+        '#weight' => 10,
+      );
+    }
 
     // Add the form behavior analysis web tracking beacon field holder if enabled.
     /*if (variable_get('mollom_fba_enabled', 0) && $form_state['mollom']['require_analysis']) {
