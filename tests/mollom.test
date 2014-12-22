@@ -2142,7 +2142,7 @@ class MollomProfileFormsTestCase extends MollomWebTestCase {
       $edit = array(
         'name' => $name,
         'mail' => $name . '@example.com',
-        $key => $field['type'] != 'url' ? 'unsure' : 'http://example.com/unsure',
+        $key => $field['type'] != 'url' ? 'unsure' : 'http://mollomtest.com/unsure',
       );
       $this->drupalPost(NULL, $edit, t('Create new account'));
       $this->assertCaptchaField();
