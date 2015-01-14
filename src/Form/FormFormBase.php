@@ -311,7 +311,7 @@ class FormFormBase extends EntityForm {
       // Only possible for forms protected via text analysis.
       '#states' => array(
         'visible' => array(
-          ':input[name="mollom[mode]"]' => array('value' => (string) FormInterface::MOLLOM_MODE_ANALYSIS),
+          '[name="mode"]' => array('value' => (string) FormInterface::MOLLOM_MODE_ANALYSIS),
         ),
       ),
       '#description' => t('Provides a unified moderation interface supporting multiple sites, moderation teams, and detailed analytics.  Note: All content that was created while this option was disabled cannot be moderated from the @moderation-product; only new content will appear.', array(
