@@ -35,11 +35,11 @@ function mollom_permission() {
 function comment_mollom_form_list() {
   $forms = array();
   foreach (\Drupal\node\Entity\NodeType::loadMultiple() as $type) {
-    $form_id = "comment_node_{$type->type}_form";
+    $form_id = "comment_node_{$type->id()}_form";
     $forms[$form_id] = array(
-      'title' => t('@name comment form', array('@name' => $type->name)),
+      'title' => t('@name comment form', array('@name' => $type->id())),
       'entity' => 'comment',
-      'bundle' => 'comment_node_' . $type->type,
+      'bundle' => 'comment_node_' . $type->id(),
       'delete form' => 'comment_confirm_delete',
       //'delete form file' => array(
       //  'name' => 'comment.admin',
@@ -90,7 +90,7 @@ function node_mollom_form_info($form_id) {
   $form_info = array(
     // @todo This is incompatible with node access.
     'bypass access' => array('bypass node access'),
-    'bundle' => $type->type,
+    'bundle' => $type->id(),
     'moderation callback' => 'node_mollom_form_moderation',
     'elements' => array(),
     'mapping' => array(
@@ -107,7 +107,7 @@ function node_mollom_form_info($form_id) {
   //  $form_info['elements']['title'] = check_plain($type->title_label);
   //  $form_info['mapping']['post_title'] = 'title';
   //}
-  FormController::mollom_form_info_add_fields($form_info, 'node', $type->type);
+  FormController::mollom_form_info_add_fields($form_info, 'node', $type->id());
   return $form_info;
 }
 
@@ -120,11 +120,11 @@ function node_mollom_form_list() {
   /** @var NodeType[] $types */
   $types = NodeType::loadMultiple();
   foreach ($types as $type) {
-    $form_id = $type->type . '_node_form';
+    $form_id = $type->id() . '_node_form';
     $forms[$form_id] = array(
       'title' => t('@name form', array('@name' => $type->label())),
       'entity' => 'node',
-      'bundle' => $type->type,
+      'bundle' => $type->id(),
       'delete form' => 'node_delete_confirm',
       'delete form file' => array(
         'name' => 'node.pages',
