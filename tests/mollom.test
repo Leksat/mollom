@@ -2223,7 +2223,6 @@ class MollomNodeFormTestCase extends MollomWebTestCase {
     $this->drupalPost(NULL, $edit, t('Save'));
     $this->node = $this->drupalGetNodeByTitle($edit['title']);
     $this->assertEqual($this->node->status, 0, t('Node containing profanity was retained as unpublished.'));
-    $this->assertUrl('node/' . $this->node->nid);
     $this->assertMollomData('node', $this->node->nid);
   }
 }
